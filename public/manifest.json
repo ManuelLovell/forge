@@ -8,7 +8,7 @@
     "action": {
         "title": "Forge!",
         "icon": "/icon.svg",
-        "popover": "/",
+        "popover": "/pages/",
         "height": 600,
         "width": 350
     }

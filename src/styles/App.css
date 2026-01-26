@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+#root {
+    font-size: 16px;
+    color: white;
+    margin: 0 auto;
+    text-align: center;
+    width: 100%;
+    position: relative;
+    /* Used in background wrapper */
+    --BS-DarkBG: rgba(0, 0, 0, 0.45);
+    --BS-LightBG: rgb(189, 189, 189, 0.45);
+    --vh: 100vh;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    a:nth-of-type(2) .logo {
+        animation: logo-spin infinite 20s linear;
+    }
+}
+
+@supports (height: 100vh) {
+    :root {
+        --vh: 100vh;
+    }
+}
+
+/* Tooltip Design */
+.tippy-box[data-theme~='battlesystem'] {
+    font-style: italic;
+    background: #c53030;
+    color: white;
+    border: 1px solid maroon;
+}
+
+.tippy-box[data-theme~='battlesystem'][data-placement^='top']>.tippy-arrow::before {
+    border-top-color: #c53030;
+}
+
+.tippy-box[data-theme~='battlesystem'][data-placement^='bottom']>.tippy-arrow::before {
+    border-bottom-color: red;
+}
+
+.tippy-box[data-theme~='battlesystem'][data-placement^='left']>.tippy-arrow::before {
+    border-left-color: red;
+}
+
+.tippy-box[data-theme~='battlesystem'][data-placement^='right']>.tippy-arrow::before {
+    border-right-color: red;
+}

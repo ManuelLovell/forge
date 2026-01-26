@@ -2,12 +2,13 @@ import './styles/App.css'
 import { useSceneStore } from './helpers/BSCache';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-type PageType = 'ForgeMain' | 'Settings' | 'Party' | 'ChatLog';
+import { Navigation, type PageType } from './components/NavigationComponent';
+import { AppContainer, ContentArea } from './components/NavigationStyles';
 
 function App() {
   const { sceneReady, cacheReady } = useSceneStore();
   const [currentPage, setCurrentPage] = useState<PageType>('ForgeMain');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const pageVariants = {
     initial: { opacity: 0, y: 20 },
@@ -76,79 +77,30 @@ function App() {
     }
   };
 
+  const navigateTo = (page: PageType) => {
+    setCurrentPage(page);
+    setIsMenuOpen(false);
+  };
+
   return (
     <>
       {!sceneReady || !cacheReady ? (
         <div>Loading cache systems...</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-          <div style={{ flex: 1, overflow: 'auto' }}>
+        <AppContainer>
+          <ContentArea>
             <AnimatePresence mode="wait">
               {renderPage()}
             </AnimatePresence>
-          </div>
-          <footer style={{
-            height: '40px',
-            display: 'flex',
-            justifyContent: 'space-around',
-            alignItems: 'center',
-            borderTop: '1px solid #ccc',
-            backgroundColor: '#f5f5f5'
-          }}>
-            <button
-              onClick={() => setCurrentPage('ForgeMain')}
-              style={{
-                flex: 1,
-                height: '100%',
-                border: 'none',
-                background: currentPage === 'ForgeMain' ? '#ddd' : 'transparent',
-                cursor: 'pointer',
-                fontWeight: currentPage === 'ForgeMain' ? 'bold' : 'normal'
-              }}
-            >
-              Main
-            </button>
-            <button
-              onClick={() => setCurrentPage('Settings')}
-              style={{
-                flex: 1,
-                height: '100%',
-                border: 'none',
-                background: currentPage === 'Settings' ? '#ddd' : 'transparent',
-                cursor: 'pointer',
-                fontWeight: currentPage === 'Settings' ? 'bold' : 'normal'
-              }}
-            >
-              Settings
-            </button>
-            <button
-              onClick={() => setCurrentPage('Party')}
-              style={{
-                flex: 1,
-                height: '100%',
-                border: 'none',
-                background: currentPage === 'Party' ? '#ddd' : 'transparent',
-                cursor: 'pointer',
-                fontWeight: currentPage === 'Party' ? 'bold' : 'normal'
-              }}
-            >
-              Party
-            </button>
-            <button
-              onClick={() => setCurrentPage('ChatLog')}
-              style={{
-                flex: 1,
-                height: '100%',
-                border: 'none',
-                background: currentPage === 'ChatLog' ? '#ddd' : 'transparent',
-                cursor: 'pointer',
-                fontWeight: currentPage === 'ChatLog' ? 'bold' : 'normal'
-              }}
-            >
-              Chat
-            </button>
-          </footer>
-        </div>
+          </ContentArea>
+
+          <Navigation
+            isOpen={isMenuOpen}
+            currentPage={currentPage}
+            onToggle={() => setIsMenuOpen(!isMenuOpen)}
+            onNavigate={navigateTo}
+          />
+        </AppContainer>
       )}
     </>
   )

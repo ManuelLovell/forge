@@ -56,6 +56,7 @@ export const MenuButton = tw.button`
   fixed
   w-10 h-10
   rounded-full
+  bg-gray-800/75
   border text-white
   cursor-pointer
   flex items-center justify-center

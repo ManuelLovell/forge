@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Navigation, type PageType } from './components/NavigationComponent';
 import { AppContainer, ContentArea } from './components/NavigationStyles';
+import { SettingsPage } from './components/SettingsPage';
 
 function App() {
   const { sceneReady, cacheReady } = useSceneStore();
@@ -34,17 +35,7 @@ function App() {
         );
       case 'Settings':
         return (
-          <motion.div
-            key="settings"
-            variants={pageVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            className="p-4"
-          >
-            <h1>Settings</h1>
-            <p>Configure your forge settings here.</p>
-          </motion.div>
+          <SettingsPage key="settings" />
         );
       case 'Party':
         return (

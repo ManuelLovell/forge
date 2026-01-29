@@ -1,12 +1,15 @@
 import { useEffect } from 'react';
 import OBR, { type Player } from '@owlbear-rodeo/sdk';
 import { useSceneStore } from '../helpers/BSCache';
+import LOGGER from './Logger';
+import { initializeChatLogListener } from './ChatLogStore';
 
-export function CacheSync()
+export function CacheSync({ children }: { children: React.ReactNode })
 {
     const setItems = useSceneStore((s) => s.setItems);
     const setLocalItems = useSceneStore((s) => s.setLocalItems);
     const setSceneMetadata = useSceneStore((s) => s.setSceneMetadata);
+    const setRoomMetadata = useSceneStore((s) => s.setRoomMetadata);
     const setGridDpi = useSceneStore((s) => s.setGridDpi);
     const setPlayerData = useSceneStore((s) => s.setPlayerData);
     const setPartyData = useSceneStore((s) => s.setPartyData);
@@ -16,10 +19,14 @@ export function CacheSync()
 
     useEffect(() =>
     {
+        // Initialize chat log listener (only happens once)
+        initializeChatLogListener();
+        
         let unsubSceneReady: () => void;
         let unsubItems: () => void;
         let unsubLocalItems: () => void;
-        let unsubMetadata: () => void;
+        let unsubSceneMetadata: () => void;
+        let unsubRoomMetadata: () => void;
         let unsubGridDpi: () => void;
         let unsubPlayerData: () => void;
         let unsubPartyData: () => void;
@@ -30,6 +37,7 @@ export function CacheSync()
                 items,
                 localItems,
                 sceneMetadata,
+                roomMetadata,
                 gridDpi,
                 players,
                 playerColor,
@@ -42,6 +50,7 @@ export function CacheSync()
                 OBR.scene.items.getItems(),
                 OBR.scene.local.getItems(),
                 OBR.scene.getMetadata(),
+                OBR.room.getMetadata(),
                 OBR.scene.grid.getDpi(),
                 OBR.party.getPlayers(),
                 OBR.player.getColor(),
@@ -55,6 +64,7 @@ export function CacheSync()
             setItems(items);
             setLocalItems(localItems);
             setSceneMetadata(sceneMetadata);
+            setRoomMetadata(roomMetadata);
             setGridDpi(gridDpi);
             setPlayerData({
                 id: playerId,
@@ -72,8 +82,10 @@ export function CacheSync()
             unsubGridDpi = OBR.scene.grid.onChange((grid) => setGridDpi(grid.dpi));
             unsubPlayerData = OBR.player.onChange(setPlayerData);
             unsubPartyData = OBR.party.onChange(setPartyData);
-            unsubMetadata = OBR.scene.onMetadataChange(setSceneMetadata);
+            unsubSceneMetadata = OBR.scene.onMetadataChange(setSceneMetadata);
+            unsubRoomMetadata = OBR.room.onMetadataChange(setRoomMetadata);
             setCacheReady(true);
+            LOGGER.log('CacheManager: Cache is ready');
         };
 
         OBR.onReady(async () =>
@@ -82,6 +94,7 @@ export function CacheSync()
             setSceneReady(isReady);
             if (isReady)
             {
+                LOGGER.log('Scene is ready on initial load, syncing cache...');
                 await syncSceneState();
             }
 
@@ -91,10 +104,11 @@ export function CacheSync()
 
                 if (ready)
                 {
-                    setCacheReady(false); // Reset before re-sync
+                    LOGGER.log('Scene became ready, syncing cache...');
                     await syncSceneState();
                 } else
                 {
+                    LOGGER.log('Scene is no longer ready, clearing cache...');
                     setCacheReady(false); // Scene closed, invalidate cache
                 }
             });
@@ -105,7 +119,8 @@ export function CacheSync()
             unsubSceneReady?.();
             unsubItems?.();
             unsubLocalItems?.();
-            unsubMetadata?.();
+            unsubSceneMetadata?.();
+            unsubRoomMetadata?.();
             unsubGridDpi?.();
             unsubPlayerData?.();
             unsubPartyData?.();
@@ -116,10 +131,11 @@ export function CacheSync()
         setItems,
         setLocalItems,
         setSceneMetadata,
+        setRoomMetadata,
         setGridDpi,
         setPlayerData,
         setPartyData,
     ]);
 
-    return null;
+    return <>{children}</>;
 }

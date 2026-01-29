@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Navigation, type PageType } from './components/NavigationComponent';
 import { AppContainer, ContentArea } from './components/NavigationStyles';
 import { SettingsPage } from './components/SettingsPage';
+import { ChatLogPage } from './components/ChatLogPage';
 
 function App() {
   const { sceneReady, cacheReady } = useSceneStore();
@@ -53,17 +54,7 @@ function App() {
         );
       case 'ChatLog':
         return (
-          <motion.div
-            key="chatlog"
-            variants={pageVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            className="p-4"
-          >
-            <h1>Chat Log</h1>
-            <p>View your chat history here.</p>
-          </motion.div>
+          <ChatLogPage key="chatlog" />
         );
     }
   };

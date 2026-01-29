@@ -1,3 +1,4 @@
+import LOGGER from '../helpers/Logger';
 import { ToggleSwitch } from './SettingsStyles';
 
 interface ToggleControlProps {
@@ -12,7 +13,7 @@ export const ToggleControl = ({ label, isOn, onChange }: ToggleControlProps) => 
       $isOn={isOn}
       onClick={() => {
         const newValue = !isOn;
-        console.log(`${label}: ${newValue}`);
+        LOGGER.log(`${label}: ${newValue}`);
         onChange(newValue);
       }}
       role="switch"

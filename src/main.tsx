@@ -8,8 +8,9 @@ import App from "./App";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <PluginGate>
-      <CacheSync />
-      <App></App>
+      <CacheSync>
+        <App></App>
+      </CacheSync>
     </PluginGate>
   </React.StrictMode>
 );

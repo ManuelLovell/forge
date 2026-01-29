@@ -1,0 +1,38 @@
+import { OwlbearIds } from '../helpers/Constants';
+
+/**
+ * Settings Keys Constants
+ * Central constants for all application settings
+ * Following the pattern: ${EXTENSIONID}/keyname
+ * For space, try to limit char length to 8 or fewer
+ */
+
+const EXTENSION_ID = OwlbearIds.EXTENSIONID;
+
+export class SettingsConstants {
+  // List Controls
+  static SHOW_ROLLER_COLUMN = `${EXTENSION_ID}/rollclmn`;
+  static DICE_RANGE = `${EXTENSION_ID}/dicernge`;
+  static SHOW_CARD_ACCESS = `${EXTENSION_ID}/cardshow`;
+
+  // Player Controls
+  static SHOW_PLAYER_VIEW = `${EXTENSION_ID}/playview`;
+  static SHOW_NON_PARTY_UNITS = `${EXTENSION_ID}/npcview`;
+  static SHOW_HP_COLOR_INDICATOR = `${EXTENSION_ID}/hpcolors`;
+
+  // Game Controls
+  static SHOW_HP_BARS = `${EXTENSION_ID}/showhpbar`;
+  static SHOW_HP_NUMBERS = `${EXTENSION_ID}/showhpnum`;
+  static SHOW_NAMES = `${EXTENSION_ID}/showname`;
+  static SHOW_TURN_LABEL = `${EXTENSION_ID}/showturn`;
+  static USE_DESCRIPTIVE_DUPLICATES = `${EXTENSION_ID}/usedescd`;
+
+  // Dice Controls
+  static ENABLE_RUMBLE = `${EXTENSION_ID}/enabrumb`;
+  static ENABLE_BONES = `${EXTENSION_ID}/enabbone`;
+  static ENABLE_DICE_PLUS = `${EXTENSION_ID}/enabdice`;
+  static ENABLE_OBR_NOTIFICATION = `${EXTENSION_ID}/obrnotif`;
+  static SHOW_NOTIFICATION_TO_ALL = `${EXTENSION_ID}/shownote`;
+  static ENABLE_DISCORD_LOGGING = `${EXTENSION_ID}/enabdisc`;
+  static DISCORD_URL = `${EXTENSION_ID}/discurl`;
+}

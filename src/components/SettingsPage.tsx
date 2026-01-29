@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import OBR from '@owlbear-rodeo/sdk';
 import {
   SettingsContainer,
   SettingsTitle,
@@ -14,10 +15,13 @@ import {
   ButtonGroup,
 } from './SettingsStyles';
 import { ToggleControl } from './ToggleControl';
+import LOGGER from '../helpers/Logger';
+import { SettingsConstants } from '../interfaces/SettingsKeys.d';
+import { useSceneStore } from '../helpers/BSCache';
 
 export const SettingsPage = () => {
-  // Collection Management state
-  const [collectionStates, setCollectionStates] = useState({});
+  const roomMetadata = useSceneStore((state) => state.roomMetadata);
+  const cacheReady = useSceneStore((state) => state.cacheReady);
 
   // List Controls state
   const [showRollerColumn, setShowRollerColumn] = useState(false);
@@ -28,7 +32,6 @@ export const SettingsPage = () => {
   const [showPlayerView, setShowPlayerView] = useState(false);
   const [showNonPartyUnits, setShowNonPartyUnits] = useState(false);
   const [showHpColorIndicator, setShowHpColorIndicator] = useState(false);
-  const [hpColorText, setHpColorText] = useState('');
 
   // Game Controls state
   const [showHpBars, setShowHpBars] = useState(false);
@@ -44,6 +47,68 @@ export const SettingsPage = () => {
   const [enableObrNotification, setEnableObrNotification] = useState(false);
   const [showNotificationToAll, setShowNotificationToAll] = useState(false);
   const [enableDiscordLogging, setEnableDiscordLogging] = useState(false);
+  const [discordUrl, setDiscordUrl] = useState('');
+
+  // Load settings from cached metadata when it changes
+  useEffect(() => {
+    if (!cacheReady) return;
+    
+    // Load all settings from metadata
+    if (roomMetadata[SettingsConstants.SHOW_ROLLER_COLUMN] !== undefined) {
+      setShowRollerColumn(roomMetadata[SettingsConstants.SHOW_ROLLER_COLUMN] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.DICE_RANGE] !== undefined) {
+      setDiceRange(roomMetadata[SettingsConstants.DICE_RANGE] as string);
+    }
+    if (roomMetadata[SettingsConstants.SHOW_CARD_ACCESS] !== undefined) {
+      setShowCardAccess(roomMetadata[SettingsConstants.SHOW_CARD_ACCESS] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.SHOW_PLAYER_VIEW] !== undefined) {
+      setShowPlayerView(roomMetadata[SettingsConstants.SHOW_PLAYER_VIEW] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.SHOW_NON_PARTY_UNITS] !== undefined) {
+      setShowNonPartyUnits(roomMetadata[SettingsConstants.SHOW_NON_PARTY_UNITS] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.SHOW_HP_COLOR_INDICATOR] !== undefined) {
+      setShowHpColorIndicator(roomMetadata[SettingsConstants.SHOW_HP_COLOR_INDICATOR] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.SHOW_HP_BARS] !== undefined) {
+      setShowHpBars(roomMetadata[SettingsConstants.SHOW_HP_BARS] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.SHOW_HP_NUMBERS] !== undefined) {
+      setShowHpNumbers(roomMetadata[SettingsConstants.SHOW_HP_NUMBERS] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.SHOW_NAMES] !== undefined) {
+      setShowNames(roomMetadata[SettingsConstants.SHOW_NAMES] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.SHOW_TURN_LABEL] !== undefined) {
+      setShowTurnLabel(roomMetadata[SettingsConstants.SHOW_TURN_LABEL] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] !== undefined) {
+      setUseDescriptiveDuplicates(roomMetadata[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.ENABLE_RUMBLE] !== undefined) {
+      setEnableRumble(roomMetadata[SettingsConstants.ENABLE_RUMBLE] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.ENABLE_BONES] !== undefined) {
+      setEnableBones(roomMetadata[SettingsConstants.ENABLE_BONES] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.ENABLE_DICE_PLUS] !== undefined) {
+      setEnableDicePlus(roomMetadata[SettingsConstants.ENABLE_DICE_PLUS] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.ENABLE_OBR_NOTIFICATION] !== undefined) {
+      setEnableObrNotification(roomMetadata[SettingsConstants.ENABLE_OBR_NOTIFICATION] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.SHOW_NOTIFICATION_TO_ALL] !== undefined) {
+      setShowNotificationToAll(roomMetadata[SettingsConstants.SHOW_NOTIFICATION_TO_ALL] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.ENABLE_DISCORD_LOGGING] !== undefined) {
+      setEnableDiscordLogging(roomMetadata[SettingsConstants.ENABLE_DISCORD_LOGGING] as boolean);
+    }
+    if (roomMetadata[SettingsConstants.DISCORD_URL] !== undefined) {
+      setDiscordUrl(roomMetadata[SettingsConstants.DISCORD_URL] as string);
+    }
+  }, [cacheReady, roomMetadata]);
 
   return (
     <motion.div
@@ -58,8 +123,8 @@ export const SettingsPage = () => {
         <SettingsSection>
           <SectionTitle>Collection Management</SectionTitle>
           <ButtonGroup>
-            <Button onClick={() => console.log('Export clicked')}>Export</Button>
-            <Button onClick={() => console.log('Import clicked')}>Import</Button>
+            <Button onClick={() => LOGGER.log('Export clicked')}>Export</Button>
+            <Button onClick={() => LOGGER.log('Import clicked')}>Import</Button>
           </ButtonGroup>
         </SettingsSection>
 
@@ -72,7 +137,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Show Roller Column"
               isOn={showRollerColumn}
-              onChange={setShowRollerColumn}
+              onChange={async (value) => {
+                setShowRollerColumn(value);
+                await OBR.room.setMetadata({ [SettingsConstants.SHOW_ROLLER_COLUMN]: value });
+              }}
             />
           </ControlRow>
           {showRollerColumn && (
@@ -81,13 +149,14 @@ export const SettingsPage = () => {
               <TextInput
                 type="text"
                 value={diceRange}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
                   const value = e.target.value;
                   setDiceRange(value);
-                  console.log('Dice Range:', value);
+                  await OBR.room.setMetadata({ [SettingsConstants.DICE_RANGE]: value });
+                  LOGGER.log('Dice Range:', value);
                 }}
                 placeholder="D20"
-                maxLength={4}
+                maxLength={3}
               />
             </SubControlRow>
           )}
@@ -97,7 +166,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Show Card Access"
               isOn={showCardAccess}
-              onChange={setShowCardAccess}
+              onChange={async (value) => {
+                setShowCardAccess(value);
+                await OBR.room.setMetadata({ [SettingsConstants.SHOW_CARD_ACCESS]: value });
+              }}
             />
           </ControlRow>
         </SettingsSection>
@@ -111,7 +183,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Show Player View"
               isOn={showPlayerView}
-              onChange={setShowPlayerView}
+              onChange={async (value) => {
+                setShowPlayerView(value);
+                await OBR.room.setMetadata({ [SettingsConstants.SHOW_PLAYER_VIEW]: value });
+              }}
             />
           </ControlRow>
 
@@ -120,7 +195,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Show Non-Party Units"
               isOn={showNonPartyUnits}
-              onChange={setShowNonPartyUnits}
+              onChange={async (value) => {
+                setShowNonPartyUnits(value);
+                await OBR.room.setMetadata({ [SettingsConstants.SHOW_NON_PARTY_UNITS]: value });
+              }}
             />
           </ControlRow>
 
@@ -129,25 +207,12 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Show HP Color Indicator"
               isOn={showHpColorIndicator}
-              onChange={setShowHpColorIndicator}
+              onChange={async (value) => {
+                setShowHpColorIndicator(value);
+                await OBR.room.setMetadata({ [SettingsConstants.SHOW_HP_COLOR_INDICATOR]: value });
+              }}
             />
           </ControlRow>
-          {showHpColorIndicator && (
-            <SubControlRow>
-              <SubControlLabel>Battle-System ID: </SubControlLabel>
-              <TextInput
-                type="text"
-                value={hpColorText}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  const value = e.target.value.slice(0, 4);
-                  setHpColorText(value);
-                  console.log('HP Color Text:', value);
-                }}
-                placeholder="Z123"
-                maxLength={4}
-              />
-            </SubControlRow>
-          )}
         </SettingsSection>
 
         {/* Game Controls */}
@@ -159,7 +224,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Show HP Bars on tokens"
               isOn={showHpBars}
-              onChange={setShowHpBars}
+              onChange={async (value) => {
+                setShowHpBars(value);
+                await OBR.room.setMetadata({ [SettingsConstants.SHOW_HP_BARS]: value });
+              }}
             />
           </ControlRow>
 
@@ -168,7 +236,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Show HP Numbers on tokens"
               isOn={showHpNumbers}
-              onChange={setShowHpNumbers}
+              onChange={async (value) => {
+                setShowHpNumbers(value);
+                await OBR.room.setMetadata({ [SettingsConstants.SHOW_HP_NUMBERS]: value });
+              }}
             />
           </ControlRow>
 
@@ -177,7 +248,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Show names on tokens"
               isOn={showNames}
-              onChange={setShowNames}
+              onChange={async (value) => {
+                setShowNames(value);
+                await OBR.room.setMetadata({ [SettingsConstants.SHOW_NAMES]: value });
+              }}
             />
           </ControlRow>
 
@@ -186,7 +260,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Show Turn label"
               isOn={showTurnLabel}
-              onChange={setShowTurnLabel}
+              onChange={async (value) => {
+                setShowTurnLabel(value);
+                await OBR.room.setMetadata({ [SettingsConstants.SHOW_TURN_LABEL]: value });
+              }}
             />
           </ControlRow>
 
@@ -195,7 +272,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Use Descriptive Duplicates Names"
               isOn={useDescriptiveDuplicates}
-              onChange={setUseDescriptiveDuplicates}
+              onChange={async (value) => {
+                setUseDescriptiveDuplicates(value);
+                await OBR.room.setMetadata({ [SettingsConstants.USE_DESCRIPTIVE_DUPLICATES]: value });
+              }}
             />
           </ControlRow>
         </SettingsSection>
@@ -209,7 +289,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Enable Rumble! Integration"
               isOn={enableRumble}
-              onChange={setEnableRumble}
+              onChange={async (value) => {
+                setEnableRumble(value);
+                await OBR.room.setMetadata({ [SettingsConstants.ENABLE_RUMBLE]: value });
+              }}
             />
           </ControlRow>
 
@@ -218,7 +301,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Enable Bones! Integration"
               isOn={enableBones}
-              onChange={setEnableBones}
+              onChange={async (value) => {
+                setEnableBones(value);
+                await OBR.room.setMetadata({ [SettingsConstants.ENABLE_BONES]: value });
+              }}
             />
           </ControlRow>
 
@@ -227,7 +313,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Enable Dice+ Integration"
               isOn={enableDicePlus}
-              onChange={setEnableDicePlus}
+              onChange={async (value) => {
+                setEnableDicePlus(value);
+                await OBR.room.setMetadata({ [SettingsConstants.ENABLE_DICE_PLUS]: value });
+              }}
             />
           </ControlRow>
 
@@ -236,7 +325,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Enable OBR Notification"
               isOn={enableObrNotification}
-              onChange={setEnableObrNotification}
+              onChange={async (value) => {
+                setEnableObrNotification(value);
+                await OBR.room.setMetadata({ [SettingsConstants.ENABLE_OBR_NOTIFICATION]: value });
+              }}
             />
           </ControlRow>
           {enableObrNotification && (
@@ -245,7 +337,10 @@ export const SettingsPage = () => {
               <ToggleControl
                 label="Show Notification to All"
                 isOn={showNotificationToAll}
-                onChange={setShowNotificationToAll}
+                onChange={async (value) => {
+                  setShowNotificationToAll(value);
+                  await OBR.room.setMetadata({ [SettingsConstants.SHOW_NOTIFICATION_TO_ALL]: value });
+                }}
               />
             </SubControlRow>
           )}
@@ -255,7 +350,10 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Enable Discord Logging"
               isOn={enableDiscordLogging}
-              onChange={setEnableDiscordLogging}
+              onChange={async (value) => {
+                setEnableDiscordLogging(value);
+                await OBR.room.setMetadata({ [SettingsConstants.ENABLE_DISCORD_LOGGING]: value });
+              }}
             />
           </ControlRow>
           {enableDiscordLogging && (
@@ -263,14 +361,15 @@ export const SettingsPage = () => {
               <SubControlLabel>Discord Url: </SubControlLabel>
               <TextInput
                 type="text"
-                value={hpColorText}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                value={discordUrl}
+                onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
                   const value = e.target.value;
-                  setHpColorText(value);
-                  console.log('Some kind of Discord Url', value);
+                  setDiscordUrl(value);
+                  await OBR.room.setMetadata({ [SettingsConstants.DISCORD_URL]: value });
+                  LOGGER.log('Discord URL:', value);
                 }}
-                placeholder="http://www.discord.com/your-webhook-url"
-                maxLength={4}
+                placeholder="https://discord.com/api/webhooks/..."
+                maxLength={200}
               />
             </SubControlRow>
           )}

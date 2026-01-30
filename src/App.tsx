@@ -6,6 +6,7 @@ import { Navigation, type PageType } from './components/NavigationComponent';
 import { AppContainer, ContentArea } from './components/NavigationStyles';
 import { SettingsPage } from './components/SettingsPage';
 import { ChatLogPage } from './components/ChatLogPage';
+import { SystemPage } from './components/SystemPage';
 
 function App() {
   const { sceneReady, cacheReady } = useSceneStore();
@@ -51,6 +52,10 @@ function App() {
             <h1>Party</h1>
             <p>Manage your party here.</p>
           </motion.div>
+        );
+      case 'System':
+        return (
+          <SystemPage key="system" />
         );
       case 'ChatLog':
         return (

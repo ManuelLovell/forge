@@ -12,7 +12,7 @@ import {
   MenuButton
 } from './NavigationStyles';
 
-export type PageType = 'ForgeMain' | 'Settings' | 'Party' | 'ChatLog';
+export type PageType = 'ForgeMain' | 'Settings' | 'Party' | 'ChatLog' | 'System';
 
 interface NavigationProps {
   isOpen: boolean;
@@ -62,6 +62,12 @@ export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate }: Naviga
                 onClick={() => onNavigate('ChatLog')}
               >
                 Chat Log
+              </NavButton>
+              <NavButton
+                $isActive={currentPage === 'System'}
+                onClick={() => onNavigate('System')}
+              >
+                System
               </NavButton>
               <NavButton
                 $isActive={currentPage === 'Settings'}

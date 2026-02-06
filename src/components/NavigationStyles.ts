@@ -79,6 +79,10 @@ export const Backdrop = tw.div`
   z-[999]
 `;
 
+export const MenuButtonBuffer = tw.div`
+  w-12 h-12 backdrop-blur rounded-full fixed z-[1000] flex items-center justify-center bottom-[2px] left-[2px]
+`;
+
 export const MenuButton = styled.button<{ theme: ForgeTheme }>`
   ${tw`fixed w-10 h-10 rounded-full cursor-pointer flex items-center justify-center shadow-md z-[1001]`}
   background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.75)};

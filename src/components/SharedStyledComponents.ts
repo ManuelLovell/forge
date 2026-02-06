@@ -15,12 +15,13 @@ export const PageContainer = styled.div<{ theme: ForgeTheme }>`
 export const PageTitle = styled.h1<{ theme: ForgeTheme }>`
   color: ${props => props.theme.PRIMARY};
   background-color: ${props => props.theme.OFFSET};
-  padding: 4px;
+  padding: 2px;
   border-radius: 6px;
   border: 2px solid ${props => props.theme.BORDER};
   margin-bottom: 20px;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: bold;
+  font-variant: small-caps;
 `;
 
 export const Card = styled.div<{ theme: ForgeTheme }>`
@@ -29,6 +30,7 @@ export const Card = styled.div<{ theme: ForgeTheme }>`
   border-radius: 6px;
   padding: 20px;
   margin: 15px 0;
+  backdrop-filter: blur(8px);
 `;
 
 export const CardHeader = styled.div<{ theme: ForgeTheme }>`
@@ -46,9 +48,10 @@ export const Button = styled.button<{ theme: ForgeTheme; variant?: 'primary' | '
   color: ${props => props.theme.PRIMARY};
   border: 2px solid ${props => props.theme.BORDER};
   border-radius: 6px;
-  padding: 10px 20px;
+  padding: 8px 8px;
   font-size: 14px;
   font-weight: 600;
+  width: 100%;
   cursor: pointer;
   transition: all 0.2s;
   
@@ -73,7 +76,7 @@ export const Input = styled.input<{ theme: ForgeTheme }>`
   color: ${props => props.theme.PRIMARY};
   border: 2px solid ${props => props.theme.BORDER};
   border-radius: 6px;
-  padding: 10px 15px;
+  padding: 8px 8px;
   font-size: 14px;
   width: 100%;
   

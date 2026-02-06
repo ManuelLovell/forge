@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import styled from 'styled-components';
 import tw from 'twin.macro';
 import { useChatLogStore } from '../helpers/ChatLogStore';
+import { PageTitle } from './SharedStyledComponents';
+import { useForgeTheme } from '../helpers/ThemeContext';
 
 const ChatContainer = styled.div`
   ${tw`flex flex-col h-full p-4`}
@@ -11,7 +13,11 @@ const ChatContainer = styled.div`
 const ChatWindow = styled.div`
   ${tw`flex-1 overflow-y-auto rounded-lg border-2 border-white p-2`}
   background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
   margin: 10px;
+  white-space: break-spaces;
+  word-wrap: break-word;
+  margin-bottom: 50px;
 `;
 
 const MessageRow = styled.div`
@@ -29,6 +35,7 @@ const MessageText = styled.span`
 export const ChatLogPage = () => {
   const messages = useChatLogStore((state) => state.messages);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const { theme } = useForgeTheme();
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -43,7 +50,7 @@ export const ChatLogPage = () => {
       style={{ height: '100%' }}
     >
       <ChatContainer>
-        <h1 className="text-2xl font-bold mb-4">Chat Log</h1>
+        <PageTitle theme={theme}>System Log</PageTitle>
         <ChatWindow>
           {messages.map((msg) => (
             <MessageRow key={msg.id}>

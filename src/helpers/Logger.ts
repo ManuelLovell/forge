@@ -11,7 +11,7 @@ const ENABLE_LOGGING = true;
 const LOGGER_LABEL = '[FORGE ⚒️]';
 const CHATLOG_CHANNEL = `${OwlbearIds.EXTENSIONID}/chatlog`;
 
-// Helper to send message to chat log via broadcast
+// Helper to send message to System Log via broadcast
 const sendToChatLog = (message: string) => {
     if (OBR.isAvailable) {
         OBR.broadcast.sendMessage(CHATLOG_CHANNEL, message, { destination: 'LOCAL' });

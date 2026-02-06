@@ -19,7 +19,7 @@ export function CacheSync({ children }: { children: React.ReactNode })
 
     useEffect(() =>
     {
-        // Initialize chat log listener (only happens once)
+        // Initialize System Log listener (only happens once)
         initializeChatLogListener();
         
         let unsubSceneReady: () => void;

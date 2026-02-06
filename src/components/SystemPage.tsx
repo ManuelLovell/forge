@@ -63,12 +63,11 @@ const SystemInfo = styled.div<{ theme: ForgeTheme }>`
 
 const SystemName = styled.h2<{ theme: ForgeTheme }>`
   color: ${props => props.theme.PRIMARY};
-  background-color: ${props => props.theme.OFFSET};
+  border-bottom: 2px solid ${props => props.theme.BORDER};
   padding: 12px 15px;
-  border-radius: 6px;
   margin: 0 0 15px 0;
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 400;
 `;
 
 const ImportDate = styled.p<{ theme: ForgeTheme }>`
@@ -89,7 +88,7 @@ const ColorSwatch = styled.div<{ color: string; theme: ForgeTheme }>`
   background-color: ${props => props.color};
   border: 2px solid ${props => props.theme.BORDER};
   border-radius: 6px;
-  height: 60px;
+  height: 30px;
   width: 60px;
   display: flex;
   align-items: center;
@@ -217,8 +216,8 @@ const BackupActions = styled.div`
 `;
 
 const IconButton = styled.button<{ theme: ForgeTheme; $variant?: 'danger' }>`
-  background-color: ${props => props.$variant === 'danger' 
-    ? rgbaFromHex('#FF0000', 0.2) 
+  background-color: ${props => props.$variant === 'danger'
+    ? rgbaFromHex('#FF0000', 0.2)
     : rgbaFromHex(props.theme.OFFSET, 0.5)};
   border: 2px solid ${props => props.$variant === 'danger' ? '#FF0000' : props.theme.BORDER};
   border-radius: 6px;
@@ -231,9 +230,9 @@ const IconButton = styled.button<{ theme: ForgeTheme; $variant?: 'danger' }>`
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: ${props => props.$variant === 'danger' 
-      ? rgbaFromHex('#FF0000', 0.3) 
-      : props.theme.OFFSET};
+    background-color: ${props => props.$variant === 'danger'
+    ? rgbaFromHex('#FF0000', 0.3)
+    : props.theme.OFFSET};
   }
 
   &:disabled {
@@ -251,12 +250,12 @@ const pageVariants = {
 export const SystemPage = () => {
   const { theme, updateThemeFromSystem } = useForgeTheme();
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
-  
+
   const [shareId, setShareId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
+
   // Current system info - loaded from cache
   const [currentSystemName, setCurrentSystemName] = useState<string>('');
   const [currentImportDate, setCurrentImportDate] = useState<string | null>(null);
@@ -285,11 +284,11 @@ export const SystemPage = () => {
       const themeMeta = sceneMetadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
       const systemName = sceneMetadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
       const importDate = sceneMetadata[SystemKeys.IMPORT_DATE] as string || null;
-      
+
       setCurrentSystemName(systemName);
       setCurrentImportDate(importDate);
       setCurrentTheme(themeMeta || null);
-      
+
     } catch (err) {
       LOGGER.error('Error loading system from cache:', err);
     }
@@ -298,7 +297,7 @@ export const SystemPage = () => {
   const loadBackups = () => {
     try {
       const backupList: SystemBackup[] = [];
-      
+
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith(`${BACKUP_KEY_PREFIX}.`) && key.endsWith('.backup')) {
@@ -309,17 +308,17 @@ export const SystemPage = () => {
           }
         }
       }
-      
+
       // Sort by backup date (newest first)
       backupList.sort((a, b) => new Date(b.backupDate).getTime() - new Date(a.backupDate).getTime());
       setBackups(backupList);
-      
+
     } catch (err) {
       LOGGER.error('Error loading backups:', err);
     }
   };
 
-  const createBackup = async (systemName: string) => {
+  const createBackup = async (_systemName: string) => {
     try {
       const themeMeta = sceneMetadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
       const cardMeta = sceneMetadata[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
@@ -347,10 +346,10 @@ export const SystemPage = () => {
 
       const backupKey = `${BACKUP_KEY_PREFIX}.${currentName}.backup`;
       localStorage.setItem(backupKey, JSON.stringify(backup));
-      
+
       LOGGER.log(`Backup created for ${currentName}`);
       loadBackups(); // Refresh backup list
-      
+
     } catch (err) {
       LOGGER.error('Error creating backup:', err);
       throw err;
@@ -416,9 +415,9 @@ export const SystemPage = () => {
         .select('*')
         .eq('share_id', shareId)
         .maybeSingle();
-      
+
       if (fetchError) throw fetchError;
-      
+
       if (!data) {
         setError('No system found with that share_id');
         setLoading(false);
@@ -426,10 +425,10 @@ export const SystemPage = () => {
       }
 
       const systemData = data as SystemResponse;
-      
+
       // Create backup of current system before overwriting
       await createBackup(currentSystemName);
-      
+
       // Prepare theme data
       const themeData: ThemeData = {
         primary: systemData.theme_primary,
@@ -438,7 +437,7 @@ export const SystemPage = () => {
         border: systemData.theme_border,
         background_url: systemData.background_url,
       };
-      
+
       // Save to OBR scene metadata
       await OBR.scene.setMetadata({
         [SystemKeys.CURRENT_THEME]: themeData,
@@ -448,12 +447,12 @@ export const SystemPage = () => {
         [SystemKeys.SYSTEM_NAME]: systemData.name,
         [SystemKeys.IMPORT_DATE]: new Date().toISOString(),
       });
-      
+
       // Update local state
       setCurrentSystemName(systemData.name);
       setCurrentImportDate(new Date().toISOString());
       setCurrentTheme(themeData);
-      
+
       // Apply new theme
       updateThemeFromSystem(
         themeData.primary,
@@ -462,12 +461,12 @@ export const SystemPage = () => {
         themeData.border,
         themeData.background_url
       );
-      
+
       setSuccess(`System "${systemData.name}" loaded successfully! Backup created.`);
       setShareId('');
-      
+
       LOGGER.log('System loaded:', systemData.name);
-      
+
     } catch (err: any) {
       LOGGER.error('Error fetching system:', err);
       setError(err.message || 'An error occurred while fetching the system');
@@ -493,7 +492,7 @@ export const SystemPage = () => {
     try {
       // Create backup of current system (may overwrite if same name)
       await createBackup(currentSystemName);
-      
+
       // Prepare theme data
       const themeData: ThemeData = {
         primary: backup.theme_primary,
@@ -502,7 +501,7 @@ export const SystemPage = () => {
         border: backup.theme_border,
         background_url: backup.background_url,
       };
-      
+
       // Save to OBR scene metadata
       await OBR.scene.setMetadata({
         [SystemKeys.CURRENT_THEME]: themeData,
@@ -512,12 +511,12 @@ export const SystemPage = () => {
         [SystemKeys.SYSTEM_NAME]: backup.name,
         [SystemKeys.IMPORT_DATE]: new Date().toISOString(),
       });
-      
+
       // Update local state
       setCurrentSystemName(backup.name);
       setCurrentImportDate(new Date().toISOString());
       setCurrentTheme(themeData);
-      
+
       // Apply theme
       updateThemeFromSystem(
         themeData.primary,
@@ -526,10 +525,10 @@ export const SystemPage = () => {
         themeData.border,
         themeData.background_url
       );
-      
+
       setSuccess(`System "${backup.name}" restored from backup successfully!`);
       LOGGER.log('System restored from backup:', backup.name);
-      
+
     } catch (err: any) {
       LOGGER.error('Error restoring backup:', err);
       setError('Failed to restore system from backup');
@@ -542,7 +541,7 @@ export const SystemPage = () => {
     setLoading(true);
     setError(null);
     setSuccess(null);
-    
+
     try {
       const defaultTheme: ThemeData = {
         primary: defaultGameSystem.theme_primary,
@@ -551,7 +550,7 @@ export const SystemPage = () => {
         border: defaultGameSystem.theme_border,
         background_url: defaultGameSystem.background_url,
       };
-      
+
       // Store default system in OBR
       await OBR.scene.setMetadata({
         [SystemKeys.CURRENT_THEME]: defaultTheme,
@@ -561,12 +560,12 @@ export const SystemPage = () => {
         [SystemKeys.SYSTEM_NAME]: defaultGameSystem.name,
         [SystemKeys.IMPORT_DATE]: null,
       });
-      
+
       // Update local state
       setCurrentSystemName(defaultGameSystem.name);
       setCurrentImportDate(null);
       setCurrentTheme(defaultTheme);
-      
+
       // Apply theme
       updateThemeFromSystem(
         defaultTheme.primary,
@@ -575,7 +574,7 @@ export const SystemPage = () => {
         defaultTheme.border,
         defaultTheme.background_url
       );
-      
+
       setSuccess('Reset to default system successfully!');
     } catch (err: any) {
       setError('Failed to reset to default system');
@@ -588,9 +587,9 @@ export const SystemPage = () => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return null;
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -607,104 +606,100 @@ export const SystemPage = () => {
     >
       <PageContainer theme={theme}>
         <PageTitle theme={theme}>System Configuration</PageTitle>
-        
+
         {/* Current System Display */}
-        <Card theme={theme}>
-          <SystemName theme={theme}>{currentSystemName}</SystemName>
-          
-          {currentImportDate ? (
-            <ImportDate theme={theme}>
-              Imported: {formatDate(currentImportDate)}
-            </ImportDate>
-          ) : (
-            <ImportDate theme={theme}>
-              Using Default System
-            </ImportDate>
-          )}
-          
-          {currentTheme && (
-            <>
-              <SwatchContainer>
-                <div>
-                  <ColorSwatch color={currentTheme.primary} theme={theme}>
-                    {currentTheme.primary}
-                  </ColorSwatch>
-                  <SwatchLabel theme={theme}>PRIMARY</SwatchLabel>
-                </div>
-                <div>
-                  <ColorSwatch color={currentTheme.offset} theme={theme}>
-                    {currentTheme.offset}
-                  </ColorSwatch>
-                  <SwatchLabel theme={theme}>OFFSET</SwatchLabel>
-                </div>
-                <div>
-                  <ColorSwatch color={currentTheme.background} theme={theme}>
-                    {currentTheme.background}
-                  </ColorSwatch>
-                  <SwatchLabel theme={theme}>BG</SwatchLabel>
-                </div>
-                <div>
-                  <ColorSwatch color={currentTheme.border} theme={theme}>
-                    {currentTheme.border}
-                  </ColorSwatch>
-                  <SwatchLabel theme={theme}>BORDER</SwatchLabel>
-                </div>
-              </SwatchContainer>
-            </>
-          )}
-        </Card>
+        <SystemName theme={theme}>{currentSystemName}</SystemName>
+
+        {currentImportDate ? (
+          <ImportDate theme={theme}>
+            Imported: {formatDate(currentImportDate)}
+          </ImportDate>
+        ) : (
+          <ImportDate theme={theme}>
+            Using Default System
+          </ImportDate>
+        )}
+
+        {currentTheme && (
+          <>
+            <SwatchContainer>
+              <div>
+                <ColorSwatch color={currentTheme.primary} theme={theme}>
+                  {currentTheme.primary}
+                </ColorSwatch>
+                <SwatchLabel theme={theme}>PRIMARY</SwatchLabel>
+              </div>
+              <div>
+                <ColorSwatch color={currentTheme.offset} theme={theme}>
+                  {currentTheme.offset}
+                </ColorSwatch>
+                <SwatchLabel theme={theme}>OFFSET</SwatchLabel>
+              </div>
+              <div>
+                <ColorSwatch color={currentTheme.background} theme={theme}>
+                  {currentTheme.background}
+                </ColorSwatch>
+                <SwatchLabel theme={theme}>BG</SwatchLabel>
+              </div>
+              <div>
+                <ColorSwatch color={currentTheme.border} theme={theme}>
+                  {currentTheme.border}
+                </ColorSwatch>
+                <SwatchLabel theme={theme}>BORDER</SwatchLabel>
+              </div>
+            </SwatchContainer>
+          </>
+        )}
 
         {/* Import New System */}
-        <Card theme={theme}>
-          <SystemInfo theme={theme}>
-            <h3 style={{ color: theme.PRIMARY, marginTop: 0 }}>Import New System</h3>
-            <p style={{ color: rgbaFromHex(theme.PRIMARY, 0.8), fontSize: '14px' }}>
-              Enter a share_id to download and activate a new game system configuration.
-            </p>
-            
-            <InputGroup>
-              <Input
-                theme={theme}
-                type="text"
-                value={shareId}
-                onChange={(e) => setShareId(e.target.value)}
-                placeholder="Enter share_id..."
-                disabled={loading}
-                onKeyPress={(e) => e.key === 'Enter' && fetchAndSaveSystem()}
-              />
-              <Button
-                theme={theme}
-                onClick={fetchAndSaveSystem}
-                disabled={loading || !shareId.trim()}
-              >
-                {loading ? 'Loading...' : 'Import System'}
-              </Button>
-            </InputGroup>
+        <SystemInfo theme={theme}>
+          <h3 style={{ color: theme.PRIMARY, marginTop: 0 }}>Import New System</h3>
+          <p style={{ color: rgbaFromHex(theme.PRIMARY, 0.8), fontSize: '14px' }}>
+            Enter a share_id to download and activate a new game system configuration.
+          </p>
 
-            <ButtonGroup>
-              <Button
-                theme={theme}
-                variant="secondary"
-                onClick={resetToDefault}
-                disabled={loading}
-              >
-                Reset to Default
-              </Button>
-            </ButtonGroup>
-          </SystemInfo>
+          <InputGroup>
+            <Input
+              theme={theme}
+              type="text"
+              value={shareId}
+              onChange={(e) => setShareId(e.target.value)}
+              placeholder="Enter Share Id..."
+              disabled={loading}
+              onKeyPress={(e) => e.key === 'Enter' && fetchAndSaveSystem()}
+            />
+          </InputGroup>
 
-          {error && (
-            <ErrorMessage theme={theme}>
-              <strong>Error:</strong> {error}
-            </ErrorMessage>
-          )}
+          <ButtonGroup>
+            <Button
+              theme={theme}
+              onClick={fetchAndSaveSystem}
+              disabled={loading || !shareId.trim()}
+            >
+              {loading ? '....!' : 'Import System'}
+            </Button>
+            <Button
+              theme={theme}
+              variant="secondary"
+              onClick={resetToDefault}
+              disabled={loading}
+            >
+              Use Default
+            </Button>
+          </ButtonGroup>
+        </SystemInfo>
 
-          {success && (
-            <SuccessMessage theme={theme}>
-              <strong>Success:</strong> {success}
-            </SuccessMessage>
-          )}
-        </Card>
+        {error && (
+          <ErrorMessage theme={theme}>
+            <strong>Error:</strong> {error}
+          </ErrorMessage>
+        )}
+
+        {success && (
+          <SuccessMessage theme={theme}>
+            <strong>Success:</strong> {success}
+          </SuccessMessage>
+        )}
 
         {/* Backup Management */}
         {backups.length > 0 && (

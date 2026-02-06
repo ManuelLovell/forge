@@ -9,7 +9,8 @@ import {
   MenuNav,
   NavButton,
   Backdrop,
-  MenuButton
+  MenuButton,
+  MenuButtonBuffer
 } from './NavigationStyles';
 import { useForgeTheme } from '../helpers/ThemeContext';
 
@@ -24,7 +25,7 @@ interface NavigationProps {
 
 export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate }: NavigationProps) => {
   const { theme } = useForgeTheme();
-  
+
   return (
     <>
       {/* Menu Overlay */}
@@ -68,7 +69,7 @@ export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate }: Naviga
                 $isActive={currentPage === 'ChatLog'}
                 onClick={() => onNavigate('ChatLog')}
               >
-                Chat Log
+                System Log
               </NavButton>
               <NavButton
                 theme={theme}
@@ -93,9 +94,11 @@ export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate }: Naviga
       {isOpen && <Backdrop onClick={onToggle} />}
 
       {/* Menu Button */}
-      <MenuButton theme={theme} onClick={onToggle} style={{ bottom: '0.75rem', left: '0.75rem' }}>
-        <Menu size={24} />
-      </MenuButton>
+      <MenuButtonBuffer>
+        <MenuButton theme={theme} onClick={onToggle}>
+          <Menu size={24} />
+        </MenuButton>
+      </MenuButtonBuffer>
     </>
   );
 };

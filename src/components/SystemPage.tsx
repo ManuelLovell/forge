@@ -5,13 +5,16 @@ import OBR from '@owlbear-rodeo/sdk';
 import { supabase } from '../supabase/supabaseClient';
 import { SystemResponse, SystemAttribute, CardLayoutComponent, ListLayoutComponent } from '../interfaces/SystemResponse';
 import { useForgeTheme } from '../helpers/ThemeContext';
+import { useSceneStore } from '../helpers/BSCache';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { PageContainer, PageTitle, Card, Button, Input } from './SharedStyledComponents';
 import { OwlbearIds } from '../helpers/Constants';
+import { Upload, X } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import LOGGER from '../helpers/Logger';
 
 const EXTENSION_ID = OwlbearIds.EXTENSIONID;
+const BACKUP_KEY_PREFIX = 'com.battle-system.forge';
 
 // Storage keys for system data
 export const SystemKeys = {
@@ -29,6 +32,19 @@ interface ThemeData {
   background: string;
   border: string;
   background_url: string;
+}
+
+interface SystemBackup {
+  name: string;
+  backupDate: string;
+  theme_primary: string;
+  theme_offset: string;
+  theme_background: string;
+  theme_border: string;
+  background_url: string;
+  card_layout: CardLayoutComponent[];
+  list_layout: ListLayoutComponent[];
+  attributes: SystemAttribute[];
 }
 
 const InputGroup = styled.div`
@@ -115,6 +131,117 @@ const ButtonGroup = styled.div`
   margin-top: 15px;
 `;
 
+const ConfirmModal = styled.div<{ theme: ForgeTheme }>`
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: ${props => props.theme.BACKGROUND};
+  border: 3px solid ${props => props.theme.BORDER};
+  border-radius: 8px;
+  padding: 25px;
+  z-index: 10000;
+  min-width: 350px;
+  max-width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+`;
+
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 9999;
+`;
+
+const ModalTitle = styled.h3<{ theme: ForgeTheme }>`
+  color: ${props => props.theme.PRIMARY};
+  margin: 0 0 15px 0;
+  font-size: 18px;
+`;
+
+const ModalText = styled.p<{ theme: ForgeTheme }>`
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.9)};
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+`;
+
+const ModalButtons = styled.div`
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+`;
+
+const BackupSection = styled.div`
+  margin-top: 30px;
+`;
+
+const BackupList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const BackupItem = styled.div<{ theme: ForgeTheme }>`
+  background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.3)};
+  border: 2px solid ${props => props.theme.BORDER};
+  border-radius: 6px;
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const BackupInfo = styled.div`
+  flex: 1;
+`;
+
+const BackupName = styled.div<{ theme: ForgeTheme }>`
+  color: ${props => props.theme.PRIMARY};
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 5px;
+`;
+
+const BackupDate = styled.div<{ theme: ForgeTheme }>`
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.7)};
+  font-size: 13px;
+  font-style: italic;
+`;
+
+const BackupActions = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+
+const IconButton = styled.button<{ theme: ForgeTheme; $variant?: 'danger' }>`
+  background-color: ${props => props.$variant === 'danger' 
+    ? rgbaFromHex('#FF0000', 0.2) 
+    : rgbaFromHex(props.theme.OFFSET, 0.5)};
+  border: 2px solid ${props => props.$variant === 'danger' ? '#FF0000' : props.theme.BORDER};
+  border-radius: 6px;
+  color: ${props => props.$variant === 'danger' ? '#FF0000' : props.theme.PRIMARY};
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: ${props => props.$variant === 'danger' 
+      ? rgbaFromHex('#FF0000', 0.3) 
+      : props.theme.OFFSET};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
 const pageVariants = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
@@ -123,51 +250,144 @@ const pageVariants = {
 
 export const SystemPage = () => {
   const { theme, updateThemeFromSystem } = useForgeTheme();
+  const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
+  
   const [shareId, setShareId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   
-  // Current system info - loaded from OBR metadata
+  // Current system info - loaded from cache
   const [currentSystemName, setCurrentSystemName] = useState<string>('');
   const [currentImportDate, setCurrentImportDate] = useState<string | null>(null);
   const [currentTheme, setCurrentTheme] = useState<ThemeData | null>(null);
 
-  // Load current system info from OBR metadata on mount
-  useEffect(() => {
-    loadCurrentSystem();
-    
-    // Subscribe to metadata changes to reflect updates
-    const unsubscribe = OBR.scene.onMetadataChange((metadata) => {
-      const themeMeta = metadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
-      const systemName = metadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
-      const importDate = metadata[SystemKeys.IMPORT_DATE] as string || null;
-      
-      if (themeMeta) {
-        setCurrentTheme(themeMeta);
-        setCurrentSystemName(systemName);
-        setCurrentImportDate(importDate);
-      }
-    });
-    
-    return () => unsubscribe();
-  }, []);
+  // Backup management
+  const [backups, setBackups] = useState<SystemBackup[]>([]);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
+  const [confirmMessage, setConfirmMessage] = useState('');
 
-  const loadCurrentSystem = async () => {
+  // Load current system info from cache and backups on mount
+  useEffect(() => {
+    loadCurrentSystemFromCache();
+    loadBackups();
+  }, [sceneMetadata]);
+
+  // Load current system info from cache and backups on mount
+  useEffect(() => {
+    loadCurrentSystemFromCache();
+    loadBackups();
+  }, [sceneMetadata]);
+
+  const loadCurrentSystemFromCache = () => {
     try {
-      const metadata = await OBR.scene.getMetadata();
-      
-      const themeMeta = metadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
-      const systemName = metadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
-      const importDate = metadata[SystemKeys.IMPORT_DATE] as string || null;
+      const themeMeta = sceneMetadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
+      const systemName = sceneMetadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
+      const importDate = sceneMetadata[SystemKeys.IMPORT_DATE] as string || null;
       
       setCurrentSystemName(systemName);
       setCurrentImportDate(importDate);
       setCurrentTheme(themeMeta || null);
       
     } catch (err) {
-      LOGGER.error('Error loading system:', err);
+      LOGGER.error('Error loading system from cache:', err);
     }
+  };
+
+  const loadBackups = () => {
+    try {
+      const backupList: SystemBackup[] = [];
+      
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(`${BACKUP_KEY_PREFIX}.`) && key.endsWith('.backup')) {
+          const data = localStorage.getItem(key);
+          if (data) {
+            const backup = JSON.parse(data) as SystemBackup;
+            backupList.push(backup);
+          }
+        }
+      }
+      
+      // Sort by backup date (newest first)
+      backupList.sort((a, b) => new Date(b.backupDate).getTime() - new Date(a.backupDate).getTime());
+      setBackups(backupList);
+      
+    } catch (err) {
+      LOGGER.error('Error loading backups:', err);
+    }
+  };
+
+  const createBackup = async (systemName: string) => {
+    try {
+      const themeMeta = sceneMetadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
+      const cardMeta = sceneMetadata[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
+      const listMeta = sceneMetadata[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;
+      const attrMeta = sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
+      const currentName = sceneMetadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
+
+      if (!themeMeta || !cardMeta || !listMeta || !attrMeta) {
+        LOGGER.warn('Cannot create backup: system data incomplete');
+        return;
+      }
+
+      const backup: SystemBackup = {
+        name: currentName,
+        backupDate: new Date().toISOString(),
+        theme_primary: themeMeta.primary,
+        theme_offset: themeMeta.offset,
+        theme_background: themeMeta.background,
+        theme_border: themeMeta.border,
+        background_url: themeMeta.background_url,
+        card_layout: cardMeta,
+        list_layout: listMeta,
+        attributes: attrMeta,
+      };
+
+      const backupKey = `${BACKUP_KEY_PREFIX}.${currentName}.backup`;
+      localStorage.setItem(backupKey, JSON.stringify(backup));
+      
+      LOGGER.log(`Backup created for ${currentName}`);
+      loadBackups(); // Refresh backup list
+      
+    } catch (err) {
+      LOGGER.error('Error creating backup:', err);
+      throw err;
+    }
+  };
+
+  const deleteBackup = (systemName: string) => {
+    try {
+      const backupKey = `${BACKUP_KEY_PREFIX}.${systemName}.backup`;
+      localStorage.removeItem(backupKey);
+      LOGGER.log(`Backup deleted for ${systemName}`);
+      loadBackups(); // Refresh backup list
+      setSuccess(`Backup for "${systemName}" deleted successfully`);
+    } catch (err) {
+      LOGGER.error('Error deleting backup:', err);
+      setError('Failed to delete backup');
+    }
+  };
+
+  const confirmAction = (message: string, action: () => Promise<void>) => {
+    setConfirmMessage(message);
+    setPendingAction(() => action);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirm = async () => {
+    setShowConfirmModal(false);
+    if (pendingAction) {
+      await pendingAction();
+      setPendingAction(null);
+    }
+  };
+
+  const handleCancel = () => {
+    setShowConfirmModal(false);
+    setPendingAction(null);
+    setConfirmMessage('');
   };
 
   const fetchAndSaveSystem = async () => {
@@ -176,6 +396,16 @@ export const SystemPage = () => {
       return;
     }
 
+    // Show confirmation before importing
+    confirmAction(
+      'This will overwrite your current system data. A backup of your current system will be saved to local storage. Do you want to continue?',
+      async () => {
+        await performSystemImport();
+      }
+    );
+  };
+
+  const performSystemImport = async () => {
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -190,10 +420,15 @@ export const SystemPage = () => {
       if (fetchError) throw fetchError;
       
       if (!data) {
-        throw new Error('No system found with that share_id');
+        setError('No system found with that share_id');
+        setLoading(false);
+        return;
       }
 
       const systemData = data as SystemResponse;
+      
+      // Create backup of current system before overwriting
+      await createBackup(currentSystemName);
       
       // Prepare theme data
       const themeData: ThemeData = {
@@ -228,7 +463,7 @@ export const SystemPage = () => {
         themeData.background_url
       );
       
-      setSuccess(`System "${systemData.name}" loaded successfully!`);
+      setSuccess(`System "${systemData.name}" loaded successfully! Backup created.`);
       setShareId('');
       
       LOGGER.log('System loaded:', systemData.name);
@@ -236,6 +471,68 @@ export const SystemPage = () => {
     } catch (err: any) {
       LOGGER.error('Error fetching system:', err);
       setError(err.message || 'An error occurred while fetching the system');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const importFromBackup = async (backup: SystemBackup) => {
+    confirmAction(
+      `This will restore the system "${backup.name}" from backup. A backup of your current system will be created. Do you want to continue?`,
+      async () => {
+        await performBackupRestore(backup);
+      }
+    );
+  };
+
+  const performBackupRestore = async (backup: SystemBackup) => {
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      // Create backup of current system (may overwrite if same name)
+      await createBackup(currentSystemName);
+      
+      // Prepare theme data
+      const themeData: ThemeData = {
+        primary: backup.theme_primary,
+        offset: backup.theme_offset,
+        background: backup.theme_background,
+        border: backup.theme_border,
+        background_url: backup.background_url,
+      };
+      
+      // Save to OBR scene metadata
+      await OBR.scene.setMetadata({
+        [SystemKeys.CURRENT_THEME]: themeData,
+        [SystemKeys.CURRENT_CARD]: backup.card_layout,
+        [SystemKeys.CURRENT_LIST]: backup.list_layout,
+        [SystemKeys.CURRENT_ATTR]: backup.attributes,
+        [SystemKeys.SYSTEM_NAME]: backup.name,
+        [SystemKeys.IMPORT_DATE]: new Date().toISOString(),
+      });
+      
+      // Update local state
+      setCurrentSystemName(backup.name);
+      setCurrentImportDate(new Date().toISOString());
+      setCurrentTheme(themeData);
+      
+      // Apply theme
+      updateThemeFromSystem(
+        themeData.primary,
+        themeData.offset,
+        themeData.background,
+        themeData.border,
+        themeData.background_url
+      );
+      
+      setSuccess(`System "${backup.name}" restored from backup successfully!`);
+      LOGGER.log('System restored from backup:', backup.name);
+      
+    } catch (err: any) {
+      LOGGER.error('Error restoring backup:', err);
+      setError('Failed to restore system from backup');
     } finally {
       setLoading(false);
     }
@@ -408,7 +705,68 @@ export const SystemPage = () => {
             </SuccessMessage>
           )}
         </Card>
+
+        {/* Backup Management */}
+        {backups.length > 0 && (
+          <BackupSection>
+            <Card theme={theme}>
+              <h3 style={{ color: theme.PRIMARY, marginTop: 0, marginBottom: '15px' }}>
+                System Backups
+              </h3>
+              <BackupList>
+                {backups.map((backup) => (
+                  <BackupItem key={`${backup.name}-${backup.backupDate}`} theme={theme}>
+                    <BackupInfo>
+                      <BackupName theme={theme}>{backup.name}</BackupName>
+                      <BackupDate theme={theme}>
+                        Backed up: {formatDate(backup.backupDate)}
+                      </BackupDate>
+                    </BackupInfo>
+                    <BackupActions>
+                      <IconButton
+                        theme={theme}
+                        onClick={() => importFromBackup(backup)}
+                        disabled={loading}
+                        title="Import this backup"
+                      >
+                        <Upload size={18} />
+                      </IconButton>
+                      <IconButton
+                        theme={theme}
+                        $variant="danger"
+                        onClick={() => deleteBackup(backup.name)}
+                        disabled={loading}
+                        title="Delete this backup"
+                      >
+                        <X size={18} />
+                      </IconButton>
+                    </BackupActions>
+                  </BackupItem>
+                ))}
+              </BackupList>
+            </Card>
+          </BackupSection>
+        )}
       </PageContainer>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <>
+          <ModalOverlay onClick={handleCancel} />
+          <ConfirmModal theme={theme}>
+            <ModalTitle theme={theme}>Confirm Action</ModalTitle>
+            <ModalText theme={theme}>{confirmMessage}</ModalText>
+            <ModalButtons>
+              <Button theme={theme} variant="secondary" onClick={handleCancel}>
+                Cancel
+              </Button>
+              <Button theme={theme} onClick={handleConfirm}>
+                Confirm
+              </Button>
+            </ModalButtons>
+          </ConfirmModal>
+        </>
+      )}
     </motion.div>
   );
 };

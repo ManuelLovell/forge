@@ -8,7 +8,8 @@ interface ThemeContextType {
     primary: string,
     offset: string,
     background: string,
-    border: string
+    border: string,
+    backgroundUrl?: string
   ) => void;
 }
 
@@ -25,9 +26,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     primary: string,
     offset: string,
     background: string,
-    border: string
+    border: string,
+    backgroundUrl?: string
   ) => {
-    const newTheme = createTheme(primary, offset, background, border);
+    const newTheme = createTheme(primary, offset, background, border, backgroundUrl);
     setTheme(newTheme);
   };
 

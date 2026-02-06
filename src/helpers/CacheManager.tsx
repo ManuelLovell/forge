@@ -88,6 +88,7 @@ export function CacheSync({ children }: { children: React.ReactNode })
             LOGGER.log('CacheManager: Cache is ready');
         };
 
+        // Extra onReady to catch late initializations
         OBR.onReady(async () =>
         {
             const isReady = await OBR.scene.isReady();

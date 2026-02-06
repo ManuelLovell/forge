@@ -128,14 +128,29 @@ export const SystemPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   
-  // Current system info
+  // Current system info - loaded from OBR metadata
   const [currentSystemName, setCurrentSystemName] = useState<string>('');
   const [currentImportDate, setCurrentImportDate] = useState<string | null>(null);
   const [currentTheme, setCurrentTheme] = useState<ThemeData | null>(null);
 
-  // Load current system info from OBR metadata
+  // Load current system info from OBR metadata on mount
   useEffect(() => {
     loadCurrentSystem();
+    
+    // Subscribe to metadata changes to reflect updates
+    const unsubscribe = OBR.scene.onMetadataChange((metadata) => {
+      const themeMeta = metadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
+      const systemName = metadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
+      const importDate = metadata[SystemKeys.IMPORT_DATE] as string || null;
+      
+      if (themeMeta) {
+        setCurrentTheme(themeMeta);
+        setCurrentSystemName(systemName);
+        setCurrentImportDate(importDate);
+      }
+    });
+    
+    return () => unsubscribe();
   }, []);
 
   const loadCurrentSystem = async () => {
@@ -143,69 +158,16 @@ export const SystemPage = () => {
       const metadata = await OBR.scene.getMetadata();
       
       const themeMeta = metadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
-      const cardMeta = metadata[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
-      const listMeta = metadata[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;
-      const attrMeta = metadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
-      
-      // If any key is missing, use default system
-      if (!themeMeta || !cardMeta || !listMeta || !attrMeta) {
-        LOGGER.log('Missing system data, using default');
-        await loadDefaultSystem();
-        return;
-      }
-      
-      // Load stored system info
       const systemName = metadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
       const importDate = metadata[SystemKeys.IMPORT_DATE] as string || null;
       
       setCurrentSystemName(systemName);
       setCurrentImportDate(importDate);
-      setCurrentTheme(themeMeta);
-      
-      // Apply theme
-      updateThemeFromSystem(
-        themeMeta.primary,
-        themeMeta.offset,
-        themeMeta.background,
-        themeMeta.border
-      );
+      setCurrentTheme(themeMeta || null);
       
     } catch (err) {
       LOGGER.error('Error loading system:', err);
-      await loadDefaultSystem();
     }
-  };
-
-  const loadDefaultSystem = async () => {
-    const defaultTheme: ThemeData = {
-      primary: defaultGameSystem.theme_primary,
-      offset: defaultGameSystem.theme_offset,
-      background: defaultGameSystem.theme_background,
-      border: defaultGameSystem.theme_border,
-      background_url: defaultGameSystem.background_url,
-    };
-    
-    // Store default system in OBR
-    await OBR.scene.setMetadata({
-      [SystemKeys.CURRENT_THEME]: defaultTheme,
-      [SystemKeys.CURRENT_CARD]: defaultGameSystem.card_layout,
-      [SystemKeys.CURRENT_LIST]: defaultGameSystem.list_layout,
-      [SystemKeys.CURRENT_ATTR]: defaultGameSystem.attributes,
-      [SystemKeys.SYSTEM_NAME]: defaultGameSystem.name,
-      [SystemKeys.IMPORT_DATE]: null,
-    });
-    
-    setCurrentSystemName(defaultGameSystem.name);
-    setCurrentImportDate(null);
-    setCurrentTheme(defaultTheme);
-    
-    // Apply theme
-    updateThemeFromSystem(
-      defaultTheme.primary,
-      defaultTheme.offset,
-      defaultTheme.background,
-      defaultTheme.border
-    );
   };
 
   const fetchAndSaveSystem = async () => {
@@ -262,7 +224,8 @@ export const SystemPage = () => {
         themeData.primary,
         themeData.offset,
         themeData.background,
-        themeData.border
+        themeData.border,
+        themeData.background_url
       );
       
       setSuccess(`System "${systemData.name}" loaded successfully!`);
@@ -284,10 +247,42 @@ export const SystemPage = () => {
     setSuccess(null);
     
     try {
-      await loadDefaultSystem();
+      const defaultTheme: ThemeData = {
+        primary: defaultGameSystem.theme_primary,
+        offset: defaultGameSystem.theme_offset,
+        background: defaultGameSystem.theme_background,
+        border: defaultGameSystem.theme_border,
+        background_url: defaultGameSystem.background_url,
+      };
+      
+      // Store default system in OBR
+      await OBR.scene.setMetadata({
+        [SystemKeys.CURRENT_THEME]: defaultTheme,
+        [SystemKeys.CURRENT_CARD]: defaultGameSystem.card_layout,
+        [SystemKeys.CURRENT_LIST]: defaultGameSystem.list_layout,
+        [SystemKeys.CURRENT_ATTR]: defaultGameSystem.attributes,
+        [SystemKeys.SYSTEM_NAME]: defaultGameSystem.name,
+        [SystemKeys.IMPORT_DATE]: null,
+      });
+      
+      // Update local state
+      setCurrentSystemName(defaultGameSystem.name);
+      setCurrentImportDate(null);
+      setCurrentTheme(defaultTheme);
+      
+      // Apply theme
+      updateThemeFromSystem(
+        defaultTheme.primary,
+        defaultTheme.offset,
+        defaultTheme.background,
+        defaultTheme.border,
+        defaultTheme.background_url
+      );
+      
       setSuccess('Reset to default system successfully!');
     } catch (err: any) {
       setError('Failed to reset to default system');
+      LOGGER.error('Error resetting to default:', err);
     } finally {
       setLoading(false);
     }

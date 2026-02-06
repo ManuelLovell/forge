@@ -9,10 +9,42 @@ import { ChatLogPage } from './components/ChatLogPage';
 import { SystemPage } from './components/SystemPage';
 import { ThemeDemo } from './components/ThemeDemo';
 import { useForgeTheme } from './helpers/ThemeContext';
+import { useAppInitialization } from './helpers/useAppInitialization';
 import GlobalStyles from './styles/GlobalStyles';
+import styled from 'styled-components';
+
+const LoadingContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #1e2232;
+  color: #ffffff;
+`;
+
+const LoadingSpinner = styled.div`
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #9d99ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+
+const LoadingText = styled.p`
+  margin-top: 20px;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.8);
+`;
 
 function App() {
   const { sceneReady, cacheReady } = useSceneStore();
+  const { isInitialized } = useAppInitialization();
   const { theme } = useForgeTheme();
   const [currentPage, setCurrentPage] = useState<PageType>('ForgeMain');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -76,11 +108,19 @@ function App() {
   return (
     <>
       <GlobalStyles theme={theme} />
-      {!sceneReady || !cacheReady ? (
-        <div>Loading cache systems...</div>
+      {!sceneReady || !cacheReady || !isInitialized ? (
+        <LoadingContainer>
+          <LoadingSpinner />
+          <LoadingText>
+            {!sceneReady ? 'Connecting to scene...' : 
+             !cacheReady ? 'Loading cache...' : 
+             !isInitialized ? 'Initializing system...' : 
+             'Loading...'}
+          </LoadingText>
+        </LoadingContainer>
       ) : (
         <AppContainer>
-          <ContentArea>
+          <ContentArea theme={theme} $backgroundUrl={theme.BACKGROUND_URL}>
             <AnimatePresence mode="wait">
               {renderPage()}
             </AnimatePresence>

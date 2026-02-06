@@ -15,7 +15,8 @@ export const useSystemTheme = (systemData: SystemResponse | null) => {
         systemData.theme_primary,
         systemData.theme_offset,
         systemData.theme_background,
-        systemData.theme_border
+        systemData.theme_border,
+        systemData.background_url
       );
     }
   }, [systemData, updateThemeFromSystem]);

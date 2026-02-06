@@ -153,15 +153,15 @@ export const ThemeDemo = () => {
     const { theme, updateThemeFromSystem } = useForgeTheme();
 
     const resetToTestColors = () => {
-        updateThemeFromSystem('#FF0000', '#00FF00', '#0000FF', '#FFFF00');
+        updateThemeFromSystem('#FF0000', '#00FF00', '#0000FF', '#FFFF00', undefined);
     };
 
     const setDarkTheme = () => {
-        updateThemeFromSystem('#FFFFFF', '#9d99ff', '#1e2232', '#999999');
+        updateThemeFromSystem('#FFFFFF', '#9d99ff', '#1e2232', '#999999', undefined);
     };
 
     const setLightTheme = () => {
-        updateThemeFromSystem('#000000', '#e0e7ff', '#ffffff', '#cccccc');
+        updateThemeFromSystem('#000000', '#e0e7ff', '#ffffff', '#cccccc', undefined);
     };
 
     return (

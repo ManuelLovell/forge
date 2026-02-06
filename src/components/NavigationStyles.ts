@@ -7,8 +7,26 @@ export const AppContainer = tw.div`
   flex flex-col h-screen relative
 `;
 
-export const ContentArea = tw.div`
-  flex-1 overflow-auto
+export const ContentArea = styled.div<{ theme: ForgeTheme; $backgroundUrl?: string }>`
+  ${tw`flex-1 overflow-auto relative`}
+  
+  ${props => props.$backgroundUrl && `
+    &::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image: url(${props.$backgroundUrl});
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: bottom right;
+      opacity: 0.3;
+      pointer-events: none;
+      z-index: 0;
+    }
+  `}
 `;
 
 export const MenuOverlay = styled(motion.div)<{ theme: ForgeTheme }>`

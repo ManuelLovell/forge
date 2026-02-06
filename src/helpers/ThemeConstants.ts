@@ -7,6 +7,7 @@ export const DEFAULT_THEME = {
   OFFSET: '#2b772b',       // GREEN - Background for buttons/inputs and header backgrounds, text color for list headers
   BACKGROUND: '#203b1f',   // BLUE - Background color (typically at 70% opacity)
   BORDER: '#9b8007',       // YELLOW - Border color for windows, buttons, and line breaks
+  BACKGROUND_URL: '',      // Optional background image URL
 } as const;
 
 /**
@@ -17,6 +18,7 @@ export interface ForgeTheme {
   OFFSET: string;
   BACKGROUND: string;
   BORDER: string;
+  BACKGROUND_URL?: string;
 }
 
 /**
@@ -49,10 +51,12 @@ export const createTheme = (
   primary: string,
   offset: string,
   background: string,
-  border: string
+  border: string,
+  backgroundUrl?: string
 ): ForgeTheme => ({
   PRIMARY: primary,
   OFFSET: offset,
   BACKGROUND: background,
   BORDER: border,
+  BACKGROUND_URL: backgroundUrl,
 });

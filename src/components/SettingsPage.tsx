@@ -25,6 +25,8 @@ export const SettingsPage = () => {
 
   // List Controls state
   const [showRollerColumn, setShowRollerColumn] = useState(false);
+  const [popcornInitiative, setPopcornInitiative] = useState(false);
+  const [reverseInitiative, setReverseInitiative] = useState(false);
   const [diceRange, setDiceRange] = useState('D20');
   const [showCardAccess, setShowCardAccess] = useState(false);
 
@@ -59,6 +61,12 @@ export const SettingsPage = () => {
     // Load all settings from metadata
     if (storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] !== undefined) {
       setShowRollerColumn(storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] as boolean);
+    }
+    if (storageContainer[SettingsConstants.POPCORN_INITIATIVE] !== undefined) {
+      setPopcornInitiative(storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean);
+    }
+    if (storageContainer[SettingsConstants.REVERSE_INITIATIVE] !== undefined) {
+      setReverseInitiative(storageContainer[SettingsConstants.REVERSE_INITIATIVE] as boolean);
     }
     if (storageContainer[SettingsConstants.DICE_RANGE] !== undefined) {
       setDiceRange(storageContainer[SettingsConstants.DICE_RANGE] as string);
@@ -139,10 +147,44 @@ export const SettingsPage = () => {
           </ButtonGroup>
         </Card>
 
-        {/* List Controls, Defaults */}
+        {/* List Controls */}
         <Card theme={theme}>
-          <SectionTitle theme={theme}>List Controls, Defaults</SectionTitle>
-          
+          <SectionTitle theme={theme}>List Controls</SectionTitle>
+
+          <ControlRow theme={theme}>
+            <ControlLabel theme={theme}>Reverse Initiative</ControlLabel>
+            <ToggleControl
+              label="Reverse Initiative"
+              isOn={reverseInitiative}
+              onChange={async (value) => {
+                setReverseInitiative(value);
+                await saveData(SettingsConstants.REVERSE_INITIATIVE, value);
+                // Turn off Popcorn Initiative if Reverse Initiative is turned on
+                if (value && popcornInitiative) {
+                  setPopcornInitiative(false);
+                  await saveData(SettingsConstants.POPCORN_INITIATIVE, false);
+                }
+              }}
+            />
+          </ControlRow>
+
+          <ControlRow theme={theme}>
+            <ControlLabel theme={theme}>Popcorn Initiative</ControlLabel>
+            <ToggleControl
+              label="Popcorn Initiative"
+              isOn={popcornInitiative}
+              onChange={async (value) => {
+                setPopcornInitiative(value);
+                await saveData(SettingsConstants.POPCORN_INITIATIVE, value);
+                // Turn off Reverse Initiative if Popcorn Initiative is turned on
+                if (value && reverseInitiative) {
+                  setReverseInitiative(false);
+                  await saveData(SettingsConstants.REVERSE_INITIATIVE, false);
+                }
+              }}
+            />
+          </ControlRow>
+
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>Show Roller Column</ControlLabel>
             <ToggleControl

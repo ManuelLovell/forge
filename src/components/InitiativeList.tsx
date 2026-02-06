@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import styled from 'styled-components';
 import OBR from '@owlbear-rodeo/sdk';
 import { useSystemData } from '../helpers/useSystemData';
 import { useForgeTheme } from '../helpers/ThemeContext';
+import { useSceneStore } from '../helpers/BSCache';
+import { SettingsConstants } from '../interfaces/SettingsKeys.d';
 import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { 
@@ -74,7 +76,7 @@ const mockUnits: Unit[] = [
   },
   {
     id: '2',
-    initiative: 18,
+    initiative: 2,
     name: 'Knight',
     elevation: 0,
     attributes: {
@@ -90,7 +92,7 @@ const mockUnits: Unit[] = [
   },
   {
     id: '3',
-    initiative: 15,
+    initiative: 5,
     name: 'Fire Elemental',
     elevation: 0,
     attributes: {
@@ -120,7 +122,7 @@ const mockUnits: Unit[] = [
   },
   {
     id: '5',
-    initiative: 8,
+    initiative: 18,
     name: 'Wizard',
     elevation: 0,
     attributes: {
@@ -212,6 +214,32 @@ const InitiativeCell = styled(DataCell)<{ theme: ForgeTheme }>`
   min-width: 60px;
 `;
 
+const InitiativeInput = styled.input<{ theme: ForgeTheme }>`
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid ${props => props.theme.BORDER};
+  border-radius: 4px;
+  color: ${props => props.theme.OFFSET};
+  padding: 2px 4px;
+  font-size: 18px;
+  font-weight: 700;
+  width: 50px;
+  text-align: center;
+  backdrop-filter: blur(12px);
+  
+  /* Remove spinner controls */
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  -moz-appearance: textfield;
+  
+  &:focus {
+    outline: none;
+    border-color: ${props => props.theme.OFFSET};
+  }
+`;
+
 const NameCell = styled(DataCell)<{ theme: ForgeTheme }>`
   text-align: left;
   font-weight: 500;
@@ -228,6 +256,14 @@ const ValueInput = styled.input<{ $small?: boolean; theme: ForgeTheme }>`
   width: ${props => props.$small ? '40px' : '60px'};
   text-align: center;
   backdrop-filter: blur(12px);
+  
+  /* Remove spinner controls */
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  -moz-appearance: textfield;
   
   &:focus {
     outline: none;
@@ -360,9 +396,45 @@ const deserializeListLayout = (
 export const InitiativeList: React.FC = () => {
   const { theme } = useForgeTheme();
   const { listLayout, isLoading } = useSystemData();
-  const [units] = useState<Unit[]>(mockUnits);
+  const roomMetadata = useSceneStore((state) => state.roomMetadata);
+  const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
+  const [units, setUnits] = useState<Unit[]>(mockUnits);
   const [listColumns, setListColumns] = useState<ListColumn[]>([]);
   const tableRef = useRef<HTMLTableElement>(null);
+
+  // Control for setting the data to Room or to Scene
+  const dataStoredinRoom = false; // For now, all settings are saved to Scene level
+  const storageContainer = dataStoredinRoom ? roomMetadata : sceneMetadata;
+
+  // Get reverse initiative setting
+  const reverseInitiative = storageContainer[SettingsConstants.REVERSE_INITIATIVE] as boolean || false;
+
+  // Sort units by initiative and then alphabetically by name
+  const sortedUnits = useMemo(() => {
+    return [...units].sort((a, b) => {
+      // First, sort by initiative
+      if (a.initiative !== b.initiative) {
+        // If reverse initiative is on, sort ascending (lowest first)
+        // Otherwise, sort descending (highest first)
+        return reverseInitiative 
+          ? a.initiative - b.initiative 
+          : b.initiative - a.initiative;
+      }
+      // If initiative is the same, sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+  }, [units, reverseInitiative]);
+
+  // Handler for updating initiative
+  const handleInitiativeChange = (unitId: string, newInitiative: string) => {
+    const initiativeValue = parseInt(newInitiative) || 0;
+    setUnits(prevUnits =>
+      prevUnits.map(unit =>
+        unit.id === unitId ? { ...unit, initiative: initiativeValue } : unit
+      )
+    );
+    // TODO: Update in cache/metadata
+  };
 
   // Deserialize list layout on mount or when listLayout changes
   useEffect(() => {
@@ -410,7 +482,16 @@ export const InitiativeList: React.FC = () => {
   const renderCell = (col: ListColumn, unit: Unit) => {
     switch (col.type) {
       case 'initiative':
-        return <InitiativeCell theme={theme}>{unit.initiative}</InitiativeCell>;
+        return (
+          <InitiativeCell theme={theme}>
+            <InitiativeInput
+              theme={theme}
+              type="number"
+              value={unit.initiative}
+              onChange={(e) => handleInitiativeChange(unit.id, e.target.value)}
+            />
+          </InitiativeCell>
+        );
       
       case 'name':
         return <NameCell theme={theme}>{unit.name}</NameCell>;
@@ -529,7 +610,7 @@ export const InitiativeList: React.FC = () => {
             </HeaderRow>
           </TableHead>
           <TableBody>
-            {units.map(unit => (
+            {sortedUnits.map(unit => (
               <DataRow key={unit.id}>
                 {listColumns.map(col => (
                   <React.Fragment key={col.id}>

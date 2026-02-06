@@ -12,6 +12,8 @@ const EXTENSION_ID = OwlbearIds.EXTENSIONID;
 export class SettingsConstants {
   // List Controls
   static SHOW_ROLLER_COLUMN = `${EXTENSION_ID}/rollclmn`;
+  static REVERSE_INITIATIVE = `${EXTENSION_ID}/revinit`;
+  static POPCORN_INITIATIVE = `${EXTENSION_ID}/popinit`;
   static DICE_RANGE = `${EXTENSION_ID}/dicernge`;
   static SHOW_CARD_ACCESS = `${EXTENSION_ID}/cardshow`;
 

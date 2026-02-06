@@ -1,7 +1,8 @@
 import './styles/App.css'
 import { useSceneStore } from './helpers/BSCache';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import OBR from '@owlbear-rodeo/sdk';
 import { Navigation, type PageType } from './components/NavigationComponent';
 import { AppContainer, ContentArea } from './components/NavigationStyles';
 import { SettingsPage } from './components/SettingsPage';
@@ -94,6 +95,13 @@ function App() {
     setCurrentPage(page);
     setIsMenuOpen(false);
   };
+
+  // Reset width when navigating away from ForgeMain
+  useEffect(() => {
+    if (currentPage !== 'ForgeMain') {
+      OBR.action.setWidth(350);
+    }
+  }, [currentPage]);
 
   return (
     <>

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
+import OBR from '@owlbear-rodeo/sdk';
 import { useSystemData } from '../helpers/useSystemData';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { ListLayoutComponent } from '../interfaces/SystemResponse';
-import { ForgeTheme } from '../helpers/ThemeConstants';
+import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { 
   Heart, Shield, Sun, Award, Target, Users, Star, 
   Zap, Clock, Eye, Layers, BookOpen 
@@ -138,10 +139,8 @@ const mockUnits: Unit[] = [
 
 // Styled components
 const ListContainer = styled.div`
-  padding: 10px;
+  padding: 2px;
   width: 100%;
-  max-height: calc(100vh - 40px);
-  overflow-y: auto;
 `;
 
 const ListTitle = styled.h1<{ theme: ForgeTheme }>`
@@ -149,6 +148,12 @@ const ListTitle = styled.h1<{ theme: ForgeTheme }>`
   margin-bottom: 20px;
   font-size: 24px;
   font-weight: 600;
+`;
+
+const TableWrapper = styled.div`
+  width: 100%;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
 `;
 
 const Table = styled.table<{ theme: ForgeTheme }>`
@@ -159,8 +164,8 @@ const Table = styled.table<{ theme: ForgeTheme }>`
   overflow: hidden;
 `;
 
-// temporarily removed the bg on tablehead as it may effect readability with certain themes
-const TableHead = styled.thead`
+const TableHead = styled.thead<{ theme: ForgeTheme }>`
+  background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.35)};
 `;
 
 const HeaderRow = styled.tr``;
@@ -195,7 +200,7 @@ const DataRow = styled.tr`
 
 const DataCell = styled.td<{ theme: ForgeTheme }>`
   color: ${props => props.theme.PRIMARY};
-  padding: 10px 12px;
+  padding: 2px 6px;
   text-align: center;
   font-size: 14px;
 `;
@@ -218,10 +223,11 @@ const ValueInput = styled.input<{ $small?: boolean; theme: ForgeTheme }>`
   border: 1px solid ${props => props.theme.BORDER};
   border-radius: 4px;
   color: ${props => props.theme.PRIMARY};
-  padding: 4px 8px;
+  padding: 2px 4px;
   font-size: ${props => props.$small ? '12px' : '14px'};
   width: ${props => props.$small ? '40px' : '60px'};
   text-align: center;
+  backdrop-filter: blur(12px);
   
   &:focus {
     outline: none;
@@ -230,7 +236,7 @@ const ValueInput = styled.input<{ $small?: boolean; theme: ForgeTheme }>`
 `;
 
 const Divider = styled.span<{ theme: ForgeTheme }>`
-  margin: 0 6px;
+  margin: 0 2px;
   color: ${props => props.theme.OFFSET};
   font-weight: 500;
 `;
@@ -356,6 +362,7 @@ export const InitiativeList: React.FC = () => {
   const { listLayout, isLoading } = useSystemData();
   const [units] = useState<Unit[]>(mockUnits);
   const [listColumns, setListColumns] = useState<ListColumn[]>([]);
+  const tableRef = useRef<HTMLTableElement>(null);
 
   // Deserialize list layout on mount or when listLayout changes
   useEffect(() => {
@@ -364,6 +371,23 @@ export const InitiativeList: React.FC = () => {
       setListColumns(columns);
     }
   }, [listLayout, isLoading]);
+
+  // Adjust window width based on table width
+  useEffect(() => {
+    if (tableRef.current && listColumns.length > 0) {
+      // Wait a bit for the table to fully render
+      setTimeout(() => {
+        if (tableRef.current) {
+          const tableWidth = tableRef.current.offsetWidth;
+          // Add padding (10px on each side = 20px total) plus a bit extra for scrollbar
+          const totalWidth = tableWidth + 40;
+          // Set width, but cap at a reasonable maximum
+          const finalWidth = Math.min(totalWidth, 800);
+          OBR.action.setWidth(finalWidth);
+        }
+      }, 100);
+    }
+  }, [listColumns, units]);
 
   const getIcon = (iconName?: string) => {
     if (!iconName) return null;
@@ -493,28 +517,30 @@ export const InitiativeList: React.FC = () => {
 
   return (
     <ListContainer>
-      <Table theme={theme}>
-        <TableHead>
-          <HeaderRow>
-            {listColumns.map(col => (
-              <HeaderCell key={col.id} theme={theme}>
-                {renderHeader(col)}
-              </HeaderCell>
-            ))}
-          </HeaderRow>
-        </TableHead>
-        <TableBody>
-          {units.map(unit => (
-            <DataRow key={unit.id}>
+      <TableWrapper>
+        <Table ref={tableRef} theme={theme}>
+          <TableHead theme={theme}>
+            <HeaderRow>
               {listColumns.map(col => (
-                <React.Fragment key={col.id}>
-                  {renderCell(col, unit)}
-                </React.Fragment>
+                <HeaderCell key={col.id} theme={theme}>
+                  {renderHeader(col)}
+                </HeaderCell>
               ))}
-            </DataRow>
-          ))}
-        </TableBody>
-      </Table>
+            </HeaderRow>
+          </TableHead>
+          <TableBody>
+            {units.map(unit => (
+              <DataRow key={unit.id}>
+                {listColumns.map(col => (
+                  <React.Fragment key={col.id}>
+                    {renderCell(col, unit)}
+                  </React.Fragment>
+                ))}
+              </DataRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableWrapper>
     </ListContainer>
   );
 };

@@ -14,8 +14,8 @@ export const ContentArea = styled.div<{ theme: ForgeTheme; $backgroundUrl?: stri
     &::before {
       content: '';
       position: fixed;
-      top: 0;
-      left: 0;
+      height: 350px;
+      width: 350px;
       right: 0;
       bottom: 0;
       background-image: url(${props.$backgroundUrl});
@@ -56,7 +56,7 @@ export const MenuSpacer = tw.div`
 `;
 
 export const MenuNav = styled.nav<{ theme: ForgeTheme }>`
-  ${tw`pt-2 pb-[70px] px-0 flex-none`}
+  ${tw`pt-2 pb-[50px] px-0 flex-none`}
   border-top: 1px solid ${props => props.theme.BORDER};
 `;
 

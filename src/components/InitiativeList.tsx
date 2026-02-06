@@ -9,7 +9,7 @@ import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { 
   Heart, Shield, Sun, Award, Target, Users, Star, 
-  Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle 
+  Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle 
 } from 'lucide-react';
 
 // Internal state model
@@ -677,7 +677,7 @@ export const InitiativeList: React.FC = () => {
                 ) : unit.id === currentTurnId ? (
                   <ArrowRightCircle color={theme.PRIMARY} />
                 ) : (
-                  <ArrowRightCircle color={theme.BORDER} />
+                  <Circle color={theme.BORDER} />
                 )}
               </TurnIcon>
             </InitiativeCell>

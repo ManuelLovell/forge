@@ -7,7 +7,7 @@ import { AppContainer, ContentArea } from './components/NavigationStyles';
 import { SettingsPage } from './components/SettingsPage';
 import { ChatLogPage } from './components/ChatLogPage';
 import { SystemPage } from './components/SystemPage';
-import { ThemeDemo } from './components/ThemeDemo';
+import { InitiativeList } from './components/InitiativeList';
 import { useForgeTheme } from './helpers/ThemeContext';
 import { useAppInitialization } from './helpers/useAppInitialization';
 import GlobalStyles from './styles/GlobalStyles';
@@ -59,17 +59,7 @@ function App() {
     switch (currentPage) {
       case 'ForgeMain':
         return (
-          <motion.div
-            key="main"
-            variants={pageVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            className="p-4"
-          >
-            <h1>Forge Main</h1>
-            <ThemeDemo />
-          </motion.div>
+          <InitiativeList key="main" />
         );
       case 'Settings':
         return (

@@ -37,6 +37,8 @@ export interface ListLayoutStyles {
   labelMode?: 'blank' | 'name' | 'abbr' | 'icon';
   labelName?: string;
   description?: string;
+  styleDesign?: 'default' | 'dashed' | 'shadow' | 'zigzag' | 'ridge' | 'pulse';
+  specialType?: 'effects' | 'elevation';
   [key: string]: any; // Allow additional properties
 }
 
@@ -46,7 +48,7 @@ export interface ListLayoutStyles {
 export interface ListLayoutComponent {
   id: string;
   col: number;
-  type: 'value-column' | 'list-column';
+  type: 'value-column' | 'list-column' | 'checkbox-column' | 'special-column' | 'divider-column';
   styles?: ListLayoutStyles;
 }
 
@@ -58,7 +60,7 @@ export interface SystemAttribute {
   attr_abbr: string;
   attr_func: string | null;
   attr_name: string;
-  attr_type: 'text' | 'numb' | 'list';
+  attr_type: 'text' | 'numb' | 'list' | 'bool';
   attr_group: string;
 }
 

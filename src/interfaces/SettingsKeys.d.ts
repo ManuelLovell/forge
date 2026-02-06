@@ -17,6 +17,10 @@ export class SettingsConstants {
   static DICE_RANGE = `${EXTENSION_ID}/dicernge`;
   static SHOW_CARD_ACCESS = `${EXTENSION_ID}/cardshow`;
 
+  // Initiative Tracking
+  static CURRENT_TURN = `${EXTENSION_ID}/currturn`;
+  static CURRENT_ROUND = `${EXTENSION_ID}/currround`;
+
   // Player Controls
   static SHOW_PLAYER_VIEW = `${EXTENSION_ID}/playview`;
   static SHOW_NON_PARTY_UNITS = `${EXTENSION_ID}/npcview`;

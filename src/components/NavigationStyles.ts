@@ -17,14 +17,14 @@ export const ContentArea = styled.div<{ theme: ForgeTheme; $backgroundUrl?: stri
       height: 350px;
       width: 350px;
       right: 0;
-      bottom: 0;
+      bottom: 50px;
       background-image: url(${props.$backgroundUrl});
       background-size: contain;
       background-repeat: no-repeat;
       background-position: bottom right;
       opacity: 0.3;
       pointer-events: none;
-      z-index: 0;
+      z-index: -1;
     }
   `}
 `;

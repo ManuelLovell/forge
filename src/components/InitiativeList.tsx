@@ -158,6 +158,48 @@ const TableWrapper = styled.div`
   overflow-y: auto;
 `;
 
+const ControlWrapper = styled.div<{ theme: ForgeTheme }>`
+  width: 100%;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px;
+  background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.5)};
+  border-top: 2px solid ${props => props.theme.BORDER};
+`;
+
+const ControlButton = styled.button<{ theme: ForgeTheme }>`
+  background: ${props => rgbaFromHex(props.theme.OFFSET, 0.5)};
+  border: 2px solid ${props => props.theme.BORDER};
+  border-radius: 6px;
+  color: ${props => props.theme.PRIMARY};
+  padding: 4px 8px;
+  width: 80px;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant: small-caps;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: ${props => props.theme.OFFSET};
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+`;
+
+const RoundDisplay = styled.div<{ theme: ForgeTheme }>`
+  color: ${props => props.theme.PRIMARY};
+  font-size: 16px;
+  font-weight: 600;
+  min-width: 80px;
+  text-align: center;
+`;
+
 const Table = styled.table<{ theme: ForgeTheme }>`
   width: 100%;
   border-collapse: separate;
@@ -190,7 +232,11 @@ const HeaderCell = styled.th<{ theme: ForgeTheme }>`
 
 const TableBody = styled.tbody``;
 
-const DataRow = styled.tr`
+const DataRow = styled.tr<{ $isCurrentTurn?: boolean; theme?: ForgeTheme }>`
+  ${props => props.$isCurrentTurn && props.theme && `
+    background: linear-gradient(to left, ${rgbaFromHex(props.theme.OFFSET, 0.4)} 0%, transparent 100%);
+  `}
+  
   &:hover {
     background-color: rgba(255, 255, 255, 0.05);
   }
@@ -247,7 +293,7 @@ const NameCell = styled(DataCell)<{ theme: ForgeTheme }>`
 `;
 
 const ValueInput = styled.input<{ $small?: boolean; theme: ForgeTheme }>`
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.4);
   border: 1px solid ${props => props.theme.BORDER};
   border-radius: 4px;
   color: ${props => props.theme.PRIMARY};
@@ -400,6 +446,8 @@ export const InitiativeList: React.FC = () => {
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
   const [units, setUnits] = useState<Unit[]>(mockUnits);
   const [listColumns, setListColumns] = useState<ListColumn[]>([]);
+  const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
+  const [currentRound, setCurrentRound] = useState<number>(1);
   const tableRef = useRef<HTMLTableElement>(null);
 
   // Control for setting the data to Room or to Scene
@@ -443,6 +491,72 @@ export const InitiativeList: React.FC = () => {
       setListColumns(columns);
     }
   }, [listLayout, isLoading]);
+
+  // Load current turn and round from metadata
+  useEffect(() => {
+    const savedTurnId = sceneMetadata[SettingsConstants.CURRENT_TURN] as string | undefined;
+    const savedRound = sceneMetadata[SettingsConstants.CURRENT_ROUND] as number | undefined;
+    
+    if (savedTurnId) {
+      setCurrentTurnId(savedTurnId);
+    } else if (sortedUnits.length > 0) {
+      // Initialize with first unit if no saved turn
+      setCurrentTurnId(sortedUnits[0].id);
+    }
+    
+    if (savedRound) {
+      setCurrentRound(savedRound);
+    }
+  }, [sceneMetadata, sortedUnits]);
+
+  // Handlers for turn navigation
+  const handleNext = async () => {
+    if (sortedUnits.length === 0) return;
+    
+    const currentIndex = sortedUnits.findIndex(u => u.id === currentTurnId);
+    const nextIndex = currentIndex + 1;
+    
+    if (nextIndex >= sortedUnits.length) {
+      // End of list, go back to top and increment round
+      const newRound = currentRound + 1;
+      setCurrentRound(newRound);
+      setCurrentTurnId(sortedUnits[0].id);
+      await OBR.scene.setMetadata({
+        [SettingsConstants.CURRENT_TURN]: sortedUnits[0].id,
+        [SettingsConstants.CURRENT_ROUND]: newRound
+      });
+    } else {
+      // Move to next unit
+      setCurrentTurnId(sortedUnits[nextIndex].id);
+      await OBR.scene.setMetadata({
+        [SettingsConstants.CURRENT_TURN]: sortedUnits[nextIndex].id
+      });
+    }
+  };
+
+  const handlePrevious = async () => {
+    if (sortedUnits.length === 0) return;
+    
+    const currentIndex = sortedUnits.findIndex(u => u.id === currentTurnId);
+    const prevIndex = currentIndex - 1;
+    
+    if (prevIndex < 0) {
+      // Beginning of list, go to end and decrement round
+      const newRound = Math.max(1, currentRound - 1);
+      setCurrentRound(newRound);
+      setCurrentTurnId(sortedUnits[sortedUnits.length - 1].id);
+      await OBR.scene.setMetadata({
+        [SettingsConstants.CURRENT_TURN]: sortedUnits[sortedUnits.length - 1].id,
+        [SettingsConstants.CURRENT_ROUND]: newRound
+      });
+    } else {
+      // Move to previous unit
+      setCurrentTurnId(sortedUnits[prevIndex].id);
+      await OBR.scene.setMetadata({
+        [SettingsConstants.CURRENT_TURN]: sortedUnits[prevIndex].id
+      });
+    }
+  };
 
   // Adjust window width based on table width
   useEffect(() => {
@@ -611,7 +725,11 @@ export const InitiativeList: React.FC = () => {
           </TableHead>
           <TableBody>
             {sortedUnits.map(unit => (
-              <DataRow key={unit.id}>
+              <DataRow 
+                key={unit.id} 
+                $isCurrentTurn={unit.id === currentTurnId}
+                theme={theme}
+              >
                 {listColumns.map(col => (
                   <React.Fragment key={col.id}>
                     {renderCell(col, unit)}
@@ -622,6 +740,17 @@ export const InitiativeList: React.FC = () => {
           </TableBody>
         </Table>
       </TableWrapper>
+      <ControlWrapper theme={theme}>
+        <ControlButton theme={theme} onClick={handlePrevious}>
+          Previous
+        </ControlButton>
+        <RoundDisplay theme={theme}>
+          Round: {currentRound}
+        </RoundDisplay>
+        <ControlButton theme={theme} onClick={handleNext}>
+          Next
+        </ControlButton>
+      </ControlWrapper>
     </ListContainer>
   );
 };

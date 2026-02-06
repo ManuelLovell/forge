@@ -1,21 +1,64 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import OBR from '@owlbear-rodeo/sdk';
-import {
-  SectionTitle,
-  ControlRow,
-  ControlLabel,
-  SubControlRow,
-  SubControlLabel,
-  SmallInput,
-  ButtonGroup,
-} from './SettingsStyles';
+import styled from 'styled-components';
+import tw from 'twin.macro';
 import { PageContainer, PageTitle, Button, Card } from './SharedStyledComponents';
 import { ToggleControl } from './ToggleControl';
 import LOGGER from '../helpers/Logger';
 import { SettingsConstants } from '../interfaces/SettingsKeys.d';
 import { useSceneStore } from '../helpers/BSCache';
 import { useForgeTheme } from '../helpers/ThemeContext';
+import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
+
+// Styled Components
+const SectionTitle = styled.h2<{ theme: ForgeTheme }>`
+  ${tw`text-xl font-semibold mb-4 pb-2`}
+  color: ${props => props.theme.PRIMARY};
+  border-bottom: 2px solid ${props => props.theme.BORDER};
+`;
+
+const ControlRow = styled.div<{ theme: ForgeTheme }>`
+  ${tw`flex items-center justify-between py-1 last:border-b-0`}
+  color: ${props => props.theme.PRIMARY};
+`;
+
+const ControlLabel = styled.label<{ theme: ForgeTheme }>`
+  ${tw`text-base cursor-pointer flex-1 text-left`}
+  color: ${props => props.theme.PRIMARY};
+`;
+
+const SubControlRow = styled.div<{ theme: ForgeTheme }>`
+  ${tw`flex items-center gap-3 ml-4`}
+  color: ${props => props.theme.PRIMARY};
+`;
+
+const SubControlLabel = styled.label<{ theme: ForgeTheme }>`
+  ${tw`text-sm`}
+  color: ${props => props.theme.PRIMARY};
+`;
+
+const SmallInput = styled.input<{ theme: ForgeTheme }>`
+  ${tw`rounded px-3 py-1 text-sm`}
+  background-color: rgba(0, 0, 0, 0.5);
+  color: ${props => props.theme.PRIMARY};
+  border: 2px solid ${props => props.theme.BORDER};
+  border-radius: 6px;
+  
+  &::placeholder {
+    color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.5)};
+  }
+  
+  &:focus {
+    outline: none;
+    border-color: ${props => props.theme.OFFSET};
+    background-color: rgba(0, 0, 0, 0.6);
+  }
+`;
+
+const ButtonGroup = tw.div`
+  flex gap-3 mt-2 justify-center
+`;
 
 export const SettingsPage = () => {
   const { theme } = useForgeTheme();

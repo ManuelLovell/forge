@@ -9,7 +9,7 @@ import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { 
   Heart, Shield, Sun, Award, Target, Users, Star, 
-  Zap, Clock, Eye, Layers, BookOpen 
+  Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle 
 } from 'lucide-react';
 
 // Internal state model
@@ -170,25 +170,26 @@ const ControlWrapper = styled.div<{ theme: ForgeTheme }>`
   border-top: 2px solid ${props => props.theme.BORDER};
 `;
 
-const ControlButton = styled.button<{ theme: ForgeTheme }>`
-  background: ${props => rgbaFromHex(props.theme.OFFSET, 0.5)};
+const ControlButton = styled.button<{ theme: ForgeTheme; disabled?: boolean }>`
+  background: ${props => props.disabled ? rgbaFromHex(props.theme.BORDER, 0.3) : rgbaFromHex(props.theme.OFFSET, 0.5)};
   border: 2px solid ${props => props.theme.BORDER};
   border-radius: 6px;
   color: ${props => props.theme.PRIMARY};
-  padding: 4px 8px;
+  padding: 4px 4px;
   width: 80px;
   font-size: 14px;
   font-weight: 600;
   font-variant: small-caps;
-  cursor: pointer;
+  cursor: ${props => props.disabled ? 'not-allowed' : 'pointer'};
   transition: all 0.2s ease;
+  opacity: ${props => props.disabled ? 0.5 : 1};
   
   &:hover {
-    background: ${props => props.theme.OFFSET};
+    background: ${props => props.disabled ? rgbaFromHex(props.theme.BORDER, 0.3) : props.theme.OFFSET};
   }
   
   &:active {
-    transform: scale(0.95);
+    transform: ${props => props.disabled ? 'none' : 'scale(0.95)'};
   }
 `;
 
@@ -260,6 +261,20 @@ const InitiativeCell = styled(DataCell)<{ theme: ForgeTheme }>`
   min-width: 60px;
 `;
 
+const TurnIcon = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+`;
+
 const InitiativeInput = styled.input<{ theme: ForgeTheme }>`
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid ${props => props.theme.BORDER};
@@ -289,7 +304,7 @@ const InitiativeInput = styled.input<{ theme: ForgeTheme }>`
 const NameCell = styled(DataCell)<{ theme: ForgeTheme }>`
   text-align: left;
   font-weight: 500;
-  min-width: 150px;
+  min-width: 120px;
 `;
 
 const ValueInput = styled.input<{ $small?: boolean; theme: ForgeTheme }>`
@@ -448,17 +463,24 @@ export const InitiativeList: React.FC = () => {
   const [listColumns, setListColumns] = useState<ListColumn[]>([]);
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
   const [currentRound, setCurrentRound] = useState<number>(1);
+  const [completedUnits, setCompletedUnits] = useState<Set<string>>(new Set());
   const tableRef = useRef<HTMLTableElement>(null);
 
   // Control for setting the data to Room or to Scene
   const dataStoredinRoom = false; // For now, all settings are saved to Scene level
   const storageContainer = dataStoredinRoom ? roomMetadata : sceneMetadata;
 
-  // Get reverse initiative setting
+  // Get settings
   const reverseInitiative = storageContainer[SettingsConstants.REVERSE_INITIATIVE] as boolean || false;
+  const popcornInitiative = storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean || false;
 
-  // Sort units by initiative and then alphabetically by name
+  // Sort units by initiative and then alphabetically by name (only in normal mode)
   const sortedUnits = useMemo(() => {
+    if (popcornInitiative) {
+      // In popcorn mode, just sort alphabetically by name
+      return [...units].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    
     return [...units].sort((a, b) => {
       // First, sort by initiative
       if (a.initiative !== b.initiative) {
@@ -471,7 +493,7 @@ export const InitiativeList: React.FC = () => {
       // If initiative is the same, sort alphabetically by name
       return a.name.localeCompare(b.name);
     });
-  }, [units, reverseInitiative]);
+  }, [units, reverseInitiative, popcornInitiative]);
 
   // Handler for updating initiative
   const handleInitiativeChange = (unitId: string, newInitiative: string) => {
@@ -558,6 +580,40 @@ export const InitiativeList: React.FC = () => {
     }
   };
 
+  // Popcorn Initiative handlers
+  const handleUnitClick = async (unitId: string) => {
+    if (!popcornInitiative) return;
+    if (completedUnits.has(unitId)) return; // Can't select already completed units
+    
+    setCurrentTurnId(unitId);
+    await OBR.scene.setMetadata({
+      [SettingsConstants.CURRENT_TURN]: unitId
+    });
+  };
+
+  const handleEndTurn = () => {
+    if (!currentTurnId) return;
+    
+    setCompletedUnits(prev => new Set([...prev, currentTurnId]));
+    
+    // Check if all units have gone
+    if (completedUnits.size + 1 >= sortedUnits.length) {
+      // All done, but don't auto-advance - let user click New Round
+    }
+  };
+
+  const handleNewRound = async () => {
+    const newRound = currentRound + 1;
+    setCurrentRound(newRound);
+    setCompletedUnits(new Set());
+    setCurrentTurnId(null);
+    
+    await OBR.scene.setMetadata({
+      [SettingsConstants.CURRENT_TURN]: null,
+      [SettingsConstants.CURRENT_ROUND]: newRound
+    });
+  };
+
   // Adjust window width based on table width
   useEffect(() => {
     if (tableRef.current && listColumns.length > 0) {
@@ -573,7 +629,7 @@ export const InitiativeList: React.FC = () => {
         }
       }, 100);
     }
-  }, [listColumns, units]);
+  }, [listColumns.length]);
 
   const getIcon = (iconName?: string) => {
     if (!iconName) return null;
@@ -596,6 +652,38 @@ export const InitiativeList: React.FC = () => {
   const renderCell = (col: ListColumn, unit: Unit) => {
     switch (col.type) {
       case 'initiative':
+        if (popcornInitiative) {
+          // In popcorn mode, show completion indicator
+          return (
+            <InitiativeCell theme={theme}>
+              <TurnIcon
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (completedUnits.has(unit.id)) {
+                    // Already completed, do nothing
+                    return;
+                  }
+                  if (unit.id === currentTurnId) {
+                    // Current unit clicked - end their turn
+                    handleEndTurn();
+                  } else {
+                    // Different unit clicked - select them
+                    handleUnitClick(unit.id);
+                  }
+                }}
+              >
+                {completedUnits.has(unit.id) ? (
+                  <CheckCircle color={theme.OFFSET} />
+                ) : unit.id === currentTurnId ? (
+                  <ArrowRightCircle color={theme.PRIMARY} />
+                ) : (
+                  <ArrowRightCircle color={theme.BORDER} />
+                )}
+              </TurnIcon>
+            </InitiativeCell>
+          );
+        }
+        // Normal mode: show initiative input
         return (
           <InitiativeCell theme={theme}>
             <InitiativeInput
@@ -741,15 +829,41 @@ export const InitiativeList: React.FC = () => {
         </Table>
       </TableWrapper>
       <ControlWrapper theme={theme}>
-        <ControlButton theme={theme} onClick={handlePrevious}>
-          Previous
-        </ControlButton>
-        <RoundDisplay theme={theme}>
-          Round: {currentRound}
-        </RoundDisplay>
-        <ControlButton theme={theme} onClick={handleNext}>
-          Next
-        </ControlButton>
+        {popcornInitiative ? (
+          // Popcorn Initiative controls
+          <>
+            <ControlButton 
+              theme={theme} 
+              onClick={handleEndTurn}
+              disabled={!currentTurnId || completedUnits.has(currentTurnId)}
+            >
+              End Turn
+            </ControlButton>
+            <RoundDisplay theme={theme}>
+              Round: {currentRound}
+            </RoundDisplay>
+            <ControlButton 
+              theme={theme} 
+              onClick={handleNewRound}
+              disabled={completedUnits.size < sortedUnits.length}
+            >
+              Next
+            </ControlButton>
+          </>
+        ) : (
+          // Normal Initiative controls
+          <>
+            <ControlButton theme={theme} onClick={handlePrevious}>
+              Previous
+            </ControlButton>
+            <RoundDisplay theme={theme}>
+              Round: {currentRound}
+            </RoundDisplay>
+            <ControlButton theme={theme} onClick={handleNext}>
+              Next
+            </ControlButton>
+          </>
+        )}
       </ControlWrapper>
     </ListContainer>
   );

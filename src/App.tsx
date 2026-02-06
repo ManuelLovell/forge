@@ -7,9 +7,13 @@ import { AppContainer, ContentArea } from './components/NavigationStyles';
 import { SettingsPage } from './components/SettingsPage';
 import { ChatLogPage } from './components/ChatLogPage';
 import { SystemPage } from './components/SystemPage';
+import { ThemeDemo } from './components/ThemeDemo';
+import { useForgeTheme } from './helpers/ThemeContext';
+import GlobalStyles from './styles/GlobalStyles';
 
 function App() {
   const { sceneReady, cacheReady } = useSceneStore();
+  const { theme } = useForgeTheme();
   const [currentPage, setCurrentPage] = useState<PageType>('ForgeMain');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -32,7 +36,7 @@ function App() {
             className="p-4"
           >
             <h1>Forge Main</h1>
-            <p>Loaded!</p>
+            <ThemeDemo />
           </motion.div>
         );
       case 'Settings':
@@ -71,6 +75,7 @@ function App() {
 
   return (
     <>
+      <GlobalStyles theme={theme} />
       {!sceneReady || !cacheReady ? (
         <div>Loading cache systems...</div>
       ) : (

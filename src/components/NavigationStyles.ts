@@ -1,6 +1,7 @@
 import tw from 'twin.macro';
 import styled from "styled-components";
 import { motion } from 'framer-motion';
+import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 
 export const AppContainer = tw.div`
   flex flex-col h-screen relative
@@ -10,40 +11,48 @@ export const ContentArea = tw.div`
   flex-1 overflow-auto
 `;
 
-export const MenuOverlay = tw(motion.div)`
-  fixed top-0 left-0 bottom-0 w-[150px]
-  flex flex-col
-  rounded-r-lg
-  z-[1000]
+export const MenuOverlay = styled(motion.div)<{ theme: ForgeTheme }>`
+  ${tw`fixed top-0 left-0 bottom-0 w-[150px] flex flex-col rounded-r-lg z-[1000] backdrop-blur`}
+  background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.50)};
+  border: 2px solid ${props => props.theme.BORDER};
 `;
 
-export const MenuHeader = tw.div`
-  p-5 border-b border-gray-300
-  flex-none
+export const MenuHeader = styled.div<{ theme: ForgeTheme }>`
+  ${tw`p-5 flex-none`}
+  border-bottom: 1px solid ${props => props.theme.BORDER};
+  background-color: ${props => props.theme.OFFSET};
 `;
 
-export const MenuTitle = tw.h2`
-  m-0 mb-2 text-lg
+export const MenuTitle = styled.h2<{ theme: ForgeTheme }>`
+  ${tw`m-0 mb-2 text-lg`}
+  color: ${props => props.theme.PRIMARY};
 `;
 
-export const MenuInfo = tw.p`
-  m-0 text-sm text-secondary-200
+export const MenuInfo = styled.p<{ theme: ForgeTheme }>`
+  ${tw`m-0 text-sm`}
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.7)};
 `;
 
 export const MenuSpacer = tw.div`
   flex-1
 `;
 
-export const MenuNav = tw.nav`
-  pt-2 pb-[70px] px-0 border-t border-gray-300
-  flex-none
+export const MenuNav = styled.nav<{ theme: ForgeTheme }>`
+  ${tw`pt-2 pb-[70px] px-0 flex-none`}
+  border-top: 1px solid ${props => props.theme.BORDER};
 `;
 
-export const NavButton = styled.button<{ $isActive: boolean }>`
+export const NavButton = styled.button<{ $isActive: boolean; theme: ForgeTheme }>`
   ${tw`w-full py-3 px-5 border-none text-left cursor-pointer text-[15px] transition-colors`}
-  ${(props) => props.$isActive 
-    ? tw`bg-gray-800 font-semibold` 
-    : tw`bg-transparent font-normal`}
+  background-color: ${props => props.$isActive 
+    ? props.theme.OFFSET 
+    : 'transparent'};
+  color: ${props => props.theme.PRIMARY};
+  font-weight: ${props => props.$isActive ? 600 : 400};
+  
+  &:hover {
+    background-color: ${props => rgbaFromHex(props.theme.OFFSET, 0.5)};
+  }
 `;
 
 export const Backdrop = tw.div`
@@ -52,14 +61,9 @@ export const Backdrop = tw.div`
   z-[999]
 `;
 
-export const MenuButton = tw.button`
-  fixed
-  w-10 h-10
-  rounded-full
-  bg-gray-800/75
-  border text-white
-  cursor-pointer
-  flex items-center justify-center
-  shadow-md
-  z-[1001]
+export const MenuButton = styled.button<{ theme: ForgeTheme }>`
+  ${tw`fixed w-10 h-10 rounded-full cursor-pointer flex items-center justify-center shadow-md z-[1001]`}
+  background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.75)};
+  border: 2px solid ${props => props.theme.BORDER};
+  color: ${props => props.theme.PRIMARY};
 `;

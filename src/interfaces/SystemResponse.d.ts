@@ -66,6 +66,7 @@ export interface SystemAttribute {
  * Main interface for system response from v_bs_systems_with_attributes
  */
 export interface SystemResponse {
+  name: string;
   background_url: string;
   theme_primary: string;
   theme_offset: string;

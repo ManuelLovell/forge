@@ -1,5 +1,6 @@
 import LOGGER from '../helpers/Logger';
 import { ToggleSwitch } from './SettingsStyles';
+import { useForgeTheme } from '../helpers/ThemeContext';
 
 interface ToggleControlProps {
   label: string;
@@ -8,8 +9,11 @@ interface ToggleControlProps {
 }
 
 export const ToggleControl = ({ label, isOn, onChange }: ToggleControlProps) => {
+  const { theme } = useForgeTheme();
+  
   return (
     <ToggleSwitch
+      theme={theme}
       $isOn={isOn}
       onClick={() => {
         const newValue = !isOn;

@@ -1,5 +1,6 @@
 import type { Player, Item } from '@owlbear-rodeo/sdk';
 import { create } from 'zustand';
+import { mockSceneItems } from './MockData';
 
 interface BSCache
 {
@@ -14,6 +15,9 @@ interface BSCache
 
     localItems: Item[];
     setLocalItems: (items: Item[]) => void;
+
+    // Testing helper to inject mock data
+    loadMockData: () => void;
 
     sceneMetadata: Record<string, unknown>;
     setSceneMetadata: (data: Record<string, unknown>) => void;
@@ -58,6 +62,9 @@ export const useSceneStore = create<BSCache>((set) => ({
 
     partyData: [],
     setPartyData: (party) => set({ partyData: party }),
+
+    // Testing helper to load mock items into the cache
+    loadMockData: () => set({ items: mockSceneItems, cacheReady: true }),
 }));
 
 export const sceneStore = useSceneStore;

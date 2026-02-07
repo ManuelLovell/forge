@@ -4,6 +4,7 @@ import OBR from '@owlbear-rodeo/sdk';
 import { useSystemData } from '../helpers/useSystemData';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSceneStore } from '../helpers/BSCache';
+import { EXTENSION_ID } from '../helpers/MockData';
 import { SettingsConstants } from '../interfaces/SettingsKeys.d';
 import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
@@ -55,89 +56,6 @@ const iconMap: Record<string, React.FC<any>> = {
   layers: Layers,
   book: BookOpen,
 };
-
-// Mock data for testing (5 units)
-const mockUnits: Unit[] = [
-  {
-    id: '1',
-    initiative: 20,
-    name: 'Goblin Archer',
-    elevation: 0,
-    attributes: {
-      'c2b9330e-1741-4012-bd98-b9bbeb611b39': '12',
-      '858e3f2f-415f-4da2-a173-8de83f6f04b8': '15',
-      '28348ced-5d91-4178-96ac-18e99c89c877': '13',
-      'fb4a263c-835a-4e93-a4a4-a89915c4c906': '5',
-      '31d4c763-9afa-4fdb-9430-80dab9914493': [
-        { name: 'Multiattack', description: 'The goblin makes two attacks.' },
-        { name: 'Shortbow', description: '+4 to hit, 1d6+2 damage' }
-      ]
-    }
-  },
-  {
-    id: '2',
-    initiative: 2,
-    name: 'Knight',
-    elevation: 0,
-    attributes: {
-      'c2b9330e-1741-4012-bd98-b9bbeb611b39': '52',
-      '858e3f2f-415f-4da2-a173-8de83f6f04b8': '52',
-      '28348ced-5d91-4178-96ac-18e99c89c877': '18',
-      'fb4a263c-835a-4e93-a4a4-a89915c4c906': '0',
-      '31d4c763-9afa-4fdb-9430-80dab9914493': [
-        { name: 'Greatsword', description: '+5 to hit, 2d6+3 damage' },
-        { name: 'Leadership', description: 'Allies within 30ft gain +1 to attack rolls' }
-      ]
-    }
-  },
-  {
-    id: '3',
-    initiative: 5,
-    name: 'Fire Elemental',
-    elevation: 0,
-    attributes: {
-      'c2b9330e-1741-4012-bd98-b9bbeb611b39': '90',
-      '858e3f2f-415f-4da2-a173-8de83f6f04b8': '102',
-      '28348ced-5d91-4178-96ac-18e99c89c877': '13',
-      'fb4a263c-835a-4e93-a4a4-a89915c4c906': '0',
-      '31d4c763-9afa-4fdb-9430-80dab9914493': [
-        { name: 'Touch', description: '+6 to hit, 2d6 fire damage' }
-      ]
-    }
-  },
-  {
-    id: '4',
-    initiative: 12,
-    name: 'Orc Warrior',
-    elevation: 0,
-    attributes: {
-      'c2b9330e-1741-4012-bd98-b9bbeb611b39': '15',
-      '858e3f2f-415f-4da2-a173-8de83f6f04b8': '15',
-      '28348ced-5d91-4178-96ac-18e99c89c877': '13',
-      'fb4a263c-835a-4e93-a4a4-a89915c4c906': '0',
-      '31d4c763-9afa-4fdb-9430-80dab9914493': [
-        { name: 'Greataxe', description: '+5 to hit, 1d12+3 damage' }
-      ]
-    }
-  },
-  {
-    id: '5',
-    initiative: 18,
-    name: 'Wizard',
-    elevation: 0,
-    attributes: {
-      'c2b9330e-1741-4012-bd98-b9bbeb611b39': '38',
-      '858e3f2f-415f-4da2-a173-8de83f6f04b8': '38',
-      '28348ced-5d91-4178-96ac-18e99c89c877': '12',
-      'fb4a263c-835a-4e93-a4a4-a89915c4c906': '8',
-      '31d4c763-9afa-4fdb-9430-80dab9914493': [
-        { name: 'Fireball', description: 'DC 15, 8d6 fire damage' },
-        { name: 'Magic Missile', description: 'Auto-hit, 3d4+3 force damage' },
-        { name: 'Shield', description: 'Reaction, +5 AC until start of next turn' }
-      ]
-    }
-  },
-];
 
 // Styled components
 const ListContainer = styled.div`
@@ -459,7 +377,9 @@ export const InitiativeList: React.FC = () => {
   const { listLayout, isLoading } = useSystemData();
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
-  const [units, setUnits] = useState<Unit[]>(mockUnits);
+  const items = useSceneStore((state) => state.items);
+  const loadMockData = useSceneStore((state) => state.loadMockData);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [listColumns, setListColumns] = useState<ListColumn[]>([]);
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
   const [currentRound, setCurrentRound] = useState<number>(1);
@@ -473,6 +393,45 @@ export const InitiativeList: React.FC = () => {
   // Get settings
   const reverseInitiative = storageContainer[SettingsConstants.REVERSE_INITIATIVE] as boolean || false;
   const popcornInitiative = storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean || false;
+
+  // Load mock data on mount (for testing purposes)
+  useEffect(() => {
+    loadMockData();
+  }, [loadMockData]);
+
+  // Transform items from cache into Unit format
+  useEffect(() => {
+    const transformedUnits: Unit[] = items
+      .filter(item => {
+        // Filter items that have our extension's metadata
+        return item.metadata && Object.keys(item.metadata).some(key => key.startsWith(EXTENSION_ID));
+      })
+      .map(item => {
+        const initiative = item.metadata?.[`${EXTENSION_ID}/initiative`] as number || 0;
+        const name = item.name || 'Unknown';
+        const elevation = item.metadata?.[`${EXTENSION_ID}/elevation`] as number || 0;
+        
+        // Extract attributes using BIDs
+        const attributes: Record<string, any> = {};
+        Object.keys(item.metadata || {}).forEach(key => {
+          // Only include keys that start with our extension ID
+          if (key.startsWith(EXTENSION_ID)) {
+            // Store with the full key (including extension ID prefix)
+            attributes[key] = item.metadata?.[key];
+          }
+        });
+        
+        return {
+          id: item.id,
+          initiative,
+          name,
+          elevation,
+          attributes,
+        };
+      });
+    
+    setUnits(transformedUnits);
+  }, [items]);
 
   // Sort units by initiative and then alphabetically by name (only in normal mode)
   const sortedUnits = useMemo(() => {
@@ -707,7 +666,7 @@ export const InitiativeList: React.FC = () => {
                   {idx > 0 && <Divider theme={theme}>{col.styles?.dividers?.[idx - 1] || '/'}</Divider>}
                   <ValueInput 
                     theme={theme}
-                    value={unit.attributes[bid] || '0'}
+                    value={unit.attributes[`${EXTENSION_ID}/${bid}`] || '0'}
                     $small={col.styles?.bidList && col.styles.bidList.length > 2}
                     onChange={(e) => {
                       // TODO: Update attribute in cache
@@ -728,7 +687,7 @@ export const InitiativeList: React.FC = () => {
               onClick={() => {
                 // TODO: Open list modal
                 const bidId = col.styles?.bidList?.[0];
-                console.log('Open list for', unit.name, bidId, unit.attributes[bidId || '']);
+                console.log('Open list for', unit.name, bidId, unit.attributes[`${EXTENSION_ID}/${bidId}`]);
               }}
             >
               <BookOpen />
@@ -744,7 +703,7 @@ export const InitiativeList: React.FC = () => {
                 <CheckboxInput 
                   key={bid}
                   type="checkbox" 
-                  checked={!!unit.attributes[bid]} 
+                  checked={!!unit.attributes[`${EXTENSION_ID}/${bid}`]} 
                   onChange={(e) => {
                     // TODO: Update attribute in cache
                     console.log('Update checkbox', unit.id, bid, e.target.checked);

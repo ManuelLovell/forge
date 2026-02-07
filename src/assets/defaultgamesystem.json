@@ -1,700 +1,700 @@
 {
-  "name": "Dungeons & Dragons 5e",
-  "background_url": "https://vrwtdtmnbyhaehtitrlb.supabase.co/storage/v1/object/public/clash-system-backgrounds/6a65bda9-a2e1-4668-b555-f19191a99a80/eeea766c-71a6-411d-a167-25193f1f9404.webp",
-  "theme_primary": "#FFFFFF",
-  "theme_offset": "#9d99ff",
-  "theme_background": "#1e2232",
-  "theme_border": "#999999",
-  "card_layout": [
-    {
-      "id": "808fd128-a709-4200-996f-bdfe8f6782db",
-      "col": 0,
-      "row": 0,
-      "type": "text-value",
-      "styles": {
-        "labelMode": "blank",
-        "attributeId": "459d5c36-8976-4cf8-b6c1-56177a98a299"
-      },
-      "fullsize": false
-    },
-    {
-      "id": "f525542c-ed9e-434e-b881-1418b5abf8c7",
-      "col": 1,
-      "row": 0,
-      "type": "text-value",
-      "styles": {
-        "labelMode": "blank",
-        "attributeId": "d011ef06-3781-4fd9-bb4a-5097c5c9e0e4"
-      },
-      "fullsize": false
-    },
-    {
-      "id": "7d5efbd4-5f1f-4ccd-a7de-6a2f34dfabb5",
-      "col": 0,
-      "row": 1,
-      "type": "text-value",
-      "styles": {
-        "fontSize": "sm",
-        "labelMode": "abbr",
-        "attributeId": "c2b9330e-1741-4012-bd98-b9bbeb611b39"
-      },
-      "fullsize": false
-    },
-    {
-      "id": "ec17b8b6-e191-4be2-8b73-4b46c6b434cd",
-      "col": 1,
-      "row": 1,
-      "type": "text-value",
-      "styles": {
-        "fontSize": "sm",
-        "labelMode": "abbr",
-        "attributeId": "28348ced-5d91-4178-96ac-18e99c89c877"
-      },
-      "fullsize": false
-    },
-    {
-      "id": "07028536-915e-4ce6-8a64-d339382f4919",
-      "col": 0,
-      "row": 2,
-      "type": "line-break",
-      "fullsize": true
-    },
-    {
-      "id": "3b9f0507-20b0-49fc-ab49-bda328572a3b",
-      "col": 0,
-      "row": 3,
-      "type": "column-text",
-      "styles": {
-        "bidList": [
-          "4e45313e-968e-48a1-8a1b-fb22aa1967c1",
-          "6bb7b5a7-9415-4a46-a080-05b859fa4549",
-          "27ebb3c5-2bbe-45c7-9814-c10bb169bdb6",
-          "9bed6eaa-1c7d-49b7-927f-223b8ae9ee58",
-          "2427980c-e3c7-42ad-aa3b-729ff08a47ed"
-        ],
-        "fontSize": "sm",
-        "labelMode": "name"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "9ea88572-38b6-4674-9f8d-970e88b5e053",
-      "col": 0,
-      "row": 4,
-      "type": "column-value",
-      "styles": {
-        "bidList": [
-          "4e45313e-968e-48a1-8a1b-fb22aa1967c1",
-          "6bb7b5a7-9415-4a46-a080-05b859fa4549",
-          "27ebb3c5-2bbe-45c7-9814-c10bb169bdb6",
-          "9bed6eaa-1c7d-49b7-927f-223b8ae9ee58",
-          "2427980c-e3c7-42ad-aa3b-729ff08a47ed"
-        ]
-      },
-      "fullsize": true
-    },
-    {
-      "id": "59f1ec08-4364-41b7-ac12-9f4cf489374e",
-      "col": 0,
-      "row": 5,
-      "type": "line-break",
-      "fullsize": true
-    },
-    {
-      "id": "290eefc6-f6ec-42ce-bc41-9ac367eb7fd3",
-      "col": 0,
-      "row": 6,
-      "type": "column-text",
-      "styles": {
-        "bidList": [
-          "60239971-d4c1-4555-b034-50e67215dcc6",
-          "0d9f0a43-9e75-4229-b924-23fff986e332",
-          "230c15d7-6b4c-41ca-9dac-1d0ba86e3b65",
-          "59fdda87-89d3-409a-8e2a-6f45e543ca32",
-          "2586491c-f268-4c2d-88f0-ffeaf5a8ccb2",
-          "405e3c09-95b1-411d-b427-0676c85971d7"
-        ],
-        "fontWeight": "bold"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "e03227cd-682f-44da-81d8-af109f9219c7",
-      "col": 0,
-      "row": 7,
-      "type": "column-value",
-      "styles": {
-        "bidList": [
-          "60239971-d4c1-4555-b034-50e67215dcc6",
-          "0d9f0a43-9e75-4229-b924-23fff986e332",
-          "230c15d7-6b4c-41ca-9dac-1d0ba86e3b65",
-          "59fdda87-89d3-409a-8e2a-6f45e543ca32",
-          "2586491c-f268-4c2d-88f0-ffeaf5a8ccb2",
-          "405e3c09-95b1-411d-b427-0676c85971d7"
-        ]
-      },
-      "fullsize": true
-    },
-    {
-      "id": "6ec1e914-8afa-47d7-bc47-941d39f922f8",
-      "col": 0,
-      "row": 8,
-      "type": "text",
-      "styles": {
-        "fontSize": "sm",
-        "attributeId": "0adff267-319a-41a8-8be2-07051f446a9e"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "17b72423-ab28-416d-be7d-e31a766efc37",
-      "col": 0,
-      "row": 9,
-      "type": "column-value",
-      "styles": {
-        "bidList": [
-          "df1bed6f-3c87-4939-84ab-7922c978605e",
-          "bad0f8d5-27f9-48a2-825c-49afc21385ae",
-          "fcea8b61-0693-4539-a8a7-ac4b5ed8a039",
-          "df417c27-2b67-4260-a06d-23fcad0abe24",
-          "5a79e860-e9b3-4bc9-aa4b-81dc35799977",
-          "6bf8eda4-3cec-42df-be5d-dc976c2697ea"
-        ]
-      },
-      "fullsize": true
-    },
-    {
-      "id": "c0cbad50-c7d1-4bb1-92d1-e45c12458010",
-      "col": 0,
-      "row": 10,
-      "type": "line-break",
-      "fullsize": true
-    },
-    {
-      "id": "a463a5db-42b0-4ae4-af69-2ba8de4f7d6c",
-      "col": 0,
-      "row": 11,
-      "type": "text-value",
-      "styles": {
-        "fontSize": "sm",
-        "attributeId": "85b6a254-9d6a-40bd-a069-9f9be76e7f93"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "164f32b9-c32d-43fc-9d2e-a058a5383cd6",
-      "col": 0,
-      "row": 12,
-      "type": "text-value",
-      "styles": {
-        "fontSize": "sm",
-        "attributeId": "7687efab-d68c-4289-a5d4-f6566d41ea71"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "0b3f5565-ada2-41ce-b540-f4e599478dca",
-      "col": 0,
-      "row": 13,
-      "type": "text-value",
-      "styles": {
-        "fontSize": "sm",
-        "attributeId": "7a585a72-b227-4251-bcb0-c5ad3e72b57f"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "4edb67c7-adb6-4eff-b2e7-70bc12928a72",
-      "col": 0,
-      "row": 14,
-      "type": "text-value",
-      "styles": {
-        "fontSize": "sm",
-        "attributeId": "53778886-1275-4a8d-8683-ed93a0dfd749"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "899dc1da-68a8-483f-b7c6-4e0233c47581",
-      "col": 0,
-      "row": 15,
-      "type": "line-break",
-      "fullsize": true
-    },
-    {
-      "id": "f3176999-bcfe-43db-83db-21a71e4ef78a",
-      "col": 0,
-      "row": 16,
-      "type": "text-value",
-      "styles": {
-        "fontSize": "sm",
-        "attributeId": "ec4b36ae-e615-4d9f-8d63-15c59447b3f6"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "4b023c2e-45da-4628-9008-58bf06f58e34",
-      "col": 0,
-      "row": 17,
-      "type": "text-value",
-      "styles": {
-        "fontSize": "sm",
-        "attributeId": "27d70f2e-cbbb-4688-ace3-8f7320615430"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "dcf383b1-8756-4a9b-bdb2-2b0255593f46",
-      "col": 0,
-      "row": 18,
-      "type": "text-value",
-      "styles": {
-        "fontSize": "sm",
-        "attributeId": "8a64c3a5-bc0d-4379-9bd0-a2a1fb1e5bbc"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "e525bff5-c4d5-4df4-88b1-c537d67fd526",
-      "col": 0,
-      "row": 19,
-      "type": "text-value",
-      "styles": {
-        "fontSize": "sm",
-        "attributeId": "5f7fc358-f68e-4e2e-80d3-3c1013639811"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "d586f146-2cdb-4bde-8dca-7342f89e30c4",
-      "col": 0,
-      "row": 20,
-      "type": "line-break",
-      "styles": {
-        "styleDesign": "dash"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "f7b23cac-6f0c-4a8c-a47c-9787016c1951",
-      "col": 0,
-      "row": 21,
-      "type": "action-list",
-      "styles": {
-        "attributeId": "31d4c763-9afa-4fdb-9430-80dab9914493"
-      },
-      "fullsize": true
-    },
-    {
-      "id": "97a54f22-c6e4-4fbb-8327-f07a60833d36",
-      "col": 0,
-      "row": 22,
-      "type": "item-list",
-      "styles": {
-        "attributeId": "59475030-51d2-471a-afe3-7622f1c765b1"
-      },
-      "fullsize": true
-    }
-  ],
-  "list_layout": [
-    {
-      "id": "4cd1bb0c-792f-4bea-bd2f-fa38d90daef0",
-      "col": 0,
-      "type": "value-column",
-      "styles": {
-        "bidList": [
-          "858e3f2f-415f-4da2-a173-8de83f6f04b8",
-          "c2b9330e-1741-4012-bd98-b9bbeb611b39"
-        ],
-        "dividers": [
-          "/"
-        ],
-        "labelIcon": "heart",
-        "labelMode": "icon",
-        "labelName": "Health",
-        "description": "The health and maximum health of the unit."
-      }
-    },
-    {
-      "id": "552b04ce-952f-4b0b-80c0-78bb868a58dd",
-      "col": 1,
-      "type": "value-column",
-      "styles": {
-        "bidList": [
-          "fb4a263c-835a-4e93-a4a4-a89915c4c906"
-        ],
-        "labelIcon": "sun",
-        "labelMode": "icon",
-        "labelName": "Temporary HP",
-        "description": "The temporary hit points of the unit."
-      }
-    },
-    {
-      "id": "164b5142-0fb8-4175-aad0-dfefeb60709f",
-      "col": 2,
-      "type": "value-column",
-      "styles": {
-        "bidList": [
-          "28348ced-5d91-4178-96ac-18e99c89c877"
-        ],
-        "labelIcon": "shield",
-        "labelMode": "icon",
-        "labelName": "Armor Class",
-        "description": "The armor class of the unit."
-      }
-    },
-    {
-      "id": "8064d651-491e-4614-86dd-c33cd6faa8ea",
-      "col": 3,
-      "type": "list-column",
-      "styles": {
-        "bidList": [
-          "31d4c763-9afa-4fdb-9430-80dab9914493"
-        ],
-        "labelIcon": "award",
-        "labelMode": "icon",
-        "labelName": "Actions",
-        "description": "This is the actions for the unit."
-      }
-    }
-  ],
-  "share_id": "default-game-system",
-  "attributes": [
-    {
-      "attr_bid": "Z034",
-      "attr_abbr": "ABL",
-      "attr_func": null,
-      "attr_name": "Abilities",
-      "attr_type": "list",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z035",
-      "attr_abbr": "ACT",
-      "attr_func": null,
-      "attr_name": "Actions",
-      "attr_type": "list",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z003",
-      "attr_abbr": "ALN",
-      "attr_func": null,
-      "attr_name": "Alignment",
-      "attr_type": "text",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z007",
-      "attr_abbr": "AC",
-      "attr_func": null,
-      "attr_name": "Armor Class",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z036",
-      "attr_abbr": "BCT",
-      "attr_func": null,
-      "attr_name": "Bonus Actions",
-      "attr_type": "list",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z010",
-      "attr_abbr": "BSP",
-      "attr_func": null,
-      "attr_name": "Burrow Speed",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z028",
-      "attr_abbr": "HST",
-      "attr_func": "1d20 + @Z028",
-      "attr_name": "CHA Saving Throw",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z025",
-      "attr_abbr": "CST",
-      "attr_func": "1d20 + @Z025",
-      "attr_name": "CON Saving Throw",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z016",
-      "attr_abbr": "CRT",
-      "attr_func": null,
-      "attr_name": "Challenge Rating",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z022",
-      "attr_abbr": "CHA",
-      "attr_func": "1d20 + floor((@Z022- 10) / 2)",
-      "attr_name": "Charisma",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z011",
-      "attr_abbr": "CSP",
-      "attr_func": null,
-      "attr_name": "Climb Speed",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z019",
-      "attr_abbr": "CON",
-      "attr_func": "1d20 + floor((@Z019- 10) / 2)",
-      "attr_name": "Constitution",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z024",
-      "attr_abbr": "DST",
-      "attr_func": "1d20 + @Z024",
-      "attr_name": "DEX Saving Throw",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z018",
-      "attr_abbr": "DEX",
-      "attr_func": "1d20 + floor((@Z018- 10) / 2)",
-      "attr_name": "Dexterity",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z012",
-      "attr_abbr": "FSP",
-      "attr_func": null,
-      "attr_name": "Fly Speed",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z005",
-      "attr_abbr": "HP",
-      "attr_func": null,
-      "attr_name": "Hit Points",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z026",
-      "attr_abbr": "IST",
-      "attr_func": "1d20 + @Z026",
-      "attr_name": "INT Saving Throw",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z032",
-      "attr_abbr": "IMN",
-      "attr_func": null,
-      "attr_name": "Immunity",
-      "attr_type": "text",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z020",
-      "attr_abbr": "INT",
-      "attr_func": "1d20 + floor((@Z020- 10) / 2)",
-      "attr_name": "Intelligence",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z040",
-      "attr_abbr": "INV",
-      "attr_func": null,
-      "attr_name": "Inventory",
-      "attr_type": "list",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z015",
-      "attr_abbr": "LNG",
-      "attr_func": null,
-      "attr_name": "Languages",
-      "attr_type": "text",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z038",
-      "attr_abbr": "LCT",
-      "attr_func": null,
-      "attr_name": "Legendary Actions",
-      "attr_type": "list",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z001",
-      "attr_abbr": "LVL",
-      "attr_func": null,
-      "attr_name": "Level",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z006",
-      "attr_abbr": "MHP",
-      "attr_func": null,
-      "attr_name": "Max Hit Points",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z029",
-      "attr_abbr": "PFC",
-      "attr_func": "1d20 + 1 + ceil(@Z029 / 4)",
-      "attr_name": "Proficiency",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z037",
-      "attr_abbr": "RCT",
-      "attr_func": null,
-      "attr_name": "Reactions",
-      "attr_type": "list",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z031",
-      "attr_abbr": "RST",
-      "attr_func": null,
-      "attr_name": "Resistance",
-      "attr_type": "text",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z023",
-      "attr_abbr": "SST",
-      "attr_func": "1d20 + @Z023",
-      "attr_name": "STR Saving Throw",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z041",
-      "attr_abbr": "SAV",
-      "attr_func": "",
-      "attr_name": "Saving Throws",
-      "attr_type": "text",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z013",
-      "attr_abbr": "SSS",
-      "attr_func": null,
-      "attr_name": "Senses",
-      "attr_type": "text",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z002",
-      "attr_abbr": "SIZ",
-      "attr_func": null,
-      "attr_name": "Size",
-      "attr_type": "text",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z014",
-      "attr_abbr": "SKS",
-      "attr_func": null,
-      "attr_name": "Skills",
-      "attr_type": "text",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z004",
-      "attr_abbr": "SPC",
-      "attr_func": null,
-      "attr_name": "Species",
-      "attr_type": "text",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z039",
-      "attr_abbr": "SCT",
-      "attr_func": null,
-      "attr_name": "Spell List",
-      "attr_type": "list",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z033",
-      "attr_abbr": "SIM",
-      "attr_func": null,
-      "attr_name": "Status Immunity",
-      "attr_type": "text",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z017",
-      "attr_abbr": "STR",
-      "attr_func": "1d20 + floor((@Z017- 10) / 2)",
-      "attr_name": "Strength",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z009",
-      "attr_abbr": "SSP",
-      "attr_func": null,
-      "attr_name": "Swim Speed",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z042",
-      "attr_abbr": "THP",
-      "attr_func": "",
-      "attr_name": "Temporary Hit Points",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z030",
-      "attr_abbr": "VLN",
-      "attr_func": null,
-      "attr_name": "Vulnerable",
-      "attr_type": "text",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z027",
-      "attr_abbr": "WST",
-      "attr_func": "1d20 + @Z027",
-      "attr_name": "WIS Saving Throw",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z008",
-      "attr_abbr": "WSP",
-      "attr_func": null,
-      "attr_name": "Walk Speed",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    },
-    {
-      "attr_bid": "Z021",
-      "attr_abbr": "WIS",
-      "attr_func": "1d20 + floor((@Z021- 10) / 2)",
-      "attr_name": "Wisdom",
-      "attr_type": "numb",
-      "attr_group": "DND5E"
-    }
-  ]
+    "background_url": "https://vrwtdtmnbyhaehtitrlb.supabase.co/storage/v1/object/public/clash-system-backgrounds/6a65bda9-a2e1-4668-b555-f19191a99a80/eeea766c-71a6-411d-a167-25193f1f9404.webp",
+    "theme_primary": "#FFFFFF",
+    "theme_offset": "#9d99ff",
+    "theme_background": "#1e2232",
+    "theme_border": "#999999",
+    "card_layout": [
+        {
+            "id": "808fd128-a709-4200-996f-bdfe8f6782db",
+            "col": 0,
+            "row": 0,
+            "type": "text-value",
+            "styles": {
+                "labelMode": "blank",
+                "attributeId": "Z002"
+            },
+            "fullsize": false
+        },
+        {
+            "id": "f525542c-ed9e-434e-b881-1418b5abf8c7",
+            "col": 1,
+            "row": 0,
+            "type": "text-value",
+            "styles": {
+                "labelMode": "blank",
+                "attributeId": "Z004"
+            },
+            "fullsize": false
+        },
+        {
+            "id": "7d5efbd4-5f1f-4ccd-a7de-6a2f34dfabb5",
+            "col": 0,
+            "row": 1,
+            "type": "text-value",
+            "styles": {
+                "fontSize": "sm",
+                "labelMode": "abbr",
+                "attributeId": "Z006"
+            },
+            "fullsize": false
+        },
+        {
+            "id": "ec17b8b6-e191-4be2-8b73-4b46c6b434cd",
+            "col": 1,
+            "row": 1,
+            "type": "text-value",
+            "styles": {
+                "fontSize": "sm",
+                "labelMode": "abbr",
+                "attributeId": "Z007"
+            },
+            "fullsize": false
+        },
+        {
+            "id": "07028536-915e-4ce6-8a64-d339382f4919",
+            "col": 0,
+            "row": 2,
+            "type": "line-break",
+            "fullsize": true
+        },
+        {
+            "id": "3b9f0507-20b0-49fc-ab49-bda328572a3b",
+            "col": 0,
+            "row": 3,
+            "type": "column-text",
+            "styles": {
+                "bidList": [
+                    "Z008",
+                    "Z009",
+                    "Z010",
+                    "Z011",
+                    "Z012"
+                ],
+                "fontSize": "sm",
+                "labelMode": "name"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "9ea88572-38b6-4674-9f8d-970e88b5e053",
+            "col": 0,
+            "row": 4,
+            "type": "column-value",
+            "styles": {
+                "bidList": [
+                    "Z008",
+                    "Z009",
+                    "Z010",
+                    "Z011",
+                    "Z012"
+                ]
+            },
+            "fullsize": true
+        },
+        {
+            "id": "59f1ec08-4364-41b7-ac12-9f4cf489374e",
+            "col": 0,
+            "row": 5,
+            "type": "line-break",
+            "fullsize": true
+        },
+        {
+            "id": "290eefc6-f6ec-42ce-bc41-9ac367eb7fd3",
+            "col": 0,
+            "row": 6,
+            "type": "column-text",
+            "styles": {
+                "bidList": [
+                    "Z017",
+                    "Z018",
+                    "Z019",
+                    "Z020",
+                    "Z021",
+                    "Z022"
+                ],
+                "fontWeight": "bold"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "e03227cd-682f-44da-81d8-af109f9219c7",
+            "col": 0,
+            "row": 7,
+            "type": "column-value",
+            "styles": {
+                "bidList": [
+                    "Z017",
+                    "Z018",
+                    "Z019",
+                    "Z020",
+                    "Z021",
+                    "Z022"
+                ]
+            },
+            "fullsize": true
+        },
+        {
+            "id": "6ec1e914-8afa-47d7-bc47-941d39f922f8",
+            "col": 0,
+            "row": 8,
+            "type": "text",
+            "styles": {
+                "fontSize": "sm",
+                "attributeId": "Z041"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "17b72423-ab28-416d-be7d-e31a766efc37",
+            "col": 0,
+            "row": 9,
+            "type": "column-value",
+            "styles": {
+                "bidList": [
+                    "Z023",
+                    "Z024",
+                    "Z025",
+                    "Z026",
+                    "Z027",
+                    "Z028"
+                ]
+            },
+            "fullsize": true
+        },
+        {
+            "id": "c0cbad50-c7d1-4bb1-92d1-e45c12458010",
+            "col": 0,
+            "row": 10,
+            "type": "line-break",
+            "fullsize": true
+        },
+        {
+            "id": "a463a5db-42b0-4ae4-af69-2ba8de4f7d6c",
+            "col": 0,
+            "row": 11,
+            "type": "text-value",
+            "styles": {
+                "fontSize": "sm",
+                "attributeId": "Z013"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "164f32b9-c32d-43fc-9d2e-a058a5383cd6",
+            "col": 0,
+            "row": 12,
+            "type": "text-value",
+            "styles": {
+                "fontSize": "sm",
+                "attributeId": "Z014"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "0b3f5565-ada2-41ce-b540-f4e599478dca",
+            "col": 0,
+            "row": 13,
+            "type": "text-value",
+            "styles": {
+                "fontSize": "sm",
+                "attributeId": "Z015"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "4edb67c7-adb6-4eff-b2e7-70bc12928a72",
+            "col": 0,
+            "row": 14,
+            "type": "text-value",
+            "styles": {
+                "fontSize": "sm",
+                "attributeId": "Z016"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "899dc1da-68a8-483f-b7c6-4e0233c47581",
+            "col": 0,
+            "row": 15,
+            "type": "line-break",
+            "fullsize": true
+        },
+        {
+            "id": "f3176999-bcfe-43db-83db-21a71e4ef78a",
+            "col": 0,
+            "row": 16,
+            "type": "text-value",
+            "styles": {
+                "fontSize": "sm",
+                "attributeId": "Z030"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "4b023c2e-45da-4628-9008-58bf06f58e34",
+            "col": 0,
+            "row": 17,
+            "type": "text-value",
+            "styles": {
+                "fontSize": "sm",
+                "attributeId": "Z031"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "dcf383b1-8756-4a9b-bdb2-2b0255593f46",
+            "col": 0,
+            "row": 18,
+            "type": "text-value",
+            "styles": {
+                "fontSize": "sm",
+                "attributeId": "Z032"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "e525bff5-c4d5-4df4-88b1-c537d67fd526",
+            "col": 0,
+            "row": 19,
+            "type": "text-value",
+            "styles": {
+                "fontSize": "sm",
+                "attributeId": "Z033"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "d586f146-2cdb-4bde-8dca-7342f89e30c4",
+            "col": 0,
+            "row": 20,
+            "type": "line-break",
+            "styles": {
+                "styleDesign": "dash"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "f7b23cac-6f0c-4a8c-a47c-9787016c1951",
+            "col": 0,
+            "row": 21,
+            "type": "action-list",
+            "styles": {
+                "attributeId": "Z035"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "97a54f22-c6e4-4fbb-8327-f07a60833d36",
+            "col": 0,
+            "row": 22,
+            "type": "item-list",
+            "styles": {
+                "attributeId": "Z040"
+            },
+            "fullsize": true
+        }
+    ],
+    "list_layout": [
+        {
+            "id": "4cd1bb0c-792f-4bea-bd2f-fa38d90daef0",
+            "col": 0,
+            "type": "value-column",
+            "styles": {
+                "bidList": [
+                    "Z005",
+                    "Z006"
+                ],
+                "dividers": [
+                    "/"
+                ],
+                "labelIcon": "heart",
+                "labelMode": "icon",
+                "labelName": "Health",
+                "description": "The health and maximum health of the unit."
+            }
+        },
+        {
+            "id": "552b04ce-952f-4b0b-80c0-78bb868a58dd",
+            "col": 1,
+            "type": "value-column",
+            "styles": {
+                "bidList": [
+                    "Z042"
+                ],
+                "labelIcon": "sun",
+                "labelMode": "icon",
+                "labelName": "Temporary HP",
+                "description": "The temporary hit points of the unit."
+            }
+        },
+        {
+            "id": "164b5142-0fb8-4175-aad0-dfefeb60709f",
+            "col": 2,
+            "type": "value-column",
+            "styles": {
+                "bidList": [
+                    "Z007"
+                ],
+                "labelIcon": "shield",
+                "labelMode": "icon",
+                "labelName": "Armor Class",
+                "description": "The armor class of the unit."
+            }
+        },
+        {
+            "id": "8064d651-491e-4614-86dd-c33cd6faa8ea",
+            "col": 3,
+            "type": "list-column",
+            "styles": {
+                "bidList": [
+                    "Z035"
+                ],
+                "labelIcon": "award",
+                "labelMode": "icon",
+                "labelName": "Actions",
+                "description": "This is the actions for the unit."
+            }
+        }
+    ],
+    "share_id": "default-game-system",
+    "name": "Dungeons & Dragons 5E",
+    "attributes": [
+        {
+            "attr_bid": "Z034",
+            "attr_abbr": "ABL",
+            "attr_func": null,
+            "attr_name": "Abilities",
+            "attr_type": "list",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z035",
+            "attr_abbr": "ACT",
+            "attr_func": null,
+            "attr_name": "Actions",
+            "attr_type": "list",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z003",
+            "attr_abbr": "ALN",
+            "attr_func": null,
+            "attr_name": "Alignment",
+            "attr_type": "text",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z007",
+            "attr_abbr": "AC",
+            "attr_func": null,
+            "attr_name": "Armor Class",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z036",
+            "attr_abbr": "BCT",
+            "attr_func": null,
+            "attr_name": "Bonus Actions",
+            "attr_type": "list",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z010",
+            "attr_abbr": "BSP",
+            "attr_func": null,
+            "attr_name": "Burrow Speed",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z028",
+            "attr_abbr": "HST",
+            "attr_func": "1d20 + @Z028",
+            "attr_name": "CHA Saving Throw",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z025",
+            "attr_abbr": "CST",
+            "attr_func": "1d20 + @Z025",
+            "attr_name": "CON Saving Throw",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z016",
+            "attr_abbr": "CRT",
+            "attr_func": null,
+            "attr_name": "Challenge Rating",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z022",
+            "attr_abbr": "CHA",
+            "attr_func": "1d20 + floor((@Z022- 10) / 2)",
+            "attr_name": "Charisma",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z011",
+            "attr_abbr": "CSP",
+            "attr_func": null,
+            "attr_name": "Climb Speed",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z019",
+            "attr_abbr": "CON",
+            "attr_func": "1d20 + floor((@Z019- 10) / 2)",
+            "attr_name": "Constitution",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z024",
+            "attr_abbr": "DST",
+            "attr_func": "1d20 + @Z024",
+            "attr_name": "DEX Saving Throw",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z018",
+            "attr_abbr": "DEX",
+            "attr_func": "1d20 + floor((@Z018- 10) / 2)",
+            "attr_name": "Dexterity",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z012",
+            "attr_abbr": "FSP",
+            "attr_func": null,
+            "attr_name": "Fly Speed",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z005",
+            "attr_abbr": "HP",
+            "attr_func": null,
+            "attr_name": "Hit Points",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z026",
+            "attr_abbr": "IST",
+            "attr_func": "1d20 + @Z026",
+            "attr_name": "INT Saving Throw",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z032",
+            "attr_abbr": "IMN",
+            "attr_func": null,
+            "attr_name": "Immunity",
+            "attr_type": "text",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z020",
+            "attr_abbr": "INT",
+            "attr_func": "1d20 + floor((@Z020- 10) / 2)",
+            "attr_name": "Intelligence",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z040",
+            "attr_abbr": "INV",
+            "attr_func": null,
+            "attr_name": "Inventory",
+            "attr_type": "list",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z015",
+            "attr_abbr": "LNG",
+            "attr_func": null,
+            "attr_name": "Languages",
+            "attr_type": "text",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z038",
+            "attr_abbr": "LCT",
+            "attr_func": null,
+            "attr_name": "Legendary Actions",
+            "attr_type": "list",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z001",
+            "attr_abbr": "LVL",
+            "attr_func": null,
+            "attr_name": "Level",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z006",
+            "attr_abbr": "MHP",
+            "attr_func": null,
+            "attr_name": "Max Hit Points",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z029",
+            "attr_abbr": "PFC",
+            "attr_func": "1d20 + 1 + ceil(@Z029 / 4)",
+            "attr_name": "Proficiency",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z037",
+            "attr_abbr": "RCT",
+            "attr_func": null,
+            "attr_name": "Reactions",
+            "attr_type": "list",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z031",
+            "attr_abbr": "RST",
+            "attr_func": null,
+            "attr_name": "Resistance",
+            "attr_type": "text",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z023",
+            "attr_abbr": "SST",
+            "attr_func": "1d20 + @Z023",
+            "attr_name": "STR Saving Throw",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z041",
+            "attr_abbr": "SAV",
+            "attr_func": "",
+            "attr_name": "Saving Throws",
+            "attr_type": "text",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z013",
+            "attr_abbr": "SSS",
+            "attr_func": null,
+            "attr_name": "Senses",
+            "attr_type": "text",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z002",
+            "attr_abbr": "SIZ",
+            "attr_func": null,
+            "attr_name": "Size",
+            "attr_type": "text",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z014",
+            "attr_abbr": "SKS",
+            "attr_func": null,
+            "attr_name": "Skills",
+            "attr_type": "text",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z004",
+            "attr_abbr": "SPC",
+            "attr_func": null,
+            "attr_name": "Species",
+            "attr_type": "text",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z039",
+            "attr_abbr": "SCT",
+            "attr_func": null,
+            "attr_name": "Spell List",
+            "attr_type": "list",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z033",
+            "attr_abbr": "SIM",
+            "attr_func": null,
+            "attr_name": "Status Immunity",
+            "attr_type": "text",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z017",
+            "attr_abbr": "STR",
+            "attr_func": "1d20 + floor((@Z017- 10) / 2)",
+            "attr_name": "Strength",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z009",
+            "attr_abbr": "SSP",
+            "attr_func": null,
+            "attr_name": "Swim Speed",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z042",
+            "attr_abbr": "THP",
+            "attr_func": "",
+            "attr_name": "Temporary Hit Points",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z030",
+            "attr_abbr": "VLN",
+            "attr_func": null,
+            "attr_name": "Vulnerable",
+            "attr_type": "text",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z027",
+            "attr_abbr": "WST",
+            "attr_func": "1d20 + @Z027",
+            "attr_name": "WIS Saving Throw",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z008",
+            "attr_abbr": "WSP",
+            "attr_func": null,
+            "attr_name": "Walk Speed",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        },
+        {
+            "attr_bid": "Z021",
+            "attr_abbr": "WIS",
+            "attr_func": "1d20 + floor((@Z021- 10) / 2)",
+            "attr_name": "Wisdom",
+            "attr_type": "numb",
+            "attr_group": "DND5E"
+        }
+    ]
 }

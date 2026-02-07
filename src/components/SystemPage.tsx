@@ -140,8 +140,8 @@ const ConfirmModal = styled.div<{ theme: ForgeTheme }>`
   border-radius: 8px;
   padding: 25px;
   z-index: 10000;
-  min-width: 350px;
-  max-width: 90%;
+  min-width: 300px;
+  max-width: 500px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 `;
 

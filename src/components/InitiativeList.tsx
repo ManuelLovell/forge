@@ -5,7 +5,7 @@ import { useSystemData } from '../helpers/useSystemData';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSceneStore } from '../helpers/BSCache';
 import { EXTENSION_ID } from '../helpers/MockData';
-import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
+import { MenuConstants, SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { 
@@ -398,8 +398,8 @@ export const InitiativeList: React.FC = () => {
   useEffect(() => {
     const transformedUnits: Unit[] = items
       .filter(item => {
-        // Filter items that have our extension's metadata
-        return item.metadata && Object.keys(item.metadata).some(key => key.startsWith(EXTENSION_ID));
+        // Only include items that are added to the list
+        return item.metadata?.[MenuConstants.ADD_UNIT] === true;
       })
       .map(item => {
         const initiative = item.metadata?.[UnitConstants.INITIATIVE] as number || 0;
@@ -449,7 +449,7 @@ export const InitiativeList: React.FC = () => {
     });
   }, [units, reverseInitiative, popcornInitiative]);
 
-  // Handler for updating initiative
+  // Handler for updating initiative in local state only
   const handleInitiativeChange = (unitId: string, newInitiative: string) => {
     const initiativeValue = parseInt(newInitiative) || 0;
     setUnits(prevUnits =>
@@ -457,7 +457,10 @@ export const InitiativeList: React.FC = () => {
         unit.id === unitId ? { ...unit, initiative: initiativeValue } : unit
       )
     );
-    
+  };
+
+  // Handler for committing initiative to cache and OBR
+  const commitInitiativeChange = (unitId: string, initiativeValue: number) => {
     // Update in cache/metadata
     const updatedItems = items.map(item => {
       if (item.id === unitId) {
@@ -473,7 +476,10 @@ export const InitiativeList: React.FC = () => {
     });
     setItems(updatedItems);
     
-    // TODO: Update in OBR scene items when connected
+    // Update in OBR scene items
+    OBR.scene.items.updateItems([unitId], (items) => {
+      items[0].metadata[UnitConstants.INITIATIVE] = initiativeValue;
+    });
   };
 
   // Deserialize list layout on mount or when listLayout changes
@@ -661,6 +667,17 @@ export const InitiativeList: React.FC = () => {
               type="number"
               value={unit.initiative}
               onChange={(e) => handleInitiativeChange(unit.id, e.target.value)}
+              onBlur={(e) => {
+                const value = parseInt(e.target.value) || 0;
+                commitInitiativeChange(unit.id, value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const value = parseInt(e.currentTarget.value) || 0;
+                  commitInitiativeChange(unit.id, value);
+                  e.currentTarget.blur();
+                }
+              }}
             />
           </InitiativeCell>
         );
@@ -682,7 +699,7 @@ export const InitiativeList: React.FC = () => {
                     onChange={(e) => {
                       const newValue = e.target.value;
                       
-                      // Update local state
+                      // Update local state only
                       setUnits(prevUnits =>
                         prevUnits.map(u =>
                           u.id === unit.id
@@ -696,6 +713,9 @@ export const InitiativeList: React.FC = () => {
                             : u
                         )
                       );
+                    }}
+                    onBlur={(e) => {
+                      const newValue = e.target.value;
                       
                       // Update cache
                       const updatedItems = items.map(item => {
@@ -711,6 +731,38 @@ export const InitiativeList: React.FC = () => {
                         return item;
                       });
                       setItems(updatedItems);
+                      
+                      // Update in OBR scene items
+                      OBR.scene.items.updateItems([unit.id], (items) => {
+                        items[0].metadata[`${EXTENSION_ID}/${bid}`] = newValue;
+                      });
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const newValue = e.currentTarget.value;
+                        
+                        // Update cache
+                        const updatedItems = items.map(item => {
+                          if (item.id === unit.id) {
+                            return {
+                              ...item,
+                              metadata: {
+                                ...item.metadata,
+                                [`${EXTENSION_ID}/${bid}`]: newValue
+                              }
+                            };
+                          }
+                          return item;
+                        });
+                        setItems(updatedItems);
+                        
+                        // Update in OBR scene items
+                        OBR.scene.items.updateItems([unit.id], (items) => {
+                          items[0].metadata[`${EXTENSION_ID}/${bid}`] = newValue;
+                        });
+                        
+                        e.currentTarget.blur();
+                      }
                     }}
                   />
                 </React.Fragment>
@@ -776,6 +828,11 @@ export const InitiativeList: React.FC = () => {
                       return item;
                     });
                     setItems(updatedItems);
+                    
+                    // Update in OBR scene items
+                    OBR.scene.items.updateItems([unit.id], (items) => {
+                      items[0].metadata[`${EXTENSION_ID}/${bid}`] = newValue;
+                    });
                   }}
                 />
               ))}

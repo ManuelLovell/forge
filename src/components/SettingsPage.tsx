@@ -6,10 +6,11 @@ import tw from 'twin.macro';
 import { PageContainer, PageTitle, Button, Card } from './SharedStyledComponents';
 import { ToggleControl } from './ToggleControl';
 import LOGGER from '../helpers/Logger';
-import { SettingsConstants } from '../interfaces/SettingsKeys.d';
+import { SettingsConstants } from '../interfaces/MetadataKeys';
 import { useSceneStore } from '../helpers/BSCache';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
+import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
 
 // Styled Components
 const SectionTitle = styled.h2<{ theme: ForgeTheme }>`
@@ -95,8 +96,7 @@ export const SettingsPage = () => {
   const [discordUrl, setDiscordUrl] = useState('');
 
   //Control for setting the data to Room or to Scene
-  const dataStoredinRoom = false; // For now, all settings are saved to Room level
-  const storageContainer = dataStoredinRoom ? roomMetadata : sceneMetadata;
+  const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
   // Load settings from cached metadata when it changes
   useEffect(() => {
     if (!cacheReady) return;
@@ -165,7 +165,7 @@ export const SettingsPage = () => {
   }, [cacheReady, storageContainer]);
 
   const saveData = async (key: string, value: any) => {
-    if (dataStoredinRoom) {
+    if (DATA_STORED_IN_ROOM) {
       await OBR.room.setMetadata({ [key]: value });
     } else {
       await OBR.scene.setMetadata({ [key]: value });

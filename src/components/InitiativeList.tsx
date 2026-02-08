@@ -5,13 +5,14 @@ import { useSystemData } from '../helpers/useSystemData';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSceneStore } from '../helpers/BSCache';
 import { EXTENSION_ID } from '../helpers/MockData';
-import { SettingsConstants } from '../interfaces/SettingsKeys.d';
+import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { 
   Heart, Shield, Sun, Award, Target, Users, Star, 
   Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle 
 } from 'lucide-react';
+import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
 
 // Internal state model
 interface ListColumn {
@@ -378,7 +379,7 @@ export const InitiativeList: React.FC = () => {
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
   const items = useSceneStore((state) => state.items);
-  const loadMockData = useSceneStore((state) => state.loadMockData);
+  const setItems = useSceneStore((state) => state.setItems);
   const [units, setUnits] = useState<Unit[]>([]);
   const [listColumns, setListColumns] = useState<ListColumn[]>([]);
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
@@ -387,17 +388,11 @@ export const InitiativeList: React.FC = () => {
   const tableRef = useRef<HTMLTableElement>(null);
 
   // Control for setting the data to Room or to Scene
-  const dataStoredinRoom = false; // For now, all settings are saved to Scene level
-  const storageContainer = dataStoredinRoom ? roomMetadata : sceneMetadata;
+  const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
 
   // Get settings
   const reverseInitiative = storageContainer[SettingsConstants.REVERSE_INITIATIVE] as boolean || false;
   const popcornInitiative = storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean || false;
-
-  // Load mock data on mount (for testing purposes)
-  useEffect(() => {
-    loadMockData();
-  }, [loadMockData]);
 
   // Transform items from cache into Unit format
   useEffect(() => {
@@ -407,8 +402,8 @@ export const InitiativeList: React.FC = () => {
         return item.metadata && Object.keys(item.metadata).some(key => key.startsWith(EXTENSION_ID));
       })
       .map(item => {
-        const initiative = item.metadata?.[`${EXTENSION_ID}/initiative`] as number || 0;
-        const name = item.name || 'Unknown';
+        const initiative = item.metadata?.[UnitConstants.INITIATIVE] as number || 0;
+        const name = item.metadata[UnitConstants.UNIT_NAME] as string || item.name || 'Unknown';
         const elevation = item.metadata?.[`${EXTENSION_ID}/elevation`] as number || 0;
         
         // Extract attributes using BIDs
@@ -462,7 +457,23 @@ export const InitiativeList: React.FC = () => {
         unit.id === unitId ? { ...unit, initiative: initiativeValue } : unit
       )
     );
-    // TODO: Update in cache/metadata
+    
+    // Update in cache/metadata
+    const updatedItems = items.map(item => {
+      if (item.id === unitId) {
+        return {
+          ...item,
+          metadata: {
+            ...item.metadata,
+            [UnitConstants.INITIATIVE]: initiativeValue
+          }
+        };
+      }
+      return item;
+    });
+    setItems(updatedItems);
+    
+    // TODO: Update in OBR scene items when connected
   };
 
   // Deserialize list layout on mount or when listLayout changes
@@ -669,8 +680,37 @@ export const InitiativeList: React.FC = () => {
                     value={unit.attributes[`${EXTENSION_ID}/${bid}`] || '0'}
                     $small={col.styles?.bidList && col.styles.bidList.length > 2}
                     onChange={(e) => {
-                      // TODO: Update attribute in cache
-                      console.log('Update', unit.id, bid, e.target.value);
+                      const newValue = e.target.value;
+                      
+                      // Update local state
+                      setUnits(prevUnits =>
+                        prevUnits.map(u =>
+                          u.id === unit.id
+                            ? {
+                                ...u,
+                                attributes: {
+                                  ...u.attributes,
+                                  [`${EXTENSION_ID}/${bid}`]: newValue
+                                }
+                              }
+                            : u
+                        )
+                      );
+                      
+                      // Update cache
+                      const updatedItems = items.map(item => {
+                        if (item.id === unit.id) {
+                          return {
+                            ...item,
+                            metadata: {
+                              ...item.metadata,
+                              [`${EXTENSION_ID}/${bid}`]: newValue
+                            }
+                          };
+                        }
+                        return item;
+                      });
+                      setItems(updatedItems);
                     }}
                   />
                 </React.Fragment>
@@ -705,8 +745,37 @@ export const InitiativeList: React.FC = () => {
                   type="checkbox" 
                   checked={!!unit.attributes[`${EXTENSION_ID}/${bid}`]} 
                   onChange={(e) => {
-                    // TODO: Update attribute in cache
-                    console.log('Update checkbox', unit.id, bid, e.target.checked);
+                    const newValue = e.target.checked;
+                    
+                    // Update local state
+                    setUnits(prevUnits =>
+                      prevUnits.map(u =>
+                        u.id === unit.id
+                          ? {
+                              ...u,
+                              attributes: {
+                                ...u.attributes,
+                                [`${EXTENSION_ID}/${bid}`]: newValue
+                              }
+                            }
+                          : u
+                      )
+                    );
+                    
+                    // Update cache
+                    const updatedItems = items.map(item => {
+                      if (item.id === unit.id) {
+                        return {
+                          ...item,
+                          metadata: {
+                            ...item.metadata,
+                            [`${EXTENSION_ID}/${bid}`]: newValue
+                          }
+                        };
+                      }
+                      return item;
+                    });
+                    setItems(updatedItems);
                   }}
                 />
               ))}

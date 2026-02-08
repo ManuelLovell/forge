@@ -1,4 +1,6 @@
 
+export const DATA_STORED_IN_ROOM = false;
+
 export enum Constants
 {
     UP = "UP",

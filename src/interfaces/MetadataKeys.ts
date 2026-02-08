@@ -3,11 +3,20 @@ import { OwlbearIds } from '../helpers/Constants';
 /**
  * Settings Keys Constants
  * Central constants for all application settings
- * Following the pattern: ${EXTENSIONID}/keyname
+ * Following the pattern: ${EXTENSION_ID}/keyname
  * For space, try to limit char length to 8 or fewer
  */
 
 const EXTENSION_ID = OwlbearIds.EXTENSIONID;
+export class MenuConstants {
+  static ADD_UNIT = `${EXTENSION_ID}/add-unit`;
+}
+
+export class UnitConstants {
+  static FABRICATED = `${EXTENSION_ID}/fabd`;
+  static UNIT_NAME = `${EXTENSION_ID}/name`;
+  static INITIATIVE = `${EXTENSION_ID}/init`;
+}
 
 export class SettingsConstants {
   // List Controls

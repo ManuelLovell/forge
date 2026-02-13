@@ -9,10 +9,10 @@ import { OwlbearIds } from '../helpers/Constants';
 
 const EXTENSION_ID = OwlbearIds.EXTENSIONID;
 export class MenuConstants {
-  static ADD_UNIT = `${EXTENSION_ID}/add-unit`;
 }
 
 export class UnitConstants {
+  static ON_LIST = `${EXTENSION_ID}/on-list`;
   static FABRICATED = `${EXTENSION_ID}/fabd`;
   static UNIT_NAME = `${EXTENSION_ID}/name`;
   static INITIATIVE = `${EXTENSION_ID}/init`;

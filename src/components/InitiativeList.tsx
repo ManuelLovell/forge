@@ -5,7 +5,7 @@ import { useSystemData } from '../helpers/useSystemData';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSceneStore } from '../helpers/BSCache';
 import { EXTENSION_ID } from '../helpers/MockData';
-import { MenuConstants, SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
+import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { 
@@ -351,7 +351,7 @@ const deserializeListLayout = (
     { id: crypto.randomUUID(), type: 'initiative' },
     { id: crypto.randomUUID(), type: 'name' }
   ];
-
+  
   if (!layout || layout.length === 0) {
     return defaultColumns;
   }
@@ -399,7 +399,7 @@ export const InitiativeList: React.FC = () => {
     const transformedUnits: Unit[] = items
       .filter(item => {
         // Only include items that are added to the list
-        return item.metadata?.[MenuConstants.ADD_UNIT] === true;
+        return item.metadata?.[UnitConstants.ON_LIST] === true;
       })
       .map(item => {
         const initiative = item.metadata?.[UnitConstants.INITIATIVE] as number || 0;

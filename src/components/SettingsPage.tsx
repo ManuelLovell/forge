@@ -6,7 +6,7 @@ import tw from 'twin.macro';
 import { PageContainer, PageTitle, Button, Card } from './SharedStyledComponents';
 import { ToggleControl } from './ToggleControl';
 import LOGGER from '../helpers/Logger';
-import { SettingsConstants } from '../interfaces/MetadataKeys';
+import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { useSceneStore } from '../helpers/BSCache';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
@@ -65,6 +65,7 @@ export const SettingsPage = () => {
   const { theme } = useForgeTheme();
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
+  const sceneItems = useSceneStore((state) => state.items);
   const cacheReady = useSceneStore((state) => state.cacheReady);
 
   // List Controls state
@@ -100,7 +101,7 @@ export const SettingsPage = () => {
   // Load settings from cached metadata when it changes
   useEffect(() => {
     if (!cacheReady) return;
-    
+
     // Load all settings from metadata
     if (storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] !== undefined) {
       setShowRollerColumn(storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] as boolean);
@@ -274,7 +275,7 @@ export const SettingsPage = () => {
         {/* Player Controls */}
         <Card theme={theme}>
           <SectionTitle theme={theme}>Player Controls</SectionTitle>
-          
+
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>Show Player View</ControlLabel>
             <ToggleControl
@@ -315,7 +316,7 @@ export const SettingsPage = () => {
         {/* Game Controls */}
         <Card theme={theme}>
           <SectionTitle theme={theme}>Game Controls</SectionTitle>
-          
+
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>Show HP Bars on tokens</ControlLabel>
             <ToggleControl
@@ -348,6 +349,26 @@ export const SettingsPage = () => {
               onChange={async (value) => {
                 setShowNames(value);
                 await saveData(SettingsConstants.SHOW_NAMES, value);
+                const unitsInList = sceneItems.filter(item => item.metadata[UnitConstants.ON_LIST] === true);
+                if (value) {
+                  LOGGER.log('Showing names on tokens');
+                  await OBR.scene.items.updateItems(unitsInList, (items) => {
+                    for (let item of items) {
+                      const unitName = item.metadata[UnitConstants.UNIT_NAME];
+                      if (unitName) {
+                        (item as any).text.plainText = unitName;
+                      }
+                    }
+                  });
+                }
+                else {
+                  LOGGER.log('Hiding names on tokens');
+                  await OBR.scene.items.updateItems(unitsInList, (items) => {
+                    for (let item of items) {
+                      (item as any).text.plainText = '';
+                    }
+                  });
+                }
               }}
             />
           </ControlRow>
@@ -380,7 +401,7 @@ export const SettingsPage = () => {
         {/* Dice Controls */}
         <Card theme={theme}>
           <SectionTitle theme={theme}>Dice Controls</SectionTitle>
-          
+
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>Enable Rumble! Integration</ControlLabel>
             <ToggleControl

@@ -23,7 +23,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                 icons: [
                     {
                         icon: "/icon.svg",
-                        label: "[Forge] Add to list",
+                        label: "[Forge] Add to Combat",
                         filter: {
                             every: [{ key: ["metadata", UnitConstants.ON_LIST], operator: "!=", value: true }],
                             some: [
@@ -33,7 +33,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                     },
                     {
                         icon: "/icon.svg",
-                        label: "[Forge] Remove from list",
+                        label: "[Forge] Remove from Combat",
                         filter: {
                             every: [{ key: ["metadata", UnitConstants.ON_LIST], operator: "==", value: true }],
                             some: [
@@ -43,14 +43,14 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                     },
                 ],
                 async onClick(context) {
-                    LOGGER.info(`Context Menu Clicked: ${context.items[0].name}`);
+                    LOGGER.info(`Add to Combat Clicked: ${context.items[0].name}`);
 
-                    const removeFromList = context.items.every(
+                    const removeFromCombat = context.items.every(
                         (item) => item.metadata[UnitConstants.ON_LIST] === true
                     );
 
-                    if (removeFromList) {
-                        // Remove from list - possible cleanup of localitems here
+                    if (removeFromCombat) {
+                        // Remove from combat - possible cleanup of localitems here
                         await OBR.scene.items.updateItems(context.items, (items) => {
                             for (let item of items) {
                                 delete item.metadata[UnitConstants.ON_LIST];
@@ -93,7 +93,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                 if (storageContainer[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] !== undefined) {
                                     // We want to check the 'itemName'
                                     const currentNamesInScene = sceneItems
-                                        .filter((x) => x.metadata[UnitConstants.UNIT_NAME] != null)
+                                        .filter((x) => x.metadata[UnitConstants.UNIT_NAME] != null && x.id !== item.id)
                                         .map((x) => x.metadata[UnitConstants.UNIT_NAME]);
                                     if (currentNamesInScene.includes(itemName)) {
                                         update[UnitConstants.UNIT_NAME] = AddOrReplaceAdjective(itemName);
@@ -112,6 +112,54 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                     if (sceneMetadata[SettingsConstants.SHOW_NAMES] === true)
                                         (item as any).text.plainText = forUnit.metadata[UnitConstants.UNIT_NAME];
                                 }
+                            }
+                        });
+                    }
+                }
+            })
+
+            OBR.contextMenu.create({
+                id: UnitConstants.IN_PARTY,
+                icons: [
+                    {
+                        icon: "/icon.svg",
+                        label: "[Forge] Add to Party",
+                        filter: {
+                            every: [{ key: ["metadata", UnitConstants.IN_PARTY], operator: "!=", value: true }],
+                            some: [
+                                { key: "layer", value: "CHARACTER", coordinator: "||" },
+                                { key: "layer", value: "MOUNT" }],
+                        },
+                    },
+                    {
+                        icon: "/icon.svg",
+                        label: "[Forge] Remove from Party",
+                        filter: {
+                            every: [{ key: ["metadata", UnitConstants.IN_PARTY], operator: "==", value: true }],
+                            some: [
+                                { key: "layer", value: "CHARACTER", coordinator: "||" },
+                                { key: "layer", value: "MOUNT" }],
+                        },
+                    },
+                ],
+                async onClick(context) {
+                    LOGGER.info(`Add to Party Clicked: ${context.items[0].name}`);
+
+                    const removeFromParty = context.items.every(
+                        (item) => item.metadata[UnitConstants.IN_PARTY] === true
+                    );
+
+                    if (removeFromParty) {
+                        await OBR.scene.items.updateItems(context.items, (items) => {
+                            for (let item of items) {
+                                delete item.metadata[UnitConstants.IN_PARTY];
+                            }
+                        });
+                    }
+                    else {
+                        await OBR.scene.items.updateItems(context.items, (items) => {
+                            for (let item of items) {
+                                item.metadata[UnitConstants.IN_PARTY] = true;
                             }
                         });
                     }

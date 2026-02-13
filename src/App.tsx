@@ -1,7 +1,7 @@
 import './styles/App.css'
 import { useSceneStore } from './helpers/BSCache';
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import OBR from '@owlbear-rodeo/sdk';
 import { Navigation, type PageType } from './components/NavigationComponent';
 import { AppContainer, ContentArea } from './components/NavigationStyles';
@@ -9,6 +9,7 @@ import { SettingsPage } from './components/SettingsPage';
 import { ChatLogPage } from './components/ChatLogPage';
 import { SystemPage } from './components/SystemPage';
 import { InitiativeList } from './components/InitiativeList';
+import { PartyPage } from './components/PartyPage';
 import { useForgeTheme } from './helpers/ThemeContext';
 import { useAppInitialization } from './helpers/useAppInitialization';
 import GlobalStyles from './styles/GlobalStyles';
@@ -50,12 +51,6 @@ function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('ForgeMain');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const pageVariants = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -20 }
-  };
-
   const renderPage = () => {
     switch (currentPage) {
       case 'ForgeMain':
@@ -68,17 +63,7 @@ function App() {
         );
       case 'Party':
         return (
-          <motion.div
-            key="party"
-            variants={pageVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            className="p-4"
-          >
-            <h1>Party</h1>
-            <p>Manage your party here.</p>
-          </motion.div>
+          <PartyPage key="party" />
         );
       case 'System':
         return (

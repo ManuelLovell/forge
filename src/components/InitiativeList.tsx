@@ -8,11 +8,13 @@ import { EXTENSION_ID } from '../helpers/MockData';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
-import { 
-  Heart, Shield, Sun, Award, Target, Users, Star, 
-  Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle 
+import {
+  Heart, Shield, Sun, Award, Target, Users, Star,
+  Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle
 } from 'lucide-react';
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
+import LOGGER from '../helpers/Logger';
+import { HexToRgba } from '../helpers/HexToRGB';
 
 // Internal state model
 interface ListColumn {
@@ -40,7 +42,30 @@ interface Unit {
   name: string;
   elevation: number;
   attributes: Record<string, any>;
+  ownerNameOutlineColor?: string;
 }
+
+const withAlpha = (color: string | undefined, alpha: number): string | undefined => {
+  if (!color) return undefined;
+
+  if (color.startsWith('#')) {
+    return HexToRgba(color, alpha);
+  }
+
+  const rgbaMatch = color.match(/^rgba\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\)$/i);
+  if (rgbaMatch) {
+    const [, r, g, b] = rgbaMatch;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  const rgbMatch = color.match(/^rgb\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)\)$/i);
+  if (rgbMatch) {
+    const [, r, g, b] = rgbMatch;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  return color;
+};
 
 // Icon mapping
 const iconMap: Record<string, React.FC<any>> = {
@@ -173,7 +198,7 @@ const DataCell = styled.td<{ theme: ForgeTheme }>`
   font-size: 14px;
 `;
 
-const InitiativeCell = styled(DataCell)<{ theme: ForgeTheme }>`
+const InitiativeCell = styled(DataCell) <{ theme: ForgeTheme }>`
   font-weight: 700;
   font-size: 18px;
   color: ${props => props.theme.OFFSET};
@@ -220,10 +245,22 @@ const InitiativeInput = styled.input<{ theme: ForgeTheme }>`
   }
 `;
 
-const NameCell = styled(DataCell)<{ theme: ForgeTheme }>`
+const NameCell = styled(DataCell) <{ theme: ForgeTheme; $outlineColor?: string }>`
   text-align: left;
   font-weight: 500;
   min-width: 120px;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: ${props =>
+    props.$outlineColor
+      ? `
+        1px 1px 2px black,
+        2px 2px 2px ${props.$outlineColor},
+        4px 4px 4px ${props.$outlineColor}
+      `
+      : 'none'};
 `;
 
 const ValueInput = styled.input<{ $small?: boolean; theme: ForgeTheme }>`
@@ -294,7 +331,7 @@ const CheckboxInput = styled.input`
   margin: 0 4px;
 `;
 
-const DividerCell = styled(DataCell)<{ $style?: string; theme: ForgeTheme }>`
+const DividerCell = styled(DataCell) <{ $style?: string; theme: ForgeTheme }>`
   width: 24px;
   padding: 0;
   position: relative;
@@ -308,15 +345,15 @@ const DividerCell = styled(DataCell)<{ $style?: string; theme: ForgeTheme }>`
     transform: translateX(-50%);
     width: 2px;
     background: ${props => {
-      switch(props.$style) {
-        case 'dashed': return `repeating-linear-gradient(to bottom, ${props.theme.BORDER} 0, ${props.theme.BORDER} 5px, transparent 5px, transparent 10px)`;
-        case 'shadow': return 'none';
-        case 'zigzag': return 'none';
-        case 'ridge': return 'none';
-        case 'pulse': return props.theme.OFFSET;
-        default: return props.theme.BORDER;
-      }
-    }};
+    switch (props.$style) {
+      case 'dashed': return `repeating-linear-gradient(to bottom, ${props.theme.BORDER} 0, ${props.theme.BORDER} 5px, transparent 5px, transparent 10px)`;
+      case 'shadow': return 'none';
+      case 'zigzag': return 'none';
+      case 'ridge': return 'none';
+      case 'pulse': return props.theme.OFFSET;
+      default: return props.theme.BORDER;
+    }
+  }};
     ${props => props.$style === 'shadow' && `box-shadow: 0 0 10px ${props.theme.OFFSET};`}
     ${props => props.$style === 'pulse' && `animation: pulse 2s ease-in-out infinite;`}
   }
@@ -351,7 +388,7 @@ const deserializeListLayout = (
     { id: crypto.randomUUID(), type: 'initiative' },
     { id: crypto.randomUUID(), type: 'name' }
   ];
-  
+
   if (!layout || layout.length === 0) {
     return defaultColumns;
   }
@@ -379,6 +416,7 @@ export const InitiativeList: React.FC = () => {
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
   const items = useSceneStore((state) => state.items);
+  const partyData = useSceneStore((state) => state.partyData);
   const setItems = useSceneStore((state) => state.setItems);
   const [units, setUnits] = useState<Unit[]>([]);
   const [listColumns, setListColumns] = useState<ListColumn[]>([]);
@@ -405,7 +443,10 @@ export const InitiativeList: React.FC = () => {
         const initiative = item.metadata?.[UnitConstants.INITIATIVE] as number || 0;
         const name = item.metadata[UnitConstants.UNIT_NAME] as string || item.name || 'Unknown';
         const elevation = item.metadata?.[`${EXTENSION_ID}/elevation`] as number || 0;
-        
+        const owner = partyData.find((player) => player.id === item.createdUserId);
+        const isGmOwner = String((owner as any)?.role || '').toUpperCase() === 'GM';
+        const ownerNameOutlineColor = isGmOwner ? undefined : withAlpha(owner?.color, 1.0);
+
         // Extract attributes using BIDs
         const attributes: Record<string, any> = {};
         Object.keys(item.metadata || {}).forEach(key => {
@@ -415,18 +456,19 @@ export const InitiativeList: React.FC = () => {
             attributes[key] = item.metadata?.[key];
           }
         });
-        
+
         return {
           id: item.id,
           initiative,
           name,
           elevation,
           attributes,
+          ownerNameOutlineColor,
         };
       });
-    
+
     setUnits(transformedUnits);
-  }, [items]);
+  }, [items, partyData]);
 
   // Sort units by initiative and then alphabetically by name (only in normal mode)
   const sortedUnits = useMemo(() => {
@@ -434,14 +476,14 @@ export const InitiativeList: React.FC = () => {
       // In popcorn mode, just sort alphabetically by name
       return [...units].sort((a, b) => a.name.localeCompare(b.name));
     }
-    
+
     return [...units].sort((a, b) => {
       // First, sort by initiative
       if (a.initiative !== b.initiative) {
         // If reverse initiative is on, sort ascending (lowest first)
         // Otherwise, sort descending (highest first)
-        return reverseInitiative 
-          ? a.initiative - b.initiative 
+        return reverseInitiative
+          ? a.initiative - b.initiative
           : b.initiative - a.initiative;
       }
       // If initiative is the same, sort alphabetically by name
@@ -475,7 +517,7 @@ export const InitiativeList: React.FC = () => {
       return item;
     });
     setItems(updatedItems);
-    
+
     // Update in OBR scene items
     OBR.scene.items.updateItems([unitId], (items) => {
       items[0].metadata[UnitConstants.INITIATIVE] = initiativeValue;
@@ -494,14 +536,14 @@ export const InitiativeList: React.FC = () => {
   useEffect(() => {
     const savedTurnId = sceneMetadata[SettingsConstants.CURRENT_TURN] as string | undefined;
     const savedRound = sceneMetadata[SettingsConstants.CURRENT_ROUND] as number | undefined;
-    
+
     if (savedTurnId) {
       setCurrentTurnId(savedTurnId);
     } else if (sortedUnits.length > 0) {
       // Initialize with first unit if no saved turn
       setCurrentTurnId(sortedUnits[0].id);
     }
-    
+
     if (savedRound) {
       setCurrentRound(savedRound);
     }
@@ -510,10 +552,10 @@ export const InitiativeList: React.FC = () => {
   // Handlers for turn navigation
   const handleNext = async () => {
     if (sortedUnits.length === 0) return;
-    
+
     const currentIndex = sortedUnits.findIndex(u => u.id === currentTurnId);
     const nextIndex = currentIndex + 1;
-    
+
     if (nextIndex >= sortedUnits.length) {
       // End of list, go back to top and increment round
       const newRound = currentRound + 1;
@@ -534,10 +576,10 @@ export const InitiativeList: React.FC = () => {
 
   const handlePrevious = async () => {
     if (sortedUnits.length === 0) return;
-    
+
     const currentIndex = sortedUnits.findIndex(u => u.id === currentTurnId);
     const prevIndex = currentIndex - 1;
-    
+
     if (prevIndex < 0) {
       // Beginning of list, go to end and decrement round
       const newRound = Math.max(1, currentRound - 1);
@@ -560,7 +602,7 @@ export const InitiativeList: React.FC = () => {
   const handleUnitClick = async (unitId: string) => {
     if (!popcornInitiative) return;
     if (completedUnits.has(unitId)) return; // Can't select already completed units
-    
+
     setCurrentTurnId(unitId);
     await OBR.scene.setMetadata({
       [SettingsConstants.CURRENT_TURN]: unitId
@@ -569,9 +611,9 @@ export const InitiativeList: React.FC = () => {
 
   const handleEndTurn = () => {
     if (!currentTurnId) return;
-    
+
     setCompletedUnits(prev => new Set([...prev, currentTurnId]));
-    
+
     // Check if all units have gone
     if (completedUnits.size + 1 >= sortedUnits.length) {
       // All done, but don't auto-advance - let user click New Round
@@ -583,7 +625,7 @@ export const InitiativeList: React.FC = () => {
     setCurrentRound(newRound);
     setCompletedUnits(new Set());
     setCurrentTurnId(null);
-    
+
     await OBR.scene.setMetadata({
       [SettingsConstants.CURRENT_TURN]: null,
       [SettingsConstants.CURRENT_ROUND]: newRound
@@ -594,18 +636,18 @@ export const InitiativeList: React.FC = () => {
   useEffect(() => {
     if (tableRef.current && listColumns.length > 0) {
       // Wait a bit for the table to fully render
+      LOGGER.debug('Adjusting window width based on table size');
       setTimeout(() => {
         if (tableRef.current) {
           const tableWidth = tableRef.current.offsetWidth;
-          // Add padding (10px on each side = 20px total) plus a bit extra for scrollbar
-          const totalWidth = tableWidth + 40;
-          // Set width, but cap at a reasonable maximum
-          const finalWidth = Math.min(totalWidth, 800);
+          const totalWidth = tableWidth + 4; // MAGIC NUMBER ALERT: This is the difference in spacing/padding around the table
+          const finalWidth = Math.min(totalWidth, 800); // Set width, but cap at a reasonable maximum
           OBR.action.setWidth(finalWidth);
+          LOGGER.log('Adjusted window width to ' + finalWidth);
         }
       }, 100);
     }
-  }, [listColumns.length]);
+  }, [tableRef.current?.offsetWidth]);
 
   const getIcon = (iconName?: string) => {
     if (!iconName) return null;
@@ -617,11 +659,11 @@ export const InitiativeList: React.FC = () => {
     if (col.type === 'initiative') return <Users />;
     if (col.type === 'name') return 'Name';
     if (col.type === 'divider-column') return null;
-    
+
     if (col.useIcon && col.iconType) {
       return getIcon(col.iconType);
     }
-    
+
     return col.name || col.type;
   };
 
@@ -681,10 +723,12 @@ export const InitiativeList: React.FC = () => {
             />
           </InitiativeCell>
         );
-      
+
       case 'name':
-        return <NameCell theme={theme}>{unit.name}</NameCell>;
-      
+        return (
+          <NameCell theme={theme} title={unit.name} $outlineColor={unit.ownerNameOutlineColor}>{unit.name}</NameCell>
+        );
+
       case 'value-column':
         return (
           <DataCell theme={theme}>
@@ -692,31 +736,31 @@ export const InitiativeList: React.FC = () => {
               {col.styles?.bidList?.map((bid, idx) => (
                 <React.Fragment key={bid}>
                   {idx > 0 && <Divider theme={theme}>{col.styles?.dividers?.[idx - 1] || '/'}</Divider>}
-                  <ValueInput 
+                  <ValueInput
                     theme={theme}
                     value={unit.attributes[`${EXTENSION_ID}/${bid}`] || '0'}
                     $small={col.styles?.bidList && col.styles.bidList.length > 2}
                     onChange={(e) => {
                       const newValue = e.target.value;
-                      
+
                       // Update local state only
                       setUnits(prevUnits =>
                         prevUnits.map(u =>
                           u.id === unit.id
                             ? {
-                                ...u,
-                                attributes: {
-                                  ...u.attributes,
-                                  [`${EXTENSION_ID}/${bid}`]: newValue
-                                }
+                              ...u,
+                              attributes: {
+                                ...u.attributes,
+                                [`${EXTENSION_ID}/${bid}`]: newValue
                               }
+                            }
                             : u
                         )
                       );
                     }}
                     onBlur={(e) => {
                       const newValue = e.target.value;
-                      
+
                       // Update cache
                       const updatedItems = items.map(item => {
                         if (item.id === unit.id) {
@@ -731,7 +775,7 @@ export const InitiativeList: React.FC = () => {
                         return item;
                       });
                       setItems(updatedItems);
-                      
+
                       // Update in OBR scene items
                       OBR.scene.items.updateItems([unit.id], (items) => {
                         items[0].metadata[`${EXTENSION_ID}/${bid}`] = newValue;
@@ -740,7 +784,7 @@ export const InitiativeList: React.FC = () => {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         const newValue = e.currentTarget.value;
-                        
+
                         // Update cache
                         const updatedItems = items.map(item => {
                           if (item.id === unit.id) {
@@ -755,12 +799,12 @@ export const InitiativeList: React.FC = () => {
                           return item;
                         });
                         setItems(updatedItems);
-                        
+
                         // Update in OBR scene items
                         OBR.scene.items.updateItems([unit.id], (items) => {
                           items[0].metadata[`${EXTENSION_ID}/${bid}`] = newValue;
                         });
-                        
+
                         e.currentTarget.blur();
                       }
                     }}
@@ -770,11 +814,11 @@ export const InitiativeList: React.FC = () => {
             </ValueContainer>
           </DataCell>
         );
-      
+
       case 'list-column':
         return (
           <DataCell theme={theme}>
-            <ActionButton 
+            <ActionButton
               theme={theme}
               onClick={() => {
                 // TODO: Open list modal
@@ -786,34 +830,34 @@ export const InitiativeList: React.FC = () => {
             </ActionButton>
           </DataCell>
         );
-      
+
       case 'checkbox-column':
         return (
           <DataCell theme={theme}>
             <ValueContainer>
               {col.styles?.bidList?.map(bid => (
-                <CheckboxInput 
+                <CheckboxInput
                   key={bid}
-                  type="checkbox" 
-                  checked={!!unit.attributes[`${EXTENSION_ID}/${bid}`]} 
+                  type="checkbox"
+                  checked={!!unit.attributes[`${EXTENSION_ID}/${bid}`]}
                   onChange={(e) => {
                     const newValue = e.target.checked;
-                    
+
                     // Update local state
                     setUnits(prevUnits =>
                       prevUnits.map(u =>
                         u.id === unit.id
                           ? {
-                              ...u,
-                              attributes: {
-                                ...u.attributes,
-                                [`${EXTENSION_ID}/${bid}`]: newValue
-                              }
+                            ...u,
+                            attributes: {
+                              ...u.attributes,
+                              [`${EXTENSION_ID}/${bid}`]: newValue
                             }
+                          }
                           : u
                       )
                     );
-                    
+
                     // Update cache
                     const updatedItems = items.map(item => {
                       if (item.id === unit.id) {
@@ -828,7 +872,7 @@ export const InitiativeList: React.FC = () => {
                       return item;
                     });
                     setItems(updatedItems);
-                    
+
                     // Update in OBR scene items
                     OBR.scene.items.updateItems([unit.id], (items) => {
                       items[0].metadata[`${EXTENSION_ID}/${bid}`] = newValue;
@@ -839,7 +883,7 @@ export const InitiativeList: React.FC = () => {
             </ValueContainer>
           </DataCell>
         );
-      
+
       case 'special-column':
         if (col.styles?.specialType === 'elevation') {
           return (
@@ -854,7 +898,7 @@ export const InitiativeList: React.FC = () => {
           // Effects
           return (
             <DataCell theme={theme}>
-              <ActionButton 
+              <ActionButton
                 theme={theme}
                 onClick={() => {
                   // TODO: Open effects modal
@@ -866,10 +910,10 @@ export const InitiativeList: React.FC = () => {
             </DataCell>
           );
         }
-      
+
       case 'divider-column':
         return <DividerCell theme={theme} $style={col.styles?.styleDesign} />;
-      
+
       default:
         return <DataCell theme={theme}>-</DataCell>;
     }
@@ -898,8 +942,8 @@ export const InitiativeList: React.FC = () => {
           </TableHead>
           <TableBody>
             {sortedUnits.map(unit => (
-              <DataRow 
-                key={unit.id} 
+              <DataRow
+                key={unit.id}
                 $isCurrentTurn={unit.id === currentTurnId}
                 theme={theme}
               >
@@ -917,8 +961,8 @@ export const InitiativeList: React.FC = () => {
         {popcornInitiative ? (
           // Popcorn Initiative controls
           <>
-            <ControlButton 
-              theme={theme} 
+            <ControlButton
+              theme={theme}
               onClick={handleEndTurn}
               disabled={!currentTurnId || completedUnits.has(currentTurnId)}
             >
@@ -927,8 +971,8 @@ export const InitiativeList: React.FC = () => {
             <RoundDisplay theme={theme}>
               Round: {currentRound}
             </RoundDisplay>
-            <ControlButton 
-              theme={theme} 
+            <ControlButton
+              theme={theme}
               onClick={handleNewRound}
               disabled={completedUnits.size < sortedUnits.length}
             >

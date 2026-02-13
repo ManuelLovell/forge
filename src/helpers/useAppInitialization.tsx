@@ -70,8 +70,8 @@ export const useAppInitialization = () => {
         const listMeta = sceneMetadata[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;
         const attrMeta = sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
 
-        // If any key is missing, initialize with default system
-        if (!themeMeta || !cardMeta || !listMeta || !attrMeta) {
+        // If any key is missing or invalid, initialize with default system
+        if (!themeMeta || !Array.isArray(cardMeta) || !Array.isArray(listMeta) || !Array.isArray(attrMeta)) {
           LOGGER.log('System data not found, initializing with defaults');
           await initializeDefaultSystem();
           return;

@@ -4,6 +4,7 @@ import { SystemAttribute, CardLayoutComponent, ListLayoutComponent } from '../in
 import { SystemKeys } from '../components/SystemPage';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import LOGGER from './Logger';
+import { useSceneStore } from './BSCache';
 
 interface SystemData {
   theme: {
@@ -35,21 +36,21 @@ export const useSystemData = (): SystemData => {
     importDate: null,
     isLoading: true,
   });
+  const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
 
   useEffect(() => {
     let mounted = true;
 
     const loadSystemData = async () => {
       try {
-        const metadata = await OBR.scene.getMetadata();
 
-        const theme = metadata[SystemKeys.CURRENT_THEME] as SystemData['theme'] | undefined;
-        const cardLayout = metadata[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
-        const listLayout = metadata[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;
-        const attributes = metadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
+        const theme = sceneMetadata[SystemKeys.CURRENT_THEME] as SystemData['theme'] | undefined;
+        const cardLayout = sceneMetadata[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
+        const listLayout = sceneMetadata[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;
+        const attributes = sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
 
-        // Check if any required data is missing
-        if (!theme || !cardLayout || !listLayout || !attributes) {
+        // Check if any required data is missing or invalid
+        if (!theme || !Array.isArray(cardLayout) || !Array.isArray(listLayout) || !Array.isArray(attributes)) {
           LOGGER.log('System data missing, using defaults');
           
           if (mounted) {
@@ -73,8 +74,8 @@ export const useSystemData = (): SystemData => {
         }
 
         // Load stored system data
-        const systemName = metadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
-        const importDate = metadata[SystemKeys.IMPORT_DATE] as string || null;
+        const systemName = sceneMetadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
+        const importDate = sceneMetadata[SystemKeys.IMPORT_DATE] as string || null;
 
         if (mounted) {
           setSystemData({
@@ -123,7 +124,7 @@ export const useSystemData = (): SystemData => {
       const systemName = metadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
       const importDate = metadata[SystemKeys.IMPORT_DATE] as string || null;
 
-      if (theme && cardLayout && listLayout && attributes && mounted) {
+      if (theme && Array.isArray(cardLayout) && Array.isArray(listLayout) && Array.isArray(attributes) && mounted) {
         setSystemData({
           theme,
           cardLayout,

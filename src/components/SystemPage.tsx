@@ -47,6 +47,29 @@ interface SystemBackup {
   attributes: SystemAttribute[];
 }
 
+const parseImportedArrayField = <T,>(value: T[] | string, fieldName: string): T[] => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      throw new Error(`Imported ${fieldName} is not valid JSON`);
+    }
+
+    if (!Array.isArray(parsed)) {
+      throw new Error(`Imported ${fieldName} is not a JSON array`);
+    }
+
+    return parsed as T[];
+  }
+
+  throw new Error(`Imported ${fieldName} has invalid type`);
+};
+
 const InputGroup = styled.div`
   display: flex;
   gap: 10px;
@@ -326,7 +349,7 @@ export const SystemPage = () => {
       const attrMeta = sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
       const currentName = sceneMetadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
 
-      if (!themeMeta || !cardMeta || !listMeta || !attrMeta) {
+      if (!themeMeta || !Array.isArray(cardMeta) || !Array.isArray(listMeta) || !Array.isArray(attrMeta)) {
         LOGGER.warn('Cannot create backup: system data incomplete');
         return;
       }
@@ -425,6 +448,13 @@ export const SystemPage = () => {
       }
 
       const systemData = data as SystemResponse;
+      const cardLayout = parseImportedArrayField<CardLayoutComponent>(systemData.card_layout, 'card_layout');
+      const listLayout = parseImportedArrayField<ListLayoutComponent>(systemData.list_layout, 'list_layout');
+      const attributes = systemData.attributes;
+
+      if (!Array.isArray(attributes)) {
+        throw new Error('Imported attributes are not a valid array');
+      }
 
       // Create backup of current system before overwriting
       await createBackup(currentSystemName);
@@ -441,9 +471,9 @@ export const SystemPage = () => {
       // Save to OBR scene metadata
       await OBR.scene.setMetadata({
         [SystemKeys.CURRENT_THEME]: themeData,
-        [SystemKeys.CURRENT_CARD]: systemData.card_layout,
-        [SystemKeys.CURRENT_LIST]: systemData.list_layout,
-        [SystemKeys.CURRENT_ATTR]: systemData.attributes,
+        [SystemKeys.CURRENT_CARD]: cardLayout,
+        [SystemKeys.CURRENT_LIST]: listLayout,
+        [SystemKeys.CURRENT_ATTR]: attributes,
         [SystemKeys.SYSTEM_NAME]: systemData.name,
         [SystemKeys.IMPORT_DATE]: new Date().toISOString(),
       });
@@ -501,6 +531,10 @@ export const SystemPage = () => {
         border: backup.theme_border,
         background_url: backup.background_url,
       };
+
+      if (!Array.isArray(backup.card_layout) || !Array.isArray(backup.list_layout) || !Array.isArray(backup.attributes)) {
+        throw new Error('Backup data is invalid');
+      }
 
       // Save to OBR scene metadata
       await OBR.scene.setMetadata({

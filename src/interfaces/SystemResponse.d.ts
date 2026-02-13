@@ -74,8 +74,8 @@ export interface SystemResponse {
   theme_offset: string;
   theme_background: string;
   theme_border: string;
-  card_layout: CardLayoutComponent[];
-  list_layout: ListLayoutComponent[];
+  card_layout: CardLayoutComponent[] | string;
+  list_layout: ListLayoutComponent[] | string;
   share_id: string;
   attributes: SystemAttribute[];
 }

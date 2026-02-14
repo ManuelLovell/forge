@@ -40,7 +40,7 @@ export class SettingsConstants {
   static SHOW_HP_BARS = `${EXTENSION_ID}/showhpbar`;
   static SHOW_HP_NUMBERS = `${EXTENSION_ID}/showhpnum`;
   static SHOW_NAMES = `${EXTENSION_ID}/showname`;
-  static SHOW_TURN_LABEL = `${EXTENSION_ID}/showturn`;
+  static SHOW_TURN_EFFECT = `${EXTENSION_ID}/showturn`;
   static USE_DESCRIPTIVE_DUPLICATES = `${EXTENSION_ID}/usedescd`;
 
   // Dice Controls

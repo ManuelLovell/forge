@@ -45,10 +45,10 @@ export const useSceneStore = create<BSCache>((set) => ({
     setLocalItems: (localItems) => set({ localItems }),
 
     sceneMetadata: {},
-    setSceneMetadata: (data) => set({ sceneMetadata: data }),
+    setSceneMetadata: (data) => set({ sceneMetadata: { ...data } }),
 
     roomMetadata: {},
-    setRoomMetadata: (data) => set({ roomMetadata: data }),
+    setRoomMetadata: (data) => set({ roomMetadata: { ...data } }),
 
     gridDpi: 150,
     setGridDpi: (dpi) => set({ gridDpi: dpi }),

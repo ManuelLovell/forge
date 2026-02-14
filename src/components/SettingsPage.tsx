@@ -84,7 +84,7 @@ export const SettingsPage = () => {
   const [showHpBars, setShowHpBars] = useState(false);
   const [showHpNumbers, setShowHpNumbers] = useState(false);
   const [showNames, setShowNames] = useState(false);
-  const [showTurnLabel, setShowTurnLabel] = useState(false);
+  const [showTurnEffect, setshowTurnEffect] = useState(false);
   const [useDescriptiveDuplicates, setUseDescriptiveDuplicates] = useState(false);
 
   // Dice Controls state
@@ -136,8 +136,8 @@ export const SettingsPage = () => {
     if (storageContainer[SettingsConstants.SHOW_NAMES] !== undefined) {
       setShowNames(storageContainer[SettingsConstants.SHOW_NAMES] as boolean);
     }
-    if (storageContainer[SettingsConstants.SHOW_TURN_LABEL] !== undefined) {
-      setShowTurnLabel(storageContainer[SettingsConstants.SHOW_TURN_LABEL] as boolean);
+    if (storageContainer[SettingsConstants.SHOW_TURN_EFFECT] !== undefined) {
+      setshowTurnEffect(storageContainer[SettingsConstants.SHOW_TURN_EFFECT] as boolean);
     }
     if (storageContainer[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] !== undefined) {
       setUseDescriptiveDuplicates(storageContainer[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] as boolean);
@@ -374,13 +374,13 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show Turn label</ControlLabel>
+            <ControlLabel theme={theme}>Show Turn Effect</ControlLabel>
             <ToggleControl
-              label="Show Turn label"
-              isOn={showTurnLabel}
+              label="Show Turn Effect"
+              isOn={showTurnEffect}
               onChange={async (value) => {
-                setShowTurnLabel(value);
-                await saveData(SettingsConstants.SHOW_TURN_LABEL, value);
+                setshowTurnEffect(value);
+                await saveData(SettingsConstants.SHOW_TURN_EFFECT, value);
               }}
             />
           </ControlRow>

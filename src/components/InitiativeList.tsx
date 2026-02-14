@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import styled from 'styled-components';
-import OBR from '@owlbear-rodeo/sdk';
+import OBR, { buildEffect } from '@owlbear-rodeo/sdk';
 import { useSystemData } from '../helpers/useSystemData';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSceneStore } from '../helpers/BSCache';
@@ -17,6 +17,9 @@ import LOGGER from '../helpers/Logger';
 import { HexToRgba } from '../helpers/HexToRGB';
 import { ViewportFunctions } from '../helpers/ViewPortUtility';
 import { PopupModal } from './PopupModal';
+import { GRID_SELECTION_EFFECT } from '../assets/gridSelectionEffect';
+
+const TURN_EFFECT_ID = `${EXTENSION_ID}/current-turn-effect`;
 
 // Internal state model
 interface ListColumn {
@@ -478,6 +481,7 @@ export const InitiativeList: React.FC = () => {
   // Get settings
   const reverseInitiative = storageContainer[SettingsConstants.REVERSE_INITIATIVE] as boolean || false;
   const popcornInitiative = storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean || false;
+  const showTurnEffect = storageContainer[SettingsConstants.SHOW_TURN_EFFECT] as boolean || false;
 
   // Transform items from cache into Unit format
   useEffect(() => {
@@ -755,6 +759,61 @@ export const InitiativeList: React.FC = () => {
     () => (ownerModalUnitId ? items.find((item) => item.id === ownerModalUnitId) || null : null),
     [ownerModalUnitId, items]
   );
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const syncTurnEffect = async () => {
+      try {
+        await OBR.scene.local.deleteItems([TURN_EFFECT_ID]);
+      } catch {
+      }
+
+      if (!showTurnEffect || !currentTurnId) {
+        return;
+      }
+
+      const currentTurnItem = items.find((item) => item.id === currentTurnId);
+      if (!currentTurnItem) {
+        return;
+      }
+
+      if (isCancelled) {
+        return;
+      }
+
+      try {
+        const effect = buildEffect()
+          .id(TURN_EFFECT_ID)
+          .name('Current Turn Effect')
+          .effectType('ATTACHMENT')
+          .attachedTo(currentTurnId)
+          .locked(true)
+          .disableHit(true)
+          .sksl(GRID_SELECTION_EFFECT)
+          .build();
+
+        LOGGER.log('Adding turn effect to scene for current turn');
+        await OBR.scene.local.addItems([effect]);
+      } catch (error) {
+        LOGGER.error('Failed to sync current turn effect', error);
+      }
+    };
+
+    syncTurnEffect();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [showTurnEffect, currentTurnId]);
+
+  useEffect(() => {
+    return () => {
+        LOGGER.log('Removing turn effect to scene for current turn');
+      OBR.scene.local.deleteItems([TURN_EFFECT_ID]).catch(() => {
+      });
+    };
+  }, []);
 
   // Adjust window width based on table width
   useEffect(() => {

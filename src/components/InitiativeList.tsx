@@ -211,6 +211,34 @@ const InitiativeCell = styled(DataCell) <{ theme: ForgeTheme }>`
   min-width: 60px;
 `;
 
+const RollerCell = styled(DataCell)<{ theme: ForgeTheme }>`
+  min-width: 48px;
+`;
+
+const RollerButton = styled.button<{ theme: ForgeTheme }>`
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid ${props => props.theme.BORDER};
+  background: rgba(0, 0, 0, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: ${props => props.theme.OFFSET};
+  }
+`;
+
+const RollerIcon = styled.img`
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+`;
+
 const TurnIcon = styled.div`
   display: flex;
   align-items: center;
@@ -428,10 +456,12 @@ const OwnerPickerError = styled.p<{ theme: ForgeTheme }>`
 
 // Deserialization function
 const deserializeListLayout = (
-  layout: ListLayoutComponent[]
+  layout: ListLayoutComponent[],
+  showRollerColumn: boolean
 ): ListColumn[] => {
   const defaultColumns: ListColumn[] = [
     { id: crypto.randomUUID(), type: 'initiative' },
+    ...(showRollerColumn ? [{ id: 'roller-column', type: 'roller' }] : []),
     { id: crypto.randomUUID(), type: 'name' }
   ];
 
@@ -481,6 +511,8 @@ export const InitiativeList: React.FC = () => {
   // Get settings
   const reverseInitiative = storageContainer[SettingsConstants.REVERSE_INITIATIVE] as boolean || false;
   const popcornInitiative = storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean || false;
+  const showRollerColumn = storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] as boolean || false;
+  const diceRange = (storageContainer[SettingsConstants.DICE_RANGE] as string | undefined) || '';
   const showTurnEffect = storageContainer[SettingsConstants.SHOW_TURN_EFFECT] as boolean || false;
 
   // Transform items from cache into Unit format
@@ -588,13 +620,27 @@ export const InitiativeList: React.FC = () => {
     });
   };
 
+  const getDiceSides = (range: string): number => {
+    const trimmed = (range || '').trim();
+    const matched = trimmed.match(/(\d+)/);
+    const parsed = matched ? parseInt(matched[1], 10) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+  };
+
+  const handleRollInitiative = (unitId: string) => {
+    const sides = getDiceSides(diceRange);
+    const rolledValue = Math.floor(Math.random() * sides) + 1;
+    handleInitiativeChange(unitId, String(rolledValue));
+    commitInitiativeChange(unitId, rolledValue);
+  };
+
   // Deserialize list layout on mount or when listLayout changes
   useEffect(() => {
     if (!isLoading) {
-      const columns = deserializeListLayout(listLayout);
+      const columns = deserializeListLayout(listLayout, showRollerColumn);
       setListColumns(columns);
     }
-  }, [listLayout, isLoading]);
+  }, [listLayout, isLoading, showRollerColumn]);
 
   // Load current turn and round from metadata
   useEffect(() => {
@@ -840,6 +886,7 @@ export const InitiativeList: React.FC = () => {
 
   const renderHeader = (col: ListColumn) => {
     if (col.type === 'initiative') return <Users />;
+    if (col.type === 'roller') return null;
     if (col.type === 'name') return 'Name';
     if (col.type === 'divider-column') return null;
 
@@ -917,6 +964,22 @@ export const InitiativeList: React.FC = () => {
           >
             {unit.name}
           </NameCell>
+        );
+
+      case 'roller':
+        return (
+          <RollerCell theme={theme}>
+            <RollerButton
+              theme={theme}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRollInitiative(unit.id);
+              }}
+              title={`Roll initiative (1-${getDiceSides(diceRange)})`}
+            >
+              <RollerIcon src="/dice.svg" alt="Roll" />
+            </RollerButton>
+          </RollerCell>
         );
 
       case 'value-column':

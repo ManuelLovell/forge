@@ -8,6 +8,7 @@ import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSceneStore } from '../helpers/BSCache';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { PageContainer, PageTitle, Card, Button, Input } from './SharedStyledComponents';
+import { PopupModal } from './PopupModal';
 import { OwlbearIds } from '../helpers/Constants';
 import { Upload, X } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
@@ -153,47 +154,10 @@ const ButtonGroup = styled.div`
   margin-top: 15px;
 `;
 
-const ConfirmModal = styled.div<{ theme: ForgeTheme }>`
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: ${props => props.theme.BACKGROUND};
-  border: 3px solid ${props => props.theme.BORDER};
-  border-radius: 8px;
-  padding: 25px;
-  z-index: 10000;
-  min-width: 300px;
-  max-width: 500px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-`;
-
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  z-index: 9999;
-`;
-
-const ModalTitle = styled.h3<{ theme: ForgeTheme }>`
-  color: ${props => props.theme.PRIMARY};
-  margin: 0 0 15px 0;
-  font-size: 18px;
-`;
-
 const ModalText = styled.p<{ theme: ForgeTheme }>`
   color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.9)};
   margin: 0 0 20px 0;
   line-height: 1.5;
-`;
-
-const ModalButtons = styled.div`
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
 `;
 
 const BackupSection = styled.div`
@@ -778,24 +742,23 @@ export const SystemPage = () => {
         )}
       </PageContainer>
 
-      {/* Confirmation Modal */}
-      {showConfirmModal && (
-        <>
-          <ModalOverlay onClick={handleCancel} />
-          <ConfirmModal theme={theme}>
-            <ModalTitle theme={theme}>Confirm Action</ModalTitle>
-            <ModalText theme={theme}>{confirmMessage}</ModalText>
-            <ModalButtons>
-              <Button theme={theme} variant="secondary" onClick={handleCancel}>
-                Cancel
-              </Button>
-              <Button theme={theme} onClick={handleConfirm}>
-                Confirm
-              </Button>
-            </ModalButtons>
-          </ConfirmModal>
-        </>
-      )}
+      <PopupModal
+        isOpen={showConfirmModal}
+        title="Confirm Action"
+        onClose={handleCancel}
+        actions={(
+          <>
+            <Button theme={theme} variant="secondary" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button theme={theme} onClick={handleConfirm}>
+              Confirm
+            </Button>
+          </>
+        )}
+      >
+        <ModalText theme={theme}>{confirmMessage}</ModalText>
+      </PopupModal>
     </motion.div>
   );
 };

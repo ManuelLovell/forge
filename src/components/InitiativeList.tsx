@@ -15,6 +15,8 @@ import {
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
 import LOGGER from '../helpers/Logger';
 import { HexToRgba } from '../helpers/HexToRGB';
+import { ViewportFunctions } from '../helpers/ViewPortUtility';
+import { PopupModal } from './PopupModal';
 
 // Internal state model
 interface ListColumn {
@@ -181,6 +183,7 @@ const DataRow = styled.tr<{ $isCurrentTurn?: boolean; theme?: ForgeTheme }>`
   ${props => props.$isCurrentTurn && props.theme && `
     background: linear-gradient(to left, ${rgbaFromHex(props.theme.OFFSET, 0.4)} 0%, transparent 100%);
   `}
+  cursor: context-menu;
   
   &:hover {
     background-color: rgba(255, 255, 255, 0.05);
@@ -252,7 +255,11 @@ const NameCell = styled(DataCell) <{ theme: ForgeTheme; $outlineColor?: string }
   max-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: default;
   white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
   text-shadow: ${props =>
     props.$outlineColor
       ? `
@@ -380,6 +387,42 @@ const ElevationContainer = styled.div`
   }
 `;
 
+const OwnerPickerList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+`;
+
+const OwnerPickerButton = styled.button<{ theme: ForgeTheme; $isCurrent?: boolean }>`
+  width: 100%;
+  text-align: left;
+  background: ${props => props.$isCurrent ? rgbaFromHex(props.theme.OFFSET, 0.45) : rgbaFromHex(props.theme.BACKGROUND, 0.35)};
+  border: 1px solid ${props => props.theme.BORDER};
+  border-radius: 6px;
+  color: ${props => props.theme.PRIMARY};
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: ${props => rgbaFromHex(props.theme.OFFSET, 0.55)};
+  }
+`;
+
+const OwnerPickerHint = styled.p<{ theme: ForgeTheme }>`
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.8)};
+  margin: 0 0 12px 0;
+  font-size: 13px;
+`;
+
+const OwnerPickerError = styled.p<{ theme: ForgeTheme }>`
+  color: #ff6b6b;
+  margin: 10px 0 0 0;
+  font-size: 13px;
+`;
+
 // Deserialization function
 const deserializeListLayout = (
   layout: ListLayoutComponent[]
@@ -417,12 +460,16 @@ export const InitiativeList: React.FC = () => {
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
   const items = useSceneStore((state) => state.items);
   const partyData = useSceneStore((state) => state.partyData);
+  const playerData = useSceneStore((state) => state.playerData);
   const setItems = useSceneStore((state) => state.setItems);
   const [units, setUnits] = useState<Unit[]>([]);
   const [listColumns, setListColumns] = useState<ListColumn[]>([]);
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
   const [currentRound, setCurrentRound] = useState<number>(1);
   const [completedUnits, setCompletedUnits] = useState<Set<string>>(new Set());
+  const [ownerModalUnitId, setOwnerModalUnitId] = useState<string | null>(null);
+  const [ownerModalError, setOwnerModalError] = useState<string | null>(null);
+  const [isAssigningOwner, setIsAssigningOwner] = useState(false);
   const tableRef = useRef<HTMLTableElement>(null);
 
   // Control for setting the data to Room or to Scene
@@ -490,6 +537,19 @@ export const InitiativeList: React.FC = () => {
       return a.name.localeCompare(b.name);
     });
   }, [units, reverseInitiative, popcornInitiative]);
+
+  const availablePlayers = useMemo(() => {
+    const playersById = new Map<string, typeof partyData[number]>();
+    partyData.forEach((player) => {
+      playersById.set(player.id, player);
+    });
+
+    if (playerData && !playersById.has(playerData.id)) {
+      playersById.set(playerData.id, playerData);
+    }
+
+    return Array.from(playersById.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [partyData, playerData]);
 
   // Handler for updating initiative in local state only
   const handleInitiativeChange = (unitId: string, newInitiative: string) => {
@@ -632,6 +692,70 @@ export const InitiativeList: React.FC = () => {
     });
   };
 
+  const handleUnitNameDoubleClick = async (unitId: string) => {
+    const clickedItem = items.find((item) => item.id === unitId);
+    if (!clickedItem) {
+      return;
+    }
+
+    try {
+      await ViewportFunctions.CenterViewportOnImage(clickedItem);
+    } catch (error) {
+      LOGGER.error('Failed to center viewport on unit', unitId, error);
+    }
+  };
+
+  const handleUnitContextMenu = (event: React.MouseEvent, unitId: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setOwnerModalError(null);
+    setOwnerModalUnitId(unitId);
+  };
+
+  const handleAssignOwner = async (playerId: string) => {
+    if (!ownerModalUnitId) {
+      return;
+    }
+
+    const targetItem = items.find((item) => item.id === ownerModalUnitId);
+    if (!targetItem) {
+      setOwnerModalError('Token not found in scene cache.');
+      return;
+    }
+
+    setIsAssigningOwner(true);
+    setOwnerModalError(null);
+
+    try {
+      await OBR.scene.items.updateItems([ownerModalUnitId], (itemsToUpdate) => {
+        (itemsToUpdate[0] as any).createdUserId = playerId;
+      });
+
+      const updatedItems = items.map((item) =>
+        item.id === ownerModalUnitId
+          ? ({ ...item, createdUserId: playerId } as any)
+          : item
+      );
+      setItems(updatedItems);
+      setOwnerModalUnitId(null);
+    } catch (error) {
+      LOGGER.error('Failed to reassign token owner', ownerModalUnitId, playerId, error);
+      setOwnerModalError('Unable to assign token owner. Ensure you have permission to edit this token.');
+    } finally {
+      setIsAssigningOwner(false);
+    }
+  };
+
+  const selectedOwnerUnit = useMemo(
+    () => (ownerModalUnitId ? sortedUnits.find((unit) => unit.id === ownerModalUnitId) || null : null),
+    [ownerModalUnitId, sortedUnits]
+  );
+
+  const selectedOwnerItem = useMemo(
+    () => (ownerModalUnitId ? items.find((item) => item.id === ownerModalUnitId) || null : null),
+    [ownerModalUnitId, items]
+  );
+
   // Adjust window width based on table width
   useEffect(() => {
     if (tableRef.current && listColumns.length > 0) {
@@ -726,7 +850,14 @@ export const InitiativeList: React.FC = () => {
 
       case 'name':
         return (
-          <NameCell theme={theme} title={unit.name} $outlineColor={unit.ownerNameOutlineColor}>{unit.name}</NameCell>
+          <NameCell
+            theme={theme}
+            title="Right-click to assign owner"
+            $outlineColor={unit.ownerNameOutlineColor}
+            onDoubleClick={() => handleUnitNameDoubleClick(unit.id)}
+          >
+            {unit.name}
+          </NameCell>
         );
 
       case 'value-column':
@@ -946,6 +1077,8 @@ export const InitiativeList: React.FC = () => {
                 key={unit.id}
                 $isCurrentTurn={unit.id === currentTurnId}
                 theme={theme}
+                title="Right-click to assign owner"
+                onContextMenu={(event) => handleUnitContextMenu(event, unit.id)}
               >
                 {listColumns.map(col => (
                   <React.Fragment key={col.id}>
@@ -994,6 +1127,36 @@ export const InitiativeList: React.FC = () => {
           </>
         )}
       </ControlWrapper>
+      <PopupModal
+        isOpen={!!ownerModalUnitId}
+        title={selectedOwnerUnit ? `Unit: ${selectedOwnerUnit.name}` : 'Unit'}
+        onClose={() => {
+          if (isAssigningOwner) return;
+          setOwnerModalUnitId(null);
+          setOwnerModalError(null);
+        }}
+        closeOnOverlayClick={!isAssigningOwner}
+        maxWidth="520px"
+      >
+        <OwnerPickerHint theme={theme}>
+          Select a player to become the owner.
+        </OwnerPickerHint>
+        <OwnerPickerList>
+          {availablePlayers.map((player) => (
+            <OwnerPickerButton
+              key={player.id}
+              theme={theme}
+              $isCurrent={selectedOwnerItem?.createdUserId === player.id}
+              onClick={() => handleAssignOwner(player.id)}
+              disabled={isAssigningOwner}
+            >
+              {player.name}
+              {selectedOwnerItem?.createdUserId === player.id ? ' (current)' : ''}
+            </OwnerPickerButton>
+          ))}
+        </OwnerPickerList>
+        {ownerModalError && <OwnerPickerError theme={theme}>{ownerModalError}</OwnerPickerError>}
+      </PopupModal>
     </ListContainer>
   );
 };

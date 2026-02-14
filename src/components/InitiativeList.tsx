@@ -10,7 +10,7 @@ import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import {
   Heart, Shield, Sun, Award, Target, Users, Star,
-  Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle
+  Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle, Music, Feather
 } from 'lucide-react';
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
 import LOGGER from '../helpers/Logger';
@@ -85,6 +85,8 @@ const iconMap: Record<string, React.FC<any>> = {
   clock: Clock,
   eye: Eye,
   layers: Layers,
+  music: Music,
+  feather: Feather,
   book: BookOpen,
 };
 
@@ -1138,11 +1140,12 @@ export const InitiativeList: React.FC = () => {
         );
 
       case 'special-column':
+        const specialIcon = getIcon(col.iconType);
         if (col.styles?.specialType === 'elevation') {
           return (
             <DataCell theme={theme}>
               <ElevationContainer>
-                <Layers size={16} />
+                {specialIcon || <Layers size={16} />}
                 <span>{unit.elevation || 0}</span>
               </ElevationContainer>
             </DataCell>
@@ -1158,7 +1161,7 @@ export const InitiativeList: React.FC = () => {
                   console.log('Open effects for', unit.name);
                 }}
               >
-                <Sun />
+                {specialIcon || <Sun />}
               </ActionButton>
             </DataCell>
           );
@@ -1199,7 +1202,6 @@ export const InitiativeList: React.FC = () => {
                 key={unit.id}
                 $isCurrentTurn={unit.id === currentTurnId}
                 theme={theme}
-                title="Right-click to assign owner"
                 onContextMenu={(event) => handleUnitContextMenu(event, unit.id)}
               >
                 {listColumns.map(col => (

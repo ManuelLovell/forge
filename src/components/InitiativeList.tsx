@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import styled from 'styled-components';
-import OBR, { buildEffect } from '@owlbear-rodeo/sdk';
+import OBR, { buildEffect, buildText, isImage } from '@owlbear-rodeo/sdk';
 import { useSystemData } from '../helpers/useSystemData';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSceneStore } from '../helpers/BSCache';
@@ -20,6 +20,9 @@ import { PopupModal } from './PopupModal';
 import { GRID_SELECTION_EFFECT } from '../assets/gridSelectionEffect';
 
 const TURN_EFFECT_ID = `${EXTENSION_ID}/current-turn-effect`;
+const ELEVATION_BADGE_FLAG = `${EXTENSION_ID}/elevation-badge`;
+const ELEVATION_BADGE_OWNER = `${EXTENSION_ID}/elevation-badge-owner`;
+const ELEVATION_METADATA_KEY = `${EXTENSION_ID}/elevation`;
 
 // Internal state model
 interface ListColumn {
@@ -404,22 +407,6 @@ const DividerCell = styled(DataCell) <{ $style?: string; theme: ForgeTheme }>`
   }
 `;
 
-const ElevationContainer = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  
-  svg {
-    width: 16px;
-    height: 16px;
-  }
-  
-  span {
-    font-weight: 600;
-  }
-`;
-
 const OwnerPickerList = styled.div`
   display: flex;
   flex-direction: column;
@@ -496,6 +483,7 @@ export const InitiativeList: React.FC = () => {
   const items = useSceneStore((state) => state.items);
   const partyData = useSceneStore((state) => state.partyData);
   const playerData = useSceneStore((state) => state.playerData);
+  const gridDpi = useSceneStore((state) => state.gridDpi);
   const setItems = useSceneStore((state) => state.setItems);
   const [units, setUnits] = useState<Unit[]>([]);
   const [listColumns, setListColumns] = useState<ListColumn[]>([]);
@@ -505,6 +493,8 @@ export const InitiativeList: React.FC = () => {
   const [ownerModalUnitId, setOwnerModalUnitId] = useState<string | null>(null);
   const [ownerModalError, setOwnerModalError] = useState<string | null>(null);
   const [isAssigningOwner, setIsAssigningOwner] = useState(false);
+  const [initiativeDrafts, setInitiativeDrafts] = useState<Record<string, string>>({});
+  const [elevationDrafts, setElevationDrafts] = useState<Record<string, string>>({});
   const tableRef = useRef<HTMLTableElement>(null);
 
   // Control for setting the data to Room or to Scene
@@ -527,7 +517,7 @@ export const InitiativeList: React.FC = () => {
       .map(item => {
         const initiative = item.metadata?.[UnitConstants.INITIATIVE] as number || 0;
         const name = item.metadata[UnitConstants.UNIT_NAME] as string || item.name || 'Unknown';
-        const elevation = item.metadata?.[`${EXTENSION_ID}/elevation`] as number || 0;
+        const elevation = item.metadata?.[ELEVATION_METADATA_KEY] as number || 0;
         const owner = partyData.find((player) => player.id === item.createdUserId);
         const isGmOwner = String((owner as any)?.role || '').toUpperCase() === 'GM';
         const ownerNameOutlineColor = isGmOwner ? undefined : withAlpha(owner?.color, 1.0);
@@ -629,11 +619,284 @@ export const InitiativeList: React.FC = () => {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
   };
 
+  const clampNumber = (value: number, min?: number, max?: number): number => {
+    if (typeof min === 'number') {
+      value = Math.max(min, value);
+    }
+    if (typeof max === 'number') {
+      value = Math.min(max, value);
+    }
+    return value;
+  };
+
+  const resolveNumericInput = (
+    rawValue: string,
+    currentValue: number,
+    options?: { min?: number; max?: number }
+  ): number => {
+    const trimmed = rawValue.trim();
+    const { min, max } = options || {};
+
+    if (trimmed.length === 0) {
+      return clampNumber(0, min, max);
+    }
+
+    const relativeMatch = trimmed.match(/^([+\-*/])\s*(-?\d+(?:\.\d+)?)$/);
+    const infixMatch = trimmed.match(/^(-?\d+(?:\.\d+)?)\s*([+\-*/])\s*(-?\d+(?:\.\d+)?)$/);
+
+    let result: number | null = null;
+
+    if (relativeMatch) {
+      const operator = relativeMatch[1];
+      const operand = parseFloat(relativeMatch[2]);
+
+      switch (operator) {
+        case '+':
+          result = currentValue + operand;
+          break;
+        case '-':
+          result = currentValue - operand;
+          break;
+        case '*':
+          result = currentValue * operand;
+          break;
+        case '/':
+          result = operand === 0 ? currentValue : currentValue / operand;
+          break;
+      }
+    } else if (infixMatch) {
+      const left = parseFloat(infixMatch[1]);
+      const operator = infixMatch[2];
+      const right = parseFloat(infixMatch[3]);
+
+      switch (operator) {
+        case '+':
+          result = left + right;
+          break;
+        case '-':
+          result = left - right;
+          break;
+        case '*':
+          result = left * right;
+          break;
+        case '/':
+          result = right === 0 ? left : left / right;
+          break;
+      }
+    } else {
+      const absolute = parseFloat(trimmed);
+      if (!Number.isNaN(absolute)) {
+        result = absolute;
+      }
+    }
+
+    if (result === null || !Number.isFinite(result)) {
+      return clampNumber(currentValue, min, max);
+    }
+
+    return clampNumber(Math.trunc(result), min, max);
+  };
+
   const handleRollInitiative = (unitId: string) => {
     const sides = getDiceSides(diceRange);
     const rolledValue = Math.floor(Math.random() * sides) + 1;
     handleInitiativeChange(unitId, String(rolledValue));
     commitInitiativeChange(unitId, rolledValue);
+  };
+
+  const handleInitiativeDraftChange = (unitId: string, newValue: string) => {
+    setInitiativeDrafts((prev) => ({
+      ...prev,
+      [unitId]: newValue,
+    }));
+  };
+
+  const commitInitiativeInput = (unitId: string, rawValue: string) => {
+    const currentValue = units.find((unit) => unit.id === unitId)?.initiative ?? 0;
+    const nextValue = resolveNumericInput(rawValue, currentValue);
+
+    setInitiativeDrafts((prev) => {
+      const { [unitId]: _removed, ...rest } = prev;
+      return rest;
+    });
+
+    setUnits((prevUnits) =>
+      prevUnits.map((unit) =>
+        unit.id === unitId ? { ...unit, initiative: nextValue } : unit
+      )
+    );
+
+    commitInitiativeChange(unitId, nextValue);
+  };
+
+  const getElevationBadgeId = (unitId: string): string => `ELE${unitId.slice(3)}`;
+
+  const getImageMinBounds = (unitItem: any, sceneGridDpi: number) => {
+    const dpiScale = sceneGridDpi / unitItem.grid.dpi;
+    const width = unitItem.image.width * dpiScale;
+    const height = unitItem.image.height * dpiScale;
+    const offsetX = (unitItem.grid.offset.x / unitItem.image.width) * width;
+    const offsetY = (unitItem.grid.offset.y / unitItem.image.height) * height;
+
+    return {
+      minX: unitItem.position.x - offsetX,
+      minY: unitItem.position.y - offsetY,
+    };
+  };
+
+  const syncElevationBadge = async (unitId: string, elevationValue: number) => {
+    const badgeId = getElevationBadgeId(unitId);
+
+    try {
+      await OBR.scene.items.deleteItems([badgeId]);
+    } catch {
+    }
+
+    if (elevationValue === 0) {
+      return;
+    }
+
+    const unitItem = items.find((item) => item.id === unitId);
+    if (!unitItem || !isImage(unitItem)) {
+      return;
+    }
+
+    const bounds = getImageMinBounds(unitItem, gridDpi);
+    const indicator = elevationValue > 0 ? '🡹' : '🡻';
+    const elevationLabel = `${indicator}${Math.abs(elevationValue)}`;
+
+    const badge = buildText()
+      .id(badgeId)
+      .name('Elevation Badge')
+      .plainText(elevationLabel)
+      .textType('PLAIN')
+      .fontWeight(900)
+      .fillOpacity(0.95)
+      .fillColor('white')
+      .strokeWidth(2)
+      .strokeColor('black')
+      .strokeOpacity(1)
+      .fontSize(36)
+      .fontFamily('Segoe UI')
+      .textAlign('CENTER')
+      .position({ x: bounds.minX - 40, y: bounds.minY })
+      .metadata({
+        [ELEVATION_BADGE_FLAG]: true,
+        [ELEVATION_BADGE_OWNER]: unitId,
+      })
+      .attachedTo(unitId)
+      .visible(unitItem.visible)
+      .locked(true)
+      .disableHit(true)
+      .disableAttachmentBehavior(['ROTATION', 'SCALE'])
+      .layer('TEXT')
+      .build();
+
+    try {
+      await OBR.scene.items.addItems([badge]);
+    } catch (error) {
+      LOGGER.error('Failed to add elevation badge', unitId, error);
+    }
+  };
+
+  const handleElevationDraftChange = (unitId: string, newValue: string) => {
+    setElevationDrafts((prev) => ({
+      ...prev,
+      [unitId]: newValue,
+    }));
+  };
+
+  const commitElevationChange = (unitId: string, elevationValueRaw: string) => {
+    const currentValue = units.find((unit) => unit.id === unitId)?.elevation ?? 0;
+    const elevationValue = resolveNumericInput(elevationValueRaw, currentValue, { min: -999, max: 999 });
+
+    setElevationDrafts((prev) => {
+      const { [unitId]: _removed, ...rest } = prev;
+      return rest;
+    });
+
+    setUnits((prevUnits) =>
+      prevUnits.map((unit) =>
+        unit.id === unitId ? { ...unit, elevation: elevationValue } : unit
+      )
+    );
+
+    const updatedItems = items.map((item) => {
+      if (item.id === unitId) {
+        return {
+          ...item,
+          metadata: {
+            ...item.metadata,
+            [ELEVATION_METADATA_KEY]: elevationValue,
+          },
+        };
+      }
+      return item;
+    });
+    setItems(updatedItems);
+
+    OBR.scene.items.updateItems([unitId], (items) => {
+      items[0].metadata[ELEVATION_METADATA_KEY] = elevationValue;
+    });
+
+    void syncElevationBadge(unitId, elevationValue);
+  };
+
+  const maybeResolveNumericAttributeInput = (rawValue: string, currentValue: unknown): string => {
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+      return rawValue;
+    }
+
+    const isRelativeExpression = /^([+\-*/])\s*-?\d+(?:\.\d+)?$/.test(trimmed);
+    const isInfixExpression = /^-?\d+(?:\.\d+)?\s*[+\-*/]\s*-?\d+(?:\.\d+)?$/.test(trimmed);
+    const isAbsoluteNumber = /^-?\d+(?:\.\d+)?$/.test(trimmed);
+
+    if (!isRelativeExpression && !isInfixExpression && !isAbsoluteNumber) {
+      return rawValue;
+    }
+
+    const parsedCurrent = typeof currentValue === 'number' ? currentValue : parseFloat(String(currentValue));
+    const baseValue = Number.isFinite(parsedCurrent) ? parsedCurrent : 0;
+    return String(resolveNumericInput(trimmed, baseValue));
+  };
+
+  const commitValueColumnInput = (unitId: string, bid: string, rawValue: string) => {
+    const key = `${EXTENSION_ID}/${bid}`;
+    const currentValue = units.find((unit) => unit.id === unitId)?.attributes?.[key];
+    const committedValue = maybeResolveNumericAttributeInput(rawValue, currentValue);
+
+    setUnits(prevUnits =>
+      prevUnits.map(u =>
+        u.id === unitId
+          ? {
+            ...u,
+            attributes: {
+              ...u.attributes,
+              [key]: committedValue
+            }
+          }
+          : u
+      )
+    );
+
+    const updatedItems = items.map(item => {
+      if (item.id === unitId) {
+        return {
+          ...item,
+          metadata: {
+            ...item.metadata,
+            [key]: committedValue
+          }
+        };
+      }
+      return item;
+    });
+    setItems(updatedItems);
+
+    OBR.scene.items.updateItems([unitId], (items) => {
+      items[0].metadata[key] = committedValue;
+    });
   };
 
   // Deserialize list layout on mount or when listLayout changes
@@ -938,17 +1201,14 @@ export const InitiativeList: React.FC = () => {
           <InitiativeCell theme={theme}>
             <InitiativeInput
               theme={theme}
-              type="number"
-              value={unit.initiative}
-              onChange={(e) => handleInitiativeChange(unit.id, e.target.value)}
-              onBlur={(e) => {
-                const value = parseInt(e.target.value) || 0;
-                commitInitiativeChange(unit.id, value);
-              }}
+              type="text"
+              inputMode="decimal"
+              value={initiativeDrafts[unit.id] ?? String(unit.initiative)}
+              onChange={(e) => handleInitiativeDraftChange(unit.id, e.target.value)}
+              onBlur={(e) => commitInitiativeInput(unit.id, e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  const value = parseInt(e.currentTarget.value) || 0;
-                  commitInitiativeChange(unit.id, value);
+                  e.preventDefault();
                   e.currentTarget.blur();
                 }
               }}
@@ -1014,52 +1274,11 @@ export const InitiativeList: React.FC = () => {
                       );
                     }}
                     onBlur={(e) => {
-                      const newValue = e.target.value;
-
-                      // Update cache
-                      const updatedItems = items.map(item => {
-                        if (item.id === unit.id) {
-                          return {
-                            ...item,
-                            metadata: {
-                              ...item.metadata,
-                              [`${EXTENSION_ID}/${bid}`]: newValue
-                            }
-                          };
-                        }
-                        return item;
-                      });
-                      setItems(updatedItems);
-
-                      // Update in OBR scene items
-                      OBR.scene.items.updateItems([unit.id], (items) => {
-                        items[0].metadata[`${EXTENSION_ID}/${bid}`] = newValue;
-                      });
+                      commitValueColumnInput(unit.id, bid, e.target.value);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        const newValue = e.currentTarget.value;
-
-                        // Update cache
-                        const updatedItems = items.map(item => {
-                          if (item.id === unit.id) {
-                            return {
-                              ...item,
-                              metadata: {
-                                ...item.metadata,
-                                [`${EXTENSION_ID}/${bid}`]: newValue
-                              }
-                            };
-                          }
-                          return item;
-                        });
-                        setItems(updatedItems);
-
-                        // Update in OBR scene items
-                        OBR.scene.items.updateItems([unit.id], (items) => {
-                          items[0].metadata[`${EXTENSION_ID}/${bid}`] = newValue;
-                        });
-
+                        e.preventDefault();
                         e.currentTarget.blur();
                       }
                     }}
@@ -1142,12 +1361,26 @@ export const InitiativeList: React.FC = () => {
       case 'special-column':
         const specialIcon = getIcon(col.iconType);
         if (col.styles?.specialType === 'elevation') {
+          const elevationDraftValue = elevationDrafts[unit.id];
           return (
             <DataCell theme={theme}>
-              <ElevationContainer>
-                {specialIcon || <Layers size={16} />}
-                <span>{unit.elevation || 0}</span>
-              </ElevationContainer>
+              <ValueInput
+                theme={theme}
+                type="text"
+                inputMode="decimal"
+                min={-999}
+                max={999}
+                step={1}
+                value={elevationDraftValue ?? String(unit.elevation ?? 0)}
+                onChange={(e) => handleElevationDraftChange(unit.id, e.target.value)}
+                onBlur={(e) => commitElevationChange(unit.id, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
+              />
             </DataCell>
           );
         } else {

@@ -10,6 +10,7 @@ import { ChatLogPage } from './components/ChatLogPage';
 import { SystemPage } from './components/SystemPage';
 import { InitiativeList } from './components/InitiativeList';
 import { PartyPage } from './components/PartyPage';
+import { HpBarEffectManager } from './components/HpBarEffectManager';
 import { useForgeTheme } from './helpers/ThemeContext';
 import { useAppInitialization } from './helpers/useAppInitialization';
 import GlobalStyles from './styles/GlobalStyles';
@@ -103,6 +104,7 @@ function App() {
         </LoadingContainer>
       ) : (
         <AppContainer>
+          <HpBarEffectManager />
           <ContentArea theme={theme} $backgroundUrl={theme.BACKGROUND_URL}>
             <AnimatePresence mode="wait">
               {renderPage()}

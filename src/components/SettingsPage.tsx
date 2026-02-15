@@ -57,6 +57,21 @@ const SmallInput = styled.input<{ theme: ForgeTheme }>`
   }
 `;
 
+const SmallSelect = styled.select<{ theme: ForgeTheme }>`
+  ${tw`rounded px-3 py-1 text-sm`}
+  background-color: rgba(0, 0, 0, 0.5);
+  color: ${props => props.theme.PRIMARY};
+  border: 2px solid ${props => props.theme.BORDER};
+  border-radius: 6px;
+  width: 100%;
+
+  &:focus {
+    outline: none;
+    border-color: ${props => props.theme.OFFSET};
+    background-color: rgba(0, 0, 0, 0.6);
+  }
+`;
+
 const ButtonGroup = tw.div`
   flex gap-3 mt-2 justify-center
 `;
@@ -82,6 +97,7 @@ export const SettingsPage = () => {
 
   // Game Controls state
   const [showHpBars, setShowHpBars] = useState(false);
+  const [hpBarOrientation, setHpBarOrientation] = useState<'top' | 'bottom' | 'left' | 'right'>('bottom');
   const [showHpNumbers, setShowHpNumbers] = useState(false);
   const [showNames, setShowNames] = useState(false);
   const [showTurnEffect, setshowTurnEffect] = useState(false);
@@ -129,6 +145,9 @@ export const SettingsPage = () => {
     }
     if (storageContainer[SettingsConstants.SHOW_HP_BARS] !== undefined) {
       setShowHpBars(storageContainer[SettingsConstants.SHOW_HP_BARS] as boolean);
+    }
+    if (storageContainer[SettingsConstants.HP_BAR_ORIENTATION] !== undefined) {
+      setHpBarOrientation(storageContainer[SettingsConstants.HP_BAR_ORIENTATION] as 'top' | 'bottom' | 'left' | 'right');
     }
     if (storageContainer[SettingsConstants.SHOW_HP_NUMBERS] !== undefined) {
       setShowHpNumbers(storageContainer[SettingsConstants.SHOW_HP_NUMBERS] as boolean);
@@ -325,9 +344,32 @@ export const SettingsPage = () => {
               onChange={async (value) => {
                 setShowHpBars(value);
                 await saveData(SettingsConstants.SHOW_HP_BARS, value);
+                if (value && storageContainer[SettingsConstants.HP_BAR_ORIENTATION] === undefined) {
+                  setHpBarOrientation('bottom');
+                  await saveData(SettingsConstants.HP_BAR_ORIENTATION, 'bottom');
+                }
               }}
             />
           </ControlRow>
+          {showHpBars && (
+            <SubControlRow theme={theme}>
+              <SubControlLabel theme={theme}>Orientation: </SubControlLabel>
+              <SmallSelect
+                theme={theme}
+                value={hpBarOrientation}
+                onChange={async (e) => {
+                  const value = e.target.value as 'top' | 'bottom' | 'left' | 'right';
+                  setHpBarOrientation(value);
+                  await saveData(SettingsConstants.HP_BAR_ORIENTATION, value);
+                }}
+              >
+                <option value="top">Top</option>
+                <option value="bottom">Bottom</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </SmallSelect>
+            </SubControlRow>
+          )}
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>Show HP Numbers on tokens</ControlLabel>

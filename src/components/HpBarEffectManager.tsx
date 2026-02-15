@@ -61,6 +61,22 @@ const getHpPercent = (unit: Item, currentHpBid: string, maxHpBid: string): numbe
   return clamp((currentHp / maxHp) * 100, 0, 100);
 };
 
+const getOrientationValue = (orientationRaw: unknown): number => {
+  const orientation = String(orientationRaw || 'bottom').toLowerCase();
+  switch (orientation) {
+    case 'top':
+      return 0;
+    case 'bottom':
+      return 1;
+    case 'left':
+      return 2;
+    case 'right':
+      return 3;
+    default:
+      return 1;
+  }
+};
+
 export const HpBarEffectManager = () => {
   const cacheReady = useSceneStore((state) => state.cacheReady);
   const sceneReady = useSceneStore((state) => state.sceneReady);
@@ -79,6 +95,7 @@ export const HpBarEffectManager = () => {
     const syncHpBars = async () => {
       const storage = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
       const showHpBars = (storage[SettingsConstants.SHOW_HP_BARS] as boolean | undefined) ?? false;
+      const orientationValue = getOrientationValue(storage[SettingsConstants.HP_BAR_ORIENTATION]);
       const attributes = (sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined) || [];
       const { currentHpBid, maxHpBid } = getHpBidKeys(attributes);
 
@@ -124,9 +141,15 @@ export const HpBarEffectManager = () => {
         }
 
         const uniform = (bar as any).uniforms?.find((entry: any) => entry.name === 'hpPercent');
+        const orientationUniform = (bar as any).uniforms?.find((entry: any) => entry.name === 'orientation');
         const currentUniformValue = typeof uniform?.value === 'number' ? uniform.value : NaN;
+        const currentOrientationValue = typeof orientationUniform?.value === 'number' ? orientationUniform.value : NaN;
 
-        return bar.attachedTo !== desired.unitId || !Number.isFinite(currentUniformValue) || Math.abs(currentUniformValue - desired.hpPercent) > 0.001;
+        return bar.attachedTo !== desired.unitId
+          || !Number.isFinite(currentUniformValue)
+          || Math.abs(currentUniformValue - desired.hpPercent) > 0.001
+          || !Number.isFinite(currentOrientationValue)
+          || Math.abs(currentOrientationValue - orientationValue) > 0.001;
       });
 
       if (cancelled) {
@@ -151,7 +174,10 @@ export const HpBarEffectManager = () => {
             .locked(true)
             .disableHit(true)
             .disableAttachmentBehavior(['ROTATION', 'SCALE'])
-            .uniforms([{ name: 'hpPercent', value: desired.hpPercent }])
+            .uniforms([
+              { name: 'hpPercent', value: desired.hpPercent },
+              { name: 'orientation', value: orientationValue },
+            ])
             .sksl(HP_BAR_EFFECT)
             .metadata({
               [HP_BAR_EFFECT_FLAG]: true,
@@ -180,7 +206,10 @@ export const HpBarEffectManager = () => {
 
               effectItem.attachedTo = desired.unitId;
               const writableEffectItem = effectItem as any;
-              writableEffectItem.uniforms = [{ name: 'hpPercent', value: desired.hpPercent }];
+              writableEffectItem.uniforms = [
+                { name: 'hpPercent', value: desired.hpPercent },
+                { name: 'orientation', value: orientationValue },
+              ];
               effectItem.metadata = {
                 ...effectItem.metadata,
                 [HP_BAR_EFFECT_FLAG]: true,

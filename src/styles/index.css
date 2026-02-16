@@ -34,10 +34,33 @@
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
+  display: block;
   min-width: 320px;
   min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--OBR-dark-blue-transparent);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--OBR-Purple-Select-transparent);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--OBR-Purple-Select);
 }
 
 h1 {

@@ -1372,7 +1372,7 @@ export const InitiativeList: React.FC = () => {
     }
   };
 
-  const handleOpenCardPopover = async (elementId: string) => {
+  const handleOpenCardPopover = async (elementId: string, unitId: string) => {
     try {
       const windowHeight = await OBR.viewport.getHeight();
       const modalBuffer = 100;
@@ -1380,12 +1380,12 @@ export const InitiativeList: React.FC = () => {
 
       await OBR.popover.open({
         id: OwlbearIds.CARDSID,
-        url: `/pages/forgecard.html`,
+        url: `/pages/forgecard.html?unitid=${encodeURIComponent(unitId)}`,
         height: viewableHeight,
-        width: 400,
+        width: 350,
         anchorElementId: elementId,
-        hidePaper: false,
-        disableClickAway: true
+        hidePaper: true,
+        disableClickAway: false
       });
     } catch (error) {
       LOGGER.error('Failed to open cards popover', error);
@@ -1725,7 +1725,7 @@ export const InitiativeList: React.FC = () => {
               theme={theme}
               onClick={(e) => {
                 e.stopPropagation();
-                void handleOpenCardPopover(e.currentTarget.id);
+                void handleOpenCardPopover(e.currentTarget.id, unit.id);
               }}
               title={`Open card for ${unit.name}`}
             >

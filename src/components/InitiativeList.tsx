@@ -806,9 +806,29 @@ export const InitiativeList: React.FC = () => {
     }));
   };
 
+  const resolveAbsoluteNumericInput = (
+    rawValue: string,
+    currentValue: number,
+    options?: { min?: number; max?: number }
+  ): number => {
+    const trimmed = rawValue.trim();
+    const { min, max } = options || {};
+
+    if (!trimmed) {
+      return clampNumber(0, min, max);
+    }
+
+    const parsed = parseFloat(trimmed);
+    if (!Number.isFinite(parsed)) {
+      return clampNumber(currentValue, min, max);
+    }
+
+    return clampNumber(Math.trunc(parsed), min, max);
+  };
+
   const commitElevationChange = (unitId: string, elevationValueRaw: string) => {
     const currentValue = units.find((unit) => unit.id === unitId)?.elevation ?? 0;
-    const elevationValue = resolveNumericInput(elevationValueRaw, currentValue, { min: -999, max: 999 });
+    const elevationValue = resolveAbsoluteNumericInput(elevationValueRaw, currentValue, { min: -999, max: 999 });
 
     setElevationDrafts((prev) => {
       const { [unitId]: _removed, ...rest } = prev;

@@ -112,6 +112,9 @@ export const SettingsPage = () => {
   const [enableDiscordLogging, setEnableDiscordLogging] = useState(false);
   const [discordUrl, setDiscordUrl] = useState('');
 
+  // Other
+  const [enableConsoleLog, setEnableConsoleLog] = useState(false);
+
   //Control for setting the data to Room or to Scene
   const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
   // Load settings from cached metadata when it changes
@@ -181,6 +184,13 @@ export const SettingsPage = () => {
     }
     if (storageContainer[SettingsConstants.DISCORD_URL] !== undefined) {
       setDiscordUrl(storageContainer[SettingsConstants.DISCORD_URL] as string);
+    }
+    if (storageContainer[SettingsConstants.ENABLE_CONSOLE_LOG] !== undefined) {
+      const enabled = storageContainer[SettingsConstants.ENABLE_CONSOLE_LOG] as boolean;
+      setEnableConsoleLog(enabled);
+      LOGGER.setEnabled(enabled);
+    } else {
+      setEnableConsoleLog(false);
     }
   }, [cacheReady, storageContainer]);
 
@@ -344,6 +354,10 @@ export const SettingsPage = () => {
               onChange={async (value) => {
                 setShowHpBars(value);
                 await saveData(SettingsConstants.SHOW_HP_BARS, value);
+                if (value && showHpNumbers) {
+                  setShowHpNumbers(false);
+                  await saveData(SettingsConstants.SHOW_HP_NUMBERS, false);
+                }
                 if (value && storageContainer[SettingsConstants.HP_BAR_ORIENTATION] === undefined) {
                   setHpBarOrientation('bottom');
                   await saveData(SettingsConstants.HP_BAR_ORIENTATION, 'bottom');
@@ -351,7 +365,7 @@ export const SettingsPage = () => {
               }}
             />
           </ControlRow>
-          {showHpBars && (
+          {(showHpBars || showHpNumbers) && (
             <SubControlRow theme={theme}>
               <SubControlLabel theme={theme}>Orientation: </SubControlLabel>
               <SmallSelect
@@ -379,6 +393,14 @@ export const SettingsPage = () => {
               onChange={async (value) => {
                 setShowHpNumbers(value);
                 await saveData(SettingsConstants.SHOW_HP_NUMBERS, value);
+                if (value && showHpBars) {
+                  setShowHpBars(false);
+                  await saveData(SettingsConstants.SHOW_HP_BARS, false);
+                }
+                if (value && storageContainer[SettingsConstants.HP_BAR_ORIENTATION] === undefined) {
+                  setHpBarOrientation('bottom');
+                  await saveData(SettingsConstants.HP_BAR_ORIENTATION, 'bottom');
+                }
               }}
             />
           </ControlRow>
@@ -534,6 +556,22 @@ export const SettingsPage = () => {
               />
             </SubControlRow>
           )}
+        </Card>
+
+        <Card theme={theme}>
+          <SectionTitle theme={theme}>Other</SectionTitle>
+          <ControlRow theme={theme}>
+            <ControlLabel theme={theme}>Enable Console Log</ControlLabel>
+            <ToggleControl
+              label="Enable Console Log"
+              isOn={enableConsoleLog}
+              onChange={async (value) => {
+                setEnableConsoleLog(value);
+                LOGGER.setEnabled(value);
+                await saveData(SettingsConstants.ENABLE_CONSOLE_LOG, value);
+              }}
+            />
+          </ControlRow>
         </Card>
       </PageContainer>
     </motion.div>

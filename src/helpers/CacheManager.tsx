@@ -3,6 +3,8 @@ import OBR, { type Player } from '@owlbear-rodeo/sdk';
 import { useSceneStore } from '../helpers/BSCache';
 import LOGGER from './Logger';
 import { initializeChatLogListener } from './ChatLogStore';
+import { DATA_STORED_IN_ROOM } from './Constants';
+import { SettingsConstants } from '../interfaces/MetadataKeys';
 
 export function CacheSync({ children }: { children: React.ReactNode })
 {
@@ -19,6 +21,14 @@ export function CacheSync({ children }: { children: React.ReactNode })
 
     useEffect(() =>
     {
+        const applyConsoleLogSetting = (sceneMeta: Record<string, unknown>, roomMeta: Record<string, unknown>) => {
+            const storageContainer = DATA_STORED_IN_ROOM ? roomMeta : sceneMeta;
+            const enabled = storageContainer[SettingsConstants.ENABLE_CONSOLE_LOG] as boolean | undefined;
+            if (typeof enabled === 'boolean') {
+                LOGGER.setEnabled(enabled);
+            }
+        };
+
         // Initialize System Log listener (only happens once)
         initializeChatLogListener();
         
@@ -65,6 +75,7 @@ export function CacheSync({ children }: { children: React.ReactNode })
             setLocalItems(localItems);
             setSceneMetadata(sceneMetadata);
             setRoomMetadata(roomMetadata);
+            applyConsoleLogSetting(sceneMetadata, roomMetadata);
             setGridDpi(gridDpi);
             setPlayerData({
                 id: playerId,
@@ -82,8 +93,14 @@ export function CacheSync({ children }: { children: React.ReactNode })
             unsubGridDpi = OBR.scene.grid.onChange((grid) => setGridDpi(grid.dpi));
             unsubPlayerData = OBR.player.onChange(setPlayerData);
             unsubPartyData = OBR.party.onChange(setPartyData);
-            unsubSceneMetadata = OBR.scene.onMetadataChange(setSceneMetadata);
-            unsubRoomMetadata = OBR.room.onMetadataChange(setRoomMetadata);
+            unsubSceneMetadata = OBR.scene.onMetadataChange((metadata) => {
+                setSceneMetadata(metadata);
+                applyConsoleLogSetting(metadata, useSceneStore.getState().roomMetadata);
+            });
+            unsubRoomMetadata = OBR.room.onMetadataChange((metadata) => {
+                setRoomMetadata(metadata);
+                applyConsoleLogSetting(useSceneStore.getState().sceneMetadata, metadata);
+            });
             setCacheReady(true);
             LOGGER.log('CacheManager: Cache is ready');
         };

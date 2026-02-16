@@ -54,4 +54,7 @@ export class SettingsConstants {
   static SHOW_NOTIFICATION_TO_ALL = `${EXTENSION_ID}/shownote`;
   static ENABLE_DISCORD_LOGGING = `${EXTENSION_ID}/enabdisc`;
   static DISCORD_URL = `${EXTENSION_ID}/discurl`;
+
+  // Other
+  static ENABLE_CONSOLE_LOG = `${EXTENSION_ID}/conlog`;
 }

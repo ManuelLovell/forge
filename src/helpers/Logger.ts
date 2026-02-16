@@ -6,8 +6,7 @@ import { OwlbearIds } from './Constants';
  * Toggle ENABLE_LOGGING to turn all console output on/off
  */
 
-// Set to false to disable all console logging
-const ENABLE_LOGGING = true;
+let enableLogging = false;
 const LOGGER_LABEL = '[FORGE ⚒️]';
 const CHATLOG_CHANNEL = `${OwlbearIds.EXTENSIONID}/chatlog`;
 
@@ -26,61 +25,67 @@ const formatArgs = (...args: any[]): string => {
 };
 
 export const LOGGER = {
+    setEnabled: (enabled: boolean) => {
+        enableLogging = enabled;
+    },
+
+    isEnabled: () => enableLogging,
+
     log: (...args: any[]) => {
-        if (ENABLE_LOGGING) {
+        if (enableLogging) {
             console.log(LOGGER_LABEL, ...args);
             sendToChatLog(`[LOG] ${formatArgs(...args)}`);
         }
     },
 
     error: (...args: any[]) => {
-        if (ENABLE_LOGGING) {
+        if (enableLogging) {
             console.error(LOGGER_LABEL, ...args);
             sendToChatLog(`[ERROR] ${formatArgs(...args)}`);
         }
     },
 
     warn: (...args: any[]) => {
-        if (ENABLE_LOGGING) {
+        if (enableLogging) {
             console.warn(LOGGER_LABEL, ...args);
             sendToChatLog(`[WARN] ${formatArgs(...args)}`);
         }
     },
 
     info: (...args: any[]) => {
-        if (ENABLE_LOGGING) {
+        if (enableLogging) {
             console.info(LOGGER_LABEL, ...args);
             sendToChatLog(`[INFO] ${formatArgs(...args)}`);
         }
     },
 
     debug: (...args: any[]) => {
-        if (ENABLE_LOGGING) {
+        if (enableLogging) {
             console.debug(LOGGER_LABEL, ...args);
             sendToChatLog(`[DEBUG] ${formatArgs(...args)}`);
         }
     },
 
     table: (...args: any[]) => {
-        if (ENABLE_LOGGING) {
+        if (enableLogging) {
             console.table(LOGGER_LABEL, ...args);
         }
     },
 
     group: (...args: any[]) => {
-        if (ENABLE_LOGGING) {
+        if (enableLogging) {
             console.group(LOGGER_LABEL, ...args);
         }
     },
 
     groupEnd: () => {
-        if (ENABLE_LOGGING) {
+        if (enableLogging) {
             console.groupEnd();
         }
     },
 
     trace: (...args: any[]) => {
-        if (ENABLE_LOGGING) {
+        if (enableLogging) {
             console.trace(LOGGER_LABEL, ...args);
         }
     },

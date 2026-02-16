@@ -1680,6 +1680,7 @@ export const InitiativeList: React.FC = () => {
       }
 
       try {
+        let updatedExistingEffect = false;
         await OBR.scene.local.updateItems([TURN_EFFECT_ID], (localItems) => {
           const turnEffect = localItems[0] as any;
           if (!turnEffect) {
@@ -1687,10 +1688,13 @@ export const InitiativeList: React.FC = () => {
           }
 
           turnEffect.attachedTo = currentTurnId;
+          updatedExistingEffect = true;
         });
 
-        LOGGER.log('Updating turn effect attachment for current turn');
-        return;
+        if (updatedExistingEffect) {
+          LOGGER.log('Updating turn effect attachment for current turn');
+          return;
+        }
       } catch {
       }
 
@@ -1721,7 +1725,7 @@ export const InitiativeList: React.FC = () => {
     return () => {
       isCancelled = true;
     };
-  }, [showTurnEffect, currentTurnId]);
+  }, [showTurnEffect, currentTurnId, items]);
 
   useEffect(() => {
     return () => {

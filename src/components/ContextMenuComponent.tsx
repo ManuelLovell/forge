@@ -89,6 +89,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                 */
 
                                 update[UnitConstants.UNIT_NAME] = item.name;
+                                update[UnitConstants.FABRICATED] = true;
                                 // Check descriptive name setting
                                 if (storageContainer[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] !== undefined) {
                                     // We want to check the 'itemName'

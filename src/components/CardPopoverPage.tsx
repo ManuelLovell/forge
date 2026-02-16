@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import { OwlbearIds } from '../helpers/Constants';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
+import { UnitConstants } from '../interfaces/MetadataKeys';
 import { CardLayoutRenderer, type CardLayoutTheme } from './CardLayoutRenderer';
 import type { CardLayoutComponent, SystemAttribute } from '../interfaces/SystemResponse';
 
@@ -63,6 +64,46 @@ const Message = styled.p<{ $theme: ThemeData }>`
   color: ${props => props.$theme.primary};
 `;
 
+const CardControls = styled.div`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+`;
+
+const UnitSelect = styled.select<{ $theme: ThemeData }>`
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid ${props => props.$theme.border};
+  background: ${props => rgbaFromHex(props.$theme.background, 0.82)};
+  color: ${props => props.$theme.primary};
+  padding: 0 6px;
+  box-sizing: border-box;
+  font-size: 12px;
+`;
+
+const CloseButton = styled.button<{ $theme: ThemeData }>`
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: ${props => rgbaFromHex(props.$theme.background, 0.82)};
+  padding: 0;
+  box-sizing: border-box;
+  cursor: pointer;
+`;
+
+const CloseIcon = styled.img`
+  width: 28px;
+  height: 28px;
+  display: block;
+`;
+
 const readUnitIdFromQuery = (): string | null => {
   const params = new URLSearchParams(window.location.search);
   const raw = params.get('unitid');
@@ -91,8 +132,25 @@ const parseSystemArrayField = <T,>(raw: unknown): T[] | null => {
   return null;
 };
 
+const isFabricatedTrue = (raw: unknown): boolean => {
+  if (raw === true) {
+    return true;
+  }
+
+  if (typeof raw === 'string') {
+    const normalized = raw.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1' || normalized === 'yes';
+  }
+
+  if (typeof raw === 'number') {
+    return raw === 1;
+  }
+
+  return false;
+};
+
 export const CardPopoverPage = () => {
-  const [unitId] = useState<string | null>(() => readUnitIdFromQuery());
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(() => readUnitIdFromQuery());
   const [cache, setCache] = useState<CardCache>({ metadata: {}, items: [] });
   const [isReady, setIsReady] = useState(false);
 
@@ -151,13 +209,42 @@ export const CardPopoverPage = () => {
     };
   }, []);
 
+  const getUnitDisplayName = (item: Item): string => {
+    const metadataName = item.metadata?.[UnitConstants.UNIT_NAME];
+    if (typeof metadataName === 'string' && metadataName.trim()) {
+      return metadataName;
+    }
+
+    const textName = (item as any).text?.plainText;
+    if (typeof textName === 'string' && textName.trim()) {
+      return textName;
+    }
+
+    if (typeof item.name === 'string' && item.name.trim()) {
+      return item.name;
+    }
+
+    return 'Unknown';
+  };
+
+  const selectableUnits = useMemo(() => {
+    return cache.items
+      .filter((item) => isFabricatedTrue(item.metadata?.[UnitConstants.FABRICATED]))
+      .filter((item) => item.id !== selectedUnitId)
+      .map((item) => ({
+        id: item.id,
+        name: getUnitDisplayName(item),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [cache.items, selectedUnitId]);
+
   const unitItem = useMemo(() => {
-    if (!unitId) {
+    if (!selectedUnitId) {
       return null;
     }
 
-    return cache.items.find((item) => item.id === unitId) || null;
-  }, [cache.items, unitId]);
+    return cache.items.find((item) => item.id === selectedUnitId) || null;
+  }, [cache.items, selectedUnitId]);
 
   const updateUnitMetadata = async (updates: Record<string, unknown>) => {
     if (!unitItem) {
@@ -205,7 +292,7 @@ export const CardPopoverPage = () => {
       <ContentViewport>
         {!isReady ? (
           <Message $theme={theme}>Loading card…</Message>
-        ) : !unitId ? (
+        ) : !selectedUnitId ? (
           <Message $theme={theme}>No unit id supplied in URL.</Message>
         ) : !unitItem ? (
           <Message $theme={theme}>Unit not found in current scene.</Message>
@@ -217,6 +304,38 @@ export const CardPopoverPage = () => {
             attributes={attributes}
             unitItem={unitItem}
             onUpdateMetadata={updateUnitMetadata}
+            controlContent={(
+              <CardControls>
+                <UnitSelect
+                  $theme={theme}
+                  aria-label="Choose Unit"
+                  value=""
+                  onChange={(event) => {
+                    const nextUnitId = event.target.value;
+                    if (!nextUnitId) {
+                      return;
+                    }
+
+                    setSelectedUnitId(nextUnitId);
+                  }}
+                >
+                  <option value="">Choose Unit</option>
+                  {selectableUnits.map((unit) => (
+                    <option key={unit.id} value={unit.id}>{unit.name}</option>
+                  ))}
+                </UnitSelect>
+                <CloseButton
+                  type="button"
+                  $theme={theme}
+                  aria-label="Close Card"
+                  onClick={async () => {
+                    await OBR.popover.close(OwlbearIds.CARDSID);
+                  }}
+                >
+                  <CloseIcon src="/close.svg" alt="" aria-hidden="true" />
+                </CloseButton>
+              </CardControls>
+            )}
           />
         )}
       </ContentViewport>

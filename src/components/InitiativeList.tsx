@@ -68,6 +68,18 @@ interface Unit {
   ownerNameOutlineColor?: string;
 }
 
+interface ListReferenceEntry {
+  id: string;
+  name: string;
+  description: string;
+  inUse?: boolean;
+}
+
+interface ListReferenceModalState {
+  unitId: string;
+  bid: string;
+}
+
 const withAlpha = (color: string | undefined, alpha: number): string | undefined => {
   if (!color) return undefined;
 
@@ -601,6 +613,69 @@ const OwnerPickerError = styled.p<{ theme: ForgeTheme }>`
   font-size: 13px;
 `;
 
+const ListReferenceSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const ListReferenceHint = styled.p<{ theme: ForgeTheme }>`
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.78)};
+  margin: 0;
+  font-size: 12px;
+`;
+
+const ListReferenceItems = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+`;
+
+const ListReferenceItem = styled.div<{ theme: ForgeTheme }>`
+  background: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.35)};
+  border: 1px solid ${props => props.theme.BORDER};
+  border-radius: 6px;
+  padding: 8px;
+`;
+
+const ListReferenceTitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+`;
+
+const ListReferenceUseCheckbox = styled.input`
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  pointer-events: none;
+`;
+
+const ListReferenceName = styled.div<{ theme: ForgeTheme }>`
+  color: ${props => props.theme.PRIMARY};
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1.2;
+`;
+
+const ListReferenceDescription = styled.div<{ theme: ForgeTheme }>`
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.85)};
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.25;
+  white-space: pre-wrap;
+`;
+
+const ListReferenceEmpty = styled.p<{ theme: ForgeTheme }>`
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.75)};
+  margin: 0;
+  font-size: 13px;
+`;
+
 // Deserialization function
 const deserializeListLayout = (
   layout: ListLayoutComponent[],
@@ -640,7 +715,7 @@ const deserializeListLayout = (
 
 export const InitiativeList: React.FC = () => {
   const { theme } = useForgeTheme();
-  const { listLayout, isLoading } = useSystemData();
+  const { listLayout, attributes, isLoading } = useSystemData();
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
   const items = useSceneStore((state) => state.items);
@@ -664,6 +739,7 @@ export const InitiativeList: React.FC = () => {
   const [effectDurationType, setEffectDurationType] = useState<EffectDurationType>('rounds');
   const [effectEndTiming, setEffectEndTiming] = useState<EffectEndTiming>('start');
   const [effectsModalError, setEffectsModalError] = useState<string | null>(null);
+  const [listReferenceModal, setListReferenceModal] = useState<ListReferenceModalState | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
 
   // Control for setting the data to Room or to Scene
@@ -726,6 +802,39 @@ export const InitiativeList: React.FC = () => {
   }, [items]);
 
   const getEffectsForUnit = (unitId: string): TrackedEffect[] => effectsByUnitId.get(unitId) || [];
+
+  const parseListReferenceEntries = (raw: unknown): ListReferenceEntry[] => {
+    let source: unknown = raw;
+
+    if (typeof source === 'string') {
+      try {
+        source = JSON.parse(source);
+      } catch {
+        return [];
+      }
+    }
+
+    if (!Array.isArray(source)) {
+      return [];
+    }
+
+    return source.map((entry, index) => {
+      const value = entry && typeof entry === 'object' ? entry as Record<string, unknown> : {};
+      const rawInUse = value.inUse;
+      const parsedInUse = typeof rawInUse === 'boolean'
+        ? rawInUse
+        : (typeof rawInUse === 'string'
+          ? ['true', '1', 'yes'].includes(rawInUse.trim().toLowerCase())
+          : (typeof rawInUse === 'number' ? rawInUse === 1 : undefined));
+
+      return {
+        id: typeof value.id === 'string' && value.id ? value.id : `entry-${index}`,
+        name: typeof value.name === 'string' ? value.name : '',
+        description: typeof value.description === 'string' ? value.description : '',
+        ...(parsedInUse !== undefined ? { inUse: parsedInUse } : {}),
+      };
+    });
+  };
 
   const updateUnitEffects = async (unitId: string, effects: TrackedEffect[]) => {
     const cleanedEffects = effects.filter((effect) => effect.remaining > 0);
@@ -1385,7 +1494,7 @@ export const InitiativeList: React.FC = () => {
         width: 350,
         anchorElementId: elementId,
         hidePaper: true,
-        disableClickAway: false
+        disableClickAway: true
       });
     } catch (error) {
       LOGGER.error('Failed to open cards popover', error);
@@ -1451,6 +1560,30 @@ export const InitiativeList: React.FC = () => {
   const activeEffectsForSelectedUnit = useMemo(
     () => (effectsModalUnitId ? getEffectsForUnit(effectsModalUnitId) : []),
     [effectsModalUnitId, effectsByUnitId]
+  );
+
+  const selectedListReferenceUnit = useMemo(
+    () => (listReferenceModal ? sortedUnits.find((unit) => unit.id === listReferenceModal.unitId) || null : null),
+    [listReferenceModal, sortedUnits]
+  );
+
+  const selectedListAttribute = useMemo(
+    () => (listReferenceModal ? attributes.find((attr) => attr.attr_bid === listReferenceModal.bid) || null : null),
+    [attributes, listReferenceModal]
+  );
+
+  const selectedListReferenceEntries = useMemo(() => {
+    if (!listReferenceModal || !selectedListReferenceUnit) {
+      return [];
+    }
+
+    const raw = selectedListReferenceUnit.attributes[`${EXTENSION_ID}/${listReferenceModal.bid}`];
+    return parseListReferenceEntries(raw);
+  }, [listReferenceModal, selectedListReferenceUnit]);
+
+  const selectedListLooksLikeItemList = useMemo(
+    () => selectedListReferenceEntries.some((entry) => typeof entry.inUse === 'boolean'),
+    [selectedListReferenceEntries]
   );
 
   const handleOpenEffectsModal = (unitId: string) => {
@@ -1784,11 +1917,18 @@ export const InitiativeList: React.FC = () => {
           <DataCell theme={theme}>
             <ActionButton
               theme={theme}
-              onClick={() => {
-                // TODO: Open list modal
+              onClick={(event) => {
+                event.stopPropagation();
                 const bidId = col.styles?.bidList?.[0];
-                console.log('Open list for', unit.name, bidId, unit.attributes[`${EXTENSION_ID}/${bidId}`]);
+                if (!bidId) {
+                  return;
+                }
+                setListReferenceModal({
+                  unitId: unit.id,
+                  bid: bidId,
+                });
               }}
+              title="Open list reference"
             >
               <BookOpen />
             </ActionButton>
@@ -2100,6 +2240,42 @@ export const InitiativeList: React.FC = () => {
             </EffectsList>
           )}
         </EffectsSection>
+      </PopupModal>
+
+      <PopupModal
+        isOpen={!!listReferenceModal}
+        title={selectedListReferenceUnit
+          ? `${selectedListAttribute?.attr_name || 'List'} for ${selectedListReferenceUnit.name}`
+          : 'List Reference'}
+        onClose={() => {
+          setListReferenceModal(null);
+        }}
+        maxWidth="620px"
+      >
+        <ListReferenceSection>
+          <ListReferenceHint theme={theme}>
+          </ListReferenceHint>
+
+          {selectedListReferenceEntries.length === 0 ? (
+            <ListReferenceEmpty theme={theme}>No entries.</ListReferenceEmpty>
+          ) : (
+            <ListReferenceItems>
+              {selectedListReferenceEntries.map((entry) => (
+                <ListReferenceItem key={entry.id} theme={theme}>
+                  <ListReferenceTitleRow>
+                    {selectedListLooksLikeItemList ? (
+                      <ListReferenceUseCheckbox type="checkbox" checked={!!entry.inUse} readOnly tabIndex={-1} />
+                    ) : null}
+                    <ListReferenceName theme={theme}>{entry.name || '(Unnamed)'}</ListReferenceName>
+                  </ListReferenceTitleRow>
+                  {entry.description ? (
+                    <ListReferenceDescription theme={theme}>{entry.description}</ListReferenceDescription>
+                  ) : null}
+                </ListReferenceItem>
+              ))}
+            </ListReferenceItems>
+          )}
+        </ListReferenceSection>
       </PopupModal>
     </ListContainer>
   );

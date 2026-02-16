@@ -22,6 +22,7 @@ interface RendererProps {
   attributes: SystemAttribute[];
   unitItem: Item;
   onUpdateMetadata: (updates: Record<string, unknown>) => Promise<void>;
+  controlContent?: React.ReactNode;
 }
 
 type ActionListEntry = {
@@ -73,12 +74,20 @@ const UnitNameCell = styled(BaseCell)`
   font-size: 22px;
   font-weight: 700;
   line-height: 1.1;
+  height: calc(2 * 1.1em);
+  display: flex;
+  align-items: center;
   overflow: hidden;
+`;
+
+const UnitNameText = styled.span`
+  line-height: 1.1;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   line-clamp: 2;
+  overflow: hidden;
 `;
 
 const ReservedCell = styled(BaseCell)`
@@ -477,6 +486,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
   attributes,
   unitItem,
   onUpdateMetadata,
+  controlContent,
 }) => {
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [listDraftValues, setListDraftValues] = useState<Record<string, string | boolean>>({});
@@ -1082,8 +1092,8 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     <CardShell $theme={systemTheme} $backgroundUrl={backgroundUrl}>
       <Layer>
         <Row>
-          <UnitNameCell $theme={systemTheme}>{unitName}</UnitNameCell>
-          <ReservedCell $theme={systemTheme}>Control-Reserved</ReservedCell>
+          <UnitNameCell $theme={systemTheme}><UnitNameText>{unitName}</UnitNameText></UnitNameCell>
+          <ReservedCell $theme={systemTheme}>{controlContent || 'Control-Reserved'}</ReservedCell>
         </Row>
 
         {rows.map((row) => (

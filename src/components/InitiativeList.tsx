@@ -23,6 +23,21 @@ const TURN_EFFECT_ID = `${EXTENSION_ID}/current-turn-effect`;
 const ELEVATION_BADGE_FLAG = `${EXTENSION_ID}/elevation-badge`;
 const ELEVATION_BADGE_OWNER = `${EXTENSION_ID}/elevation-badge-owner`;
 const ELEVATION_METADATA_KEY = `${EXTENSION_ID}/elevation`;
+const EFFECTS_METADATA_KEY = `${EXTENSION_ID}/effects`;
+const EFFECTS_NOTIFICATION_CHANNEL = `${EXTENSION_ID}/effects-expired`;
+
+type EffectDurationType = 'turns' | 'rounds';
+type EffectEndTiming = 'start' | 'end';
+
+interface TrackedEffect {
+  id: string;
+  name: string;
+  remaining: number;
+  durationType: EffectDurationType;
+  endTiming: EffectEndTiming;
+  createdByName: string;
+  createdById?: string;
+}
 
 // Internal state model
 interface ListColumn {
@@ -344,11 +359,11 @@ const ValueContainer = styled.div`
   gap: 4px;
 `;
 
-const ActionButton = styled.button<{ theme: ForgeTheme }>`
-  background: rgba(0, 0, 0, 0.3);
+const ActionButton = styled.button<{ theme: ForgeTheme; $active?: boolean }>`
+  background: ${props => props.$active ? rgbaFromHex(props.theme.OFFSET, 0.65) : 'rgba(0, 0, 0, 0.3)'};
   border: 1px solid ${props => props.theme.BORDER};
   border-radius: 4px;
-  color: ${props => props.theme.OFFSET};
+  color: ${props => props.$active ? props.theme.PRIMARY : props.theme.OFFSET};
   padding: 6px;
   cursor: pointer;
   display: inline-flex;
@@ -365,6 +380,149 @@ const ActionButton = styled.button<{ theme: ForgeTheme }>`
     width: 18px;
     height: 18px;
   }
+`;
+
+const EffectsButtonWrap = styled.div`
+  position: relative;
+  display: inline-flex;
+`;
+
+const EffectsCountBadge = styled.span<{ theme: ForgeTheme }>`
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: ${props => props.theme.PRIMARY};
+  color: ${props => props.theme.BACKGROUND};
+  border: 1px solid ${props => props.theme.BORDER};
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 3px;
+`;
+
+const EffectsSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const EffectsFormRow = styled.div`
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 8px;
+  align-items: flex-end;
+`;
+
+const EffectsField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const EffectsFieldLabel = styled.label<{ theme: ForgeTheme }>`
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.75)};
+  font-size: 10px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+`;
+
+const EffectsInput = styled.input<{ theme: ForgeTheme }>`
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid ${props => props.theme.BORDER};
+  border-radius: 4px;
+  color: ${props => props.theme.PRIMARY};
+  padding: 6px 8px;
+  font-size: 13px;
+  min-width: 150px;
+
+  &:focus {
+    outline: none;
+    border-color: ${props => props.theme.OFFSET};
+  }
+`;
+
+const EffectsSelect = styled.select<{ theme: ForgeTheme }>`
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid ${props => props.theme.BORDER};
+  border-radius: 4px;
+  color: ${props => props.theme.PRIMARY};
+  padding: 6px 8px;
+  height: 38px;
+  font-size: 13px;
+  cursor: pointer;
+  appearance: auto;
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+  padding-right: 22px;
+
+  &:focus {
+    outline: none;
+    border-color: ${props => props.theme.OFFSET};
+  }
+`;
+
+const EffectsButton = styled.button<{ theme: ForgeTheme }>`
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid ${props => props.theme.BORDER};
+  border-radius: 4px;
+  height: 38px;
+  color: ${props => props.theme.PRIMARY};
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 13px;
+
+  &:hover {
+    background: ${props => rgbaFromHex(props.theme.OFFSET, 0.5)};
+  }
+`;
+
+const EffectsList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+`;
+
+const EffectItemRow = styled.div<{ theme: ForgeTheme }>`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.35)};
+  border: 1px solid ${props => props.theme.BORDER};
+  border-radius: 6px;
+  padding: 8px;
+`;
+
+const EffectItemMeta = styled.div<{ theme: ForgeTheme }>`
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.8)};
+  font-size: 12px;
+`;
+
+const EffectName = styled.div<{ theme: ForgeTheme }>`
+  color: ${props => props.theme.PRIMARY};
+  font-size: 13px;
+  font-weight: 600;
+`;
+
+const EffectsEmpty = styled.p<{ theme: ForgeTheme }>`
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.75)};
+  margin: 0;
+  font-size: 13px;
+`;
+
+const EffectsError = styled.p<{ theme: ForgeTheme }>`
+  color: #ff6b6b;
+  margin: 0;
+  font-size: 12px;
 `;
 
 const CheckboxInput = styled.input`
@@ -495,6 +653,12 @@ export const InitiativeList: React.FC = () => {
   const [isAssigningOwner, setIsAssigningOwner] = useState(false);
   const [initiativeDrafts, setInitiativeDrafts] = useState<Record<string, string>>({});
   const [elevationDrafts, setElevationDrafts] = useState<Record<string, string>>({});
+  const [effectsModalUnitId, setEffectsModalUnitId] = useState<string | null>(null);
+  const [effectNameInput, setEffectNameInput] = useState('');
+  const [effectDurationInput, setEffectDurationInput] = useState('1');
+  const [effectDurationType, setEffectDurationType] = useState<EffectDurationType>('rounds');
+  const [effectEndTiming, setEffectEndTiming] = useState<EffectEndTiming>('start');
+  const [effectsModalError, setEffectsModalError] = useState<string | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
 
   // Control for setting the data to Room or to Scene
@@ -506,6 +670,159 @@ export const InitiativeList: React.FC = () => {
   const showRollerColumn = storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] as boolean || false;
   const diceRange = (storageContainer[SettingsConstants.DICE_RANGE] as string | undefined) || '';
   const showTurnEffect = storageContainer[SettingsConstants.SHOW_TURN_EFFECT] as boolean || false;
+
+  const parseTrackedEffects = (rawValue: unknown): TrackedEffect[] => {
+    if (!Array.isArray(rawValue)) {
+      return [];
+    }
+
+    return rawValue.reduce<TrackedEffect[]>((acc, value) => {
+      if (!value || typeof value !== 'object') {
+        return acc;
+      }
+
+      const effect = value as Partial<TrackedEffect>;
+      const name = typeof effect.name === 'string' ? effect.name.trim() : '';
+      const remainingRaw = Number(effect.remaining);
+      const remaining = Number.isFinite(remainingRaw) ? Math.max(0, Math.trunc(remainingRaw)) : 0;
+      const durationType: EffectDurationType = effect.durationType === 'turns' ? 'turns' : 'rounds';
+      const endTiming: EffectEndTiming = effect.endTiming === 'end' ? 'end' : 'start';
+
+      if (!name || !remaining) {
+        return acc;
+      }
+
+      acc.push({
+        id: typeof effect.id === 'string' && effect.id ? effect.id : crypto.randomUUID(),
+        name,
+        remaining,
+        durationType,
+        endTiming,
+        createdByName: typeof effect.createdByName === 'string' && effect.createdByName
+          ? effect.createdByName
+          : 'Unknown',
+        createdById: typeof effect.createdById === 'string' ? effect.createdById : undefined,
+      });
+
+      return acc;
+    }, []);
+  };
+
+  const effectsByUnitId = useMemo(() => {
+    const map = new Map<string, TrackedEffect[]>();
+    items.forEach((item) => {
+      if (item.metadata?.[UnitConstants.ON_LIST] !== true) {
+        return;
+      }
+      map.set(item.id, parseTrackedEffects(item.metadata?.[EFFECTS_METADATA_KEY]));
+    });
+    return map;
+  }, [items]);
+
+  const getEffectsForUnit = (unitId: string): TrackedEffect[] => effectsByUnitId.get(unitId) || [];
+
+  const updateUnitEffects = async (unitId: string, effects: TrackedEffect[]) => {
+    const cleanedEffects = effects.filter((effect) => effect.remaining > 0);
+
+    const updatedItems = items.map((item) => {
+      if (item.id !== unitId) {
+        return item;
+      }
+
+      const metadata = { ...item.metadata };
+      if (cleanedEffects.length > 0) {
+        metadata[EFFECTS_METADATA_KEY] = cleanedEffects;
+      } else {
+        delete (metadata as any)[EFFECTS_METADATA_KEY];
+      }
+
+      return {
+        ...item,
+        metadata,
+      };
+    });
+    setItems(updatedItems);
+
+    await OBR.scene.items.updateItems([unitId], (itemsToUpdate) => {
+      const metadata = { ...itemsToUpdate[0].metadata };
+      if (cleanedEffects.length > 0) {
+        metadata[EFFECTS_METADATA_KEY] = cleanedEffects;
+      } else {
+        delete (metadata as any)[EFFECTS_METADATA_KEY];
+      }
+      itemsToUpdate[0].metadata = metadata;
+    });
+  };
+
+  const notifyEffectExpired = async (message: string) => {
+    try {
+      await OBR.broadcast.sendMessage(EFFECTS_NOTIFICATION_CHANNEL, { message }, { destination: 'ALL' });
+    } catch (error) {
+      LOGGER.error('Failed to broadcast expired effect message', error);
+      await OBR.notification.show(message, 'WARNING');
+    }
+  };
+
+  const processEffectsForTurnEvent = async (eventTiming: EffectEndTiming, unitId: string) => {
+    const isGm = String((playerData as any)?.role || '').toUpperCase() === 'GM';
+    if (!isGm) {
+      return;
+    }
+
+    const updates: Array<{ unitId: string; effects: TrackedEffect[] }> = [];
+    const notifications: string[] = [];
+
+    items.forEach((item) => {
+      if (item.metadata?.[UnitConstants.ON_LIST] !== true) {
+        return;
+      }
+
+      const effects = parseTrackedEffects(item.metadata?.[EFFECTS_METADATA_KEY]);
+      if (effects.length === 0) {
+        return;
+      }
+
+      let changed = false;
+      const nextEffects: TrackedEffect[] = [];
+
+      effects.forEach((effect) => {
+        const shouldTick = effect.endTiming === eventTiming
+          && (effect.durationType === 'turns' || item.id === unitId);
+
+        if (!shouldTick) {
+          nextEffects.push(effect);
+          return;
+        }
+
+        const nextRemaining = effect.remaining - 1;
+        changed = true;
+
+        if (nextRemaining <= 0) {
+          notifications.push(`${item.name || 'Unit'}: ${effect.name} expired`);
+          return;
+        }
+
+        nextEffects.push({
+          ...effect,
+          remaining: nextRemaining,
+        });
+      });
+
+      if (changed) {
+        updates.push({ unitId: item.id, effects: nextEffects });
+      }
+    });
+
+    for (const update of updates) {
+      await updateUnitEffects(update.unitId, update.effects);
+    }
+
+    if (notifications.length > 0) {
+      for (const message of notifications) {
+        await notifyEffectExpired(message);
+      }
+    }
+  };
 
   // Transform items from cache into Unit format
   useEffect(() => {
@@ -948,6 +1265,10 @@ export const InitiativeList: React.FC = () => {
   const handleNext = async () => {
     if (sortedUnits.length === 0) return;
 
+    if (currentTurnId) {
+      await processEffectsForTurnEvent('end', currentTurnId);
+    }
+
     const currentIndex = sortedUnits.findIndex(u => u.id === currentTurnId);
     const nextIndex = currentIndex + 1;
 
@@ -960,12 +1281,14 @@ export const InitiativeList: React.FC = () => {
         [SettingsConstants.CURRENT_TURN]: sortedUnits[0].id,
         [SettingsConstants.CURRENT_ROUND]: newRound
       });
+      await processEffectsForTurnEvent('start', sortedUnits[0].id);
     } else {
       // Move to next unit
       setCurrentTurnId(sortedUnits[nextIndex].id);
       await OBR.scene.setMetadata({
         [SettingsConstants.CURRENT_TURN]: sortedUnits[nextIndex].id
       });
+      await processEffectsForTurnEvent('start', sortedUnits[nextIndex].id);
     }
   };
 
@@ -1002,10 +1325,13 @@ export const InitiativeList: React.FC = () => {
     await OBR.scene.setMetadata({
       [SettingsConstants.CURRENT_TURN]: unitId
     });
+    await processEffectsForTurnEvent('start', unitId);
   };
 
-  const handleEndTurn = () => {
+  const handleEndTurn = async () => {
     if (!currentTurnId) return;
+
+    await processEffectsForTurnEvent('end', currentTurnId);
 
     setCompletedUnits(prev => new Set([...prev, currentTurnId]));
 
@@ -1091,22 +1417,122 @@ export const InitiativeList: React.FC = () => {
     [ownerModalUnitId, items]
   );
 
+  const selectedEffectsUnit = useMemo(
+    () => (effectsModalUnitId ? sortedUnits.find((unit) => unit.id === effectsModalUnitId) || null : null),
+    [effectsModalUnitId, sortedUnits]
+  );
+
+  const activeEffectsForSelectedUnit = useMemo(
+    () => (effectsModalUnitId ? getEffectsForUnit(effectsModalUnitId) : []),
+    [effectsModalUnitId, effectsByUnitId]
+  );
+
+  const handleOpenEffectsModal = (unitId: string) => {
+    setEffectsModalError(null);
+    setEffectNameInput('');
+    setEffectDurationInput('1');
+    setEffectDurationType('rounds');
+    setEffectEndTiming('start');
+    setEffectsModalUnitId(unitId);
+  };
+
+  const handleAddEffect = async () => {
+    if (!effectsModalUnitId) {
+      return;
+    }
+
+    const trimmedName = effectNameInput.trim();
+    const durationValue = parseInt(effectDurationInput, 10);
+
+    if (!trimmedName) {
+      setEffectsModalError('Enter an effect name.');
+      return;
+    }
+
+    if (!Number.isFinite(durationValue) || durationValue <= 0) {
+      setEffectsModalError('Duration must be a positive number.');
+      return;
+    }
+
+    const effects = getEffectsForUnit(effectsModalUnitId);
+    const sourceTokenName = selectedEffectsUnit?.name
+      || items.find((item) => item.id === effectsModalUnitId)?.name
+      || 'Unknown';
+
+    const newEffect: TrackedEffect = {
+      id: crypto.randomUUID(),
+      name: trimmedName,
+      remaining: durationValue,
+      durationType: effectDurationType,
+      endTiming: effectEndTiming,
+      createdByName: sourceTokenName,
+      createdById: effectsModalUnitId,
+    };
+
+    await updateUnitEffects(effectsModalUnitId, [...effects, newEffect]);
+    setEffectsModalError(null);
+    setEffectNameInput('');
+    setEffectDurationInput('1');
+  };
+
+  const handleDeleteEffect = async (unitId: string, effectId: string) => {
+    const effects = getEffectsForUnit(unitId).filter((effect) => effect.id !== effectId);
+    await updateUnitEffects(unitId, effects);
+  };
+
+  useEffect(() => {
+    const unsubscribe = OBR.broadcast.onMessage(EFFECTS_NOTIFICATION_CHANNEL, async (event) => {
+      const rawMessage = (event.data as any)?.message;
+      if (typeof rawMessage !== 'string' || !rawMessage.trim()) {
+        return;
+      }
+
+      await OBR.notification.show(rawMessage, 'WARNING');
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   useEffect(() => {
     let isCancelled = false;
 
     const syncTurnEffect = async () => {
-      try {
-        await OBR.scene.local.deleteItems([TURN_EFFECT_ID]);
-      } catch {
-      }
-
       if (!showTurnEffect || !currentTurnId) {
+        try {
+          await OBR.scene.local.deleteItems([TURN_EFFECT_ID]);
+        } catch {
+        }
         return;
       }
 
       const currentTurnItem = items.find((item) => item.id === currentTurnId);
       if (!currentTurnItem) {
+        try {
+          await OBR.scene.local.deleteItems([TURN_EFFECT_ID]);
+        } catch {
+        }
         return;
+      }
+
+      if (isCancelled) {
+        return;
+      }
+
+      try {
+        await OBR.scene.local.updateItems([TURN_EFFECT_ID], (localItems) => {
+          const turnEffect = localItems[0] as any;
+          if (!turnEffect) {
+            return;
+          }
+
+          turnEffect.attachedTo = currentTurnId;
+        });
+
+        LOGGER.log('Updating turn effect attachment for current turn');
+        return;
+      } catch {
       }
 
       if (isCancelled) {
@@ -1405,17 +1831,26 @@ export const InitiativeList: React.FC = () => {
           );
         } else {
           // Effects
+          const activeEffectsCount = getEffectsForUnit(unit.id).length;
+          const hasActiveEffects = activeEffectsCount > 0;
           return (
             <DataCell theme={theme}>
-              <ActionButton
-                theme={theme}
-                onClick={() => {
-                  // TODO: Open effects modal
-                  console.log('Open effects for', unit.name);
-                }}
-              >
-                {specialIcon || <Sun />}
-              </ActionButton>
+              <EffectsButtonWrap>
+                <ActionButton
+                  theme={theme}
+                  $active={hasActiveEffects}
+                  onClick={() => {
+                    handleOpenEffectsModal(unit.id);
+                  }}
+                >
+                  {specialIcon || <Sun />}
+                </ActionButton>
+                {activeEffectsCount > 0 && (
+                  <EffectsCountBadge theme={theme}>
+                    {activeEffectsCount > 99 ? '99+' : activeEffectsCount}
+                  </EffectsCountBadge>
+                )}
+              </EffectsButtonWrap>
             </DataCell>
           );
         }
@@ -1533,6 +1968,94 @@ export const InitiativeList: React.FC = () => {
           ))}
         </OwnerPickerList>
         {ownerModalError && <OwnerPickerError theme={theme}>{ownerModalError}</OwnerPickerError>}
+      </PopupModal>
+
+      <PopupModal
+        isOpen={!!effectsModalUnitId}
+        title={selectedEffectsUnit ? `Effects: ${selectedEffectsUnit.name}` : 'Effects'}
+        onClose={() => {
+          setEffectsModalUnitId(null);
+          setEffectsModalError(null);
+        }}
+        maxWidth="620px"
+      >
+        <EffectsSection>
+          <EffectsFormRow>
+            <EffectsField>
+              <EffectsFieldLabel theme={theme}>Effect</EffectsFieldLabel>
+              <EffectsInput
+                theme={theme}
+                type="text"
+                placeholder="Name"
+                value={effectNameInput}
+                onChange={(e) => setEffectNameInput(e.target.value)}
+              />
+            </EffectsField>
+            <EffectsField>
+              <EffectsFieldLabel theme={theme}>Duration</EffectsFieldLabel>
+              <EffectsInput
+                theme={theme}
+                type="number"
+                min={1}
+                value={effectDurationInput}
+                onChange={(e) => setEffectDurationInput(e.target.value)}
+                style={{ minWidth: '64px', width: '74px' }}
+              />
+            </EffectsField>
+            <EffectsField>
+              <EffectsFieldLabel theme={theme}>Unit</EffectsFieldLabel>
+              <EffectsSelect
+                theme={theme}
+                value={effectDurationType}
+                onChange={(e) => setEffectDurationType(e.target.value as EffectDurationType)}
+              >
+                <option value="turns">Turns</option>
+                <option value="rounds">Rounds</option>
+              </EffectsSelect>
+            </EffectsField>
+            <EffectsField>
+              <EffectsFieldLabel theme={theme}>Ends at</EffectsFieldLabel>
+              <EffectsSelect
+                theme={theme}
+                value={effectEndTiming}
+                onChange={(e) => setEffectEndTiming(e.target.value as EffectEndTiming)}
+              >
+                <option value="start">Start of turn</option>
+                <option value="end">End of turn</option>
+              </EffectsSelect>
+            </EffectsField>
+            <EffectsButton theme={theme} onClick={handleAddEffect}>Add</EffectsButton>
+          </EffectsFormRow>
+
+          {effectsModalError && <EffectsError theme={theme}>{effectsModalError}</EffectsError>}
+
+          {activeEffectsForSelectedUnit.length === 0 ? (
+            <EffectsEmpty theme={theme}>No active effects.</EffectsEmpty>
+          ) : (
+            <EffectsList>
+              {activeEffectsForSelectedUnit.map((effect) => (
+                <EffectItemRow key={effect.id} theme={theme}>
+                  <div>
+                    <EffectName theme={theme}>{effect.name}</EffectName>
+                    <EffectItemMeta theme={theme}>
+                      {effect.remaining} {effect.durationType} • ends at {effect.endTiming === 'start' ? 'start of turn' : 'end of turn'} • by {effect.createdByName}
+                    </EffectItemMeta>
+                  </div>
+                  <EffectsButton
+                    theme={theme}
+                    onClick={() => {
+                      if (effectsModalUnitId) {
+                        void handleDeleteEffect(effectsModalUnitId, effect.id);
+                      }
+                    }}
+                  >
+                    Delete
+                  </EffectsButton>
+                </EffectItemRow>
+              ))}
+            </EffectsList>
+          )}
+        </EffectsSection>
       </PopupModal>
     </ListContainer>
   );

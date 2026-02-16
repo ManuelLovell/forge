@@ -19,6 +19,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, "pages/index.html"),
+        card: path.resolve(__dirname, "pages/forgecard.html"),
+        party: path.resolve(__dirname, "pages/forgeparty.html"),
       }
     }
   }

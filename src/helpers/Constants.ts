@@ -15,6 +15,7 @@ export enum Constants
 export enum OwlbearIds
 {
     EXTENSIONID = "com.battle-system.forge",
+    CARDSID = "com.battle-system.forge-card",
     BONESID = "com.battle-system.bones",
     RUMBLECHATCHANNEL = "RUMBLECHAT",
     BROADCASTCHANNEL = "FORGE-BROADCAST",

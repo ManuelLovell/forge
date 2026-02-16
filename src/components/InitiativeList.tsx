@@ -10,9 +10,9 @@ import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import {
   Heart, Shield, Sun, Award, Target, Users, Star,
-  Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle, Music, Feather
+  Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle, Music, Feather, FileText
 } from 'lucide-react';
-import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
+import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import LOGGER from '../helpers/Logger';
 import { HexToRgba } from '../helpers/HexToRGB';
 import { ViewportFunctions } from '../helpers/ViewPortUtility';
@@ -604,7 +604,8 @@ const OwnerPickerError = styled.p<{ theme: ForgeTheme }>`
 // Deserialization function
 const deserializeListLayout = (
   layout: ListLayoutComponent[],
-  showRollerColumn: boolean
+  showRollerColumn: boolean,
+  showCardColumn: boolean
 ): ListColumn[] => {
   const defaultColumns: ListColumn[] = [
     { id: crypto.randomUUID(), type: 'initiative' },
@@ -612,8 +613,12 @@ const deserializeListLayout = (
     { id: crypto.randomUUID(), type: 'name' }
   ];
 
+  const cardColumn: ListColumn[] = showCardColumn
+    ? [{ id: 'card-column', type: 'card-column' }]
+    : [];
+
   if (!layout || layout.length === 0) {
-    return defaultColumns;
+    return [...defaultColumns, ...cardColumn];
   }
 
   // Sort by col property
@@ -630,7 +635,7 @@ const deserializeListLayout = (
     styles: col.styles,
   }));
 
-  return [...defaultColumns, ...additionalColumns];
+  return [...defaultColumns, ...additionalColumns, ...cardColumn];
 };
 
 export const InitiativeList: React.FC = () => {
@@ -668,6 +673,7 @@ export const InitiativeList: React.FC = () => {
   const reverseInitiative = storageContainer[SettingsConstants.REVERSE_INITIATIVE] as boolean || false;
   const popcornInitiative = storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean || false;
   const showRollerColumn = storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] as boolean || false;
+  const showCardColumn = storageContainer[SettingsConstants.SHOW_CARD_ACCESS] as boolean || false;
   const diceRange = (storageContainer[SettingsConstants.DICE_RANGE] as string | undefined) || '';
   const showTurnEffect = storageContainer[SettingsConstants.SHOW_TURN_EFFECT] as boolean || false;
 
@@ -1090,7 +1096,7 @@ export const InitiativeList: React.FC = () => {
       .fontWeight(900)
       .fillOpacity(0.95)
       .fillColor('white')
-      .strokeWidth(2)
+      .strokeWidth(8)
       .strokeColor('black')
       .strokeOpacity(1)
       .fontSize(36)
@@ -1239,10 +1245,10 @@ export const InitiativeList: React.FC = () => {
   // Deserialize list layout on mount or when listLayout changes
   useEffect(() => {
     if (!isLoading) {
-      const columns = deserializeListLayout(listLayout, showRollerColumn);
+      const columns = deserializeListLayout(listLayout, showRollerColumn, showCardColumn);
       setListColumns(columns);
     }
-  }, [listLayout, isLoading, showRollerColumn]);
+  }, [listLayout, isLoading, showRollerColumn, showCardColumn]);
 
   // Load current turn and round from metadata
   useEffect(() => {
@@ -1363,6 +1369,26 @@ export const InitiativeList: React.FC = () => {
       await ViewportFunctions.CenterViewportOnImage(clickedItem);
     } catch (error) {
       LOGGER.error('Failed to center viewport on unit', unitId, error);
+    }
+  };
+
+  const handleOpenCardPopover = async (elementId: string) => {
+    try {
+      const windowHeight = await OBR.viewport.getHeight();
+      const modalBuffer = 100;
+      const viewableHeight = windowHeight > 800 ? 700 : windowHeight - modalBuffer;
+
+      await OBR.popover.open({
+        id: OwlbearIds.CARDSID,
+        url: `/pages/forgecard.html`,
+        height: viewableHeight,
+        width: 400,
+        anchorElementId: elementId,
+        hidePaper: false,
+        disableClickAway: true
+      });
+    } catch (error) {
+      LOGGER.error('Failed to open cards popover', error);
     }
   };
 
@@ -1599,6 +1625,7 @@ export const InitiativeList: React.FC = () => {
     if (col.type === 'initiative') return <Users />;
     if (col.type === 'roller') return null;
     if (col.type === 'name') return 'Name';
+    if (col.type === 'card-column') return <FileText />;
     if (col.type === 'divider-column') return null;
 
     if (col.useIcon && col.iconType) {
@@ -1688,6 +1715,23 @@ export const InitiativeList: React.FC = () => {
               <RollerIcon src="/dice.svg" alt="Roll" />
             </RollerButton>
           </RollerCell>
+        );
+
+      case 'card-column':
+        return (
+          <DataCell theme={theme}>
+            <ActionButton
+              id={`card-access-${unit.id}`}
+              theme={theme}
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleOpenCardPopover(e.currentTarget.id);
+              }}
+              title={`Open card for ${unit.name}`}
+            >
+              <ArrowRightCircle />
+            </ActionButton>
+          </DataCell>
         );
 
       case 'value-column':

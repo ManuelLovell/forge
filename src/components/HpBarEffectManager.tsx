@@ -48,6 +48,26 @@ const getHpBidKeys = (attributes: SystemAttribute[]) => {
   };
 };
 
+const getConfiguredHpBidKeys = (
+  storage: Record<string, unknown>,
+  attributes: SystemAttribute[]
+) => {
+  const inferred = getHpBidKeys(attributes);
+  const configuredCurrent = storage[SettingsConstants.HP_CURRENT_BID] as string | undefined;
+  const configuredMax = storage[SettingsConstants.HP_MAX_BID] as string | undefined;
+
+  const attributeBids = new Set(attributes.map((attribute) => attribute.attr_bid));
+
+  return {
+    currentHpBid: configuredCurrent && attributeBids.has(configuredCurrent)
+      ? configuredCurrent
+      : inferred.currentHpBid,
+    maxHpBid: configuredMax && attributeBids.has(configuredMax)
+      ? configuredMax
+      : inferred.maxHpBid,
+  };
+};
+
 const getHpPercent = (unit: Item, currentHpBid: string, maxHpBid: string): number | null => {
   const currentRaw = unit.metadata?.[`${EXTENSION_ID}/${currentHpBid}`];
   const maxRaw = unit.metadata?.[`${EXTENSION_ID}/${maxHpBid}`];
@@ -97,7 +117,7 @@ export const HpBarEffectManager = () => {
       const showHpBars = (storage[SettingsConstants.SHOW_HP_BARS] as boolean | undefined) ?? false;
       const orientationValue = getOrientationValue(storage[SettingsConstants.HP_BAR_ORIENTATION]);
       const attributes = (sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined) || [];
-      const { currentHpBid, maxHpBid } = getHpBidKeys(attributes);
+      const { currentHpBid, maxHpBid } = getConfiguredHpBidKeys(storage, attributes);
 
       const existingBars = localItems.filter((item) => {
         return isEffect(item) && item.metadata?.[HP_BAR_EFFECT_FLAG] === true;

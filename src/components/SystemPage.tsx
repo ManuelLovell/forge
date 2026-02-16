@@ -9,10 +9,11 @@ import { useSceneStore } from '../helpers/BSCache';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { PageContainer, PageTitle, Card, Button, Input } from './SharedStyledComponents';
 import { PopupModal } from './PopupModal';
-import { OwlbearIds } from '../helpers/Constants';
+import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import { Upload, X } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import LOGGER from '../helpers/Logger';
+import { SettingsConstants } from '../interfaces/MetadataKeys';
 
 const EXTENSION_ID = OwlbearIds.EXTENSIONID;
 const BACKUP_KEY_PREFIX = 'com.battle-system.forge';
@@ -128,6 +129,52 @@ const SwatchLabel = styled.div<{ theme: ForgeTheme }>`
   font-size: 12px;
   color: ${props => props.theme.PRIMARY};
   margin-top: 5px;
+`;
+
+const MappingSection = styled.div<{ theme: ForgeTheme }>`
+  margin-top: 16px;
+  background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.3)};
+  border: 2px solid ${props => props.theme.BORDER};
+  border-radius: 6px;
+  padding: 14px;
+`;
+
+const MappingTitle = styled.h3<{ theme: ForgeTheme }>`
+  color: ${props => props.theme.PRIMARY};
+  margin: 0 0 10px 0;
+  font-size: 15px;
+`;
+
+const MappingRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+`;
+
+const MappingLabel = styled.label<{ theme: ForgeTheme }>`
+  color: ${props => props.theme.PRIMARY};
+  min-width: 84px;
+  font-size: 13px;
+`;
+
+const MappingSelect = styled.select<{ theme: ForgeTheme }>`
+  flex: 1;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: ${props => props.theme.PRIMARY};
+  border: 2px solid ${props => props.theme.BORDER};
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+
+  &:focus {
+    outline: none;
+    border-color: ${props => props.theme.OFFSET};
+  }
 `;
 
 const ErrorMessage = styled.div<{ theme: ForgeTheme }>`
@@ -247,6 +294,9 @@ export const SystemPage = () => {
   const [currentSystemName, setCurrentSystemName] = useState<string>('');
   const [currentImportDate, setCurrentImportDate] = useState<string | null>(null);
   const [currentTheme, setCurrentTheme] = useState<ThemeData | null>(null);
+  const [systemAttributes, setSystemAttributes] = useState<SystemAttribute[]>([]);
+  const [hpCurrentBid, setHpCurrentBid] = useState('');
+  const [hpMaxBid, setHpMaxBid] = useState('');
 
   // Backup management
   const [backups, setBackups] = useState<SystemBackup[]>([]);
@@ -269,17 +319,35 @@ export const SystemPage = () => {
   const loadCurrentSystemFromCache = () => {
     try {
       const themeMeta = sceneMetadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
+      const attrMeta = sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
       const systemName = sceneMetadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
       const importDate = sceneMetadata[SystemKeys.IMPORT_DATE] as string || null;
+      const configuredCurrentHpBid = sceneMetadata[SettingsConstants.HP_CURRENT_BID] as string | undefined;
+      const configuredMaxHpBid = sceneMetadata[SettingsConstants.HP_MAX_BID] as string | undefined;
+
+      const attributes = Array.isArray(attrMeta) ? attrMeta : [];
 
       setCurrentSystemName(systemName);
       setCurrentImportDate(importDate);
       setCurrentTheme(themeMeta || null);
+      setSystemAttributes(attributes);
+      setHpCurrentBid(configuredCurrentHpBid || '');
+      setHpMaxBid(configuredMaxHpBid || '');
 
     } catch (err) {
       LOGGER.error('Error loading system from cache:', err);
     }
   };
+
+  const saveHpAttributeMapping = async (key: string, value: string) => {
+    if (DATA_STORED_IN_ROOM) {
+      await OBR.room.setMetadata({ [key]: value });
+      return;
+    }
+    await OBR.scene.setMetadata({ [key]: value });
+  };
+
+  const numericAttributes = systemAttributes.filter((attribute) => attribute.attr_type === 'numb');
 
   const loadBackups = () => {
     try {
@@ -646,6 +714,48 @@ export const SystemPage = () => {
                 <SwatchLabel theme={theme}>BORDER</SwatchLabel>
               </div>
             </SwatchContainer>
+
+            <MappingSection theme={theme}>
+              <MappingTitle theme={theme}>Health Attribute Mapping</MappingTitle>
+              <MappingRow>
+                <MappingLabel theme={theme}>Current HP</MappingLabel>
+                <MappingSelect
+                  theme={theme}
+                  value={hpCurrentBid}
+                  onChange={async (e) => {
+                    const value = e.target.value;
+                    setHpCurrentBid(value);
+                    await saveHpAttributeMapping(SettingsConstants.HP_CURRENT_BID, value);
+                  }}
+                >
+                  <option value="">-- Select Attribute --</option>
+                  {numericAttributes.map((attribute) => (
+                    <option key={attribute.attr_bid} value={attribute.attr_bid}>
+                      {attribute.attr_abbr} — {attribute.attr_name}
+                    </option>
+                  ))}
+                </MappingSelect>
+              </MappingRow>
+              <MappingRow>
+                <MappingLabel theme={theme}>Max HP</MappingLabel>
+                <MappingSelect
+                  theme={theme}
+                  value={hpMaxBid}
+                  onChange={async (e) => {
+                    const value = e.target.value;
+                    setHpMaxBid(value);
+                    await saveHpAttributeMapping(SettingsConstants.HP_MAX_BID, value);
+                  }}
+                >
+                  <option value="">-- Select Attribute --</option>
+                  {numericAttributes.map((attribute) => (
+                    <option key={attribute.attr_bid} value={attribute.attr_bid}>
+                      {attribute.attr_abbr} — {attribute.attr_name}
+                    </option>
+                  ))}
+                </MappingSelect>
+              </MappingRow>
+            </MappingSection>
           </>
         )}
 

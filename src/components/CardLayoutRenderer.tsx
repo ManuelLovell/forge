@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { Plus, X } from 'lucide-react';
 import type { Item } from '@owlbear-rodeo/sdk';
 import { OwlbearIds } from '../helpers/Constants';
+import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
 import { deserializeCardLayout } from '../helpers/deserializeCardLayout';
 import { UnitConstants } from '../interfaces/MetadataKeys';
@@ -132,18 +133,21 @@ const ValueText = styled.div<{ $theme: CardLayoutTheme; $fontSize: string; $weig
   text-align: ${props => props.$align || 'left'};
 `;
 
-const DisabledInput = styled.input<{ $theme: CardLayoutTheme; $fontSize: string; $align?: string }>`
+const DisabledInput = styled.input<{ $theme: CardLayoutTheme; $fontSize: string; $align?: string; $isRollable?: boolean }>`
   width: 100%;
   height: 28px;
   border-radius: 4px;
-  border: 1px solid ${props => props.$theme.border};
-  background: ${props => rgbaFromHex(props.$theme.background, 0.78)};
+  border: 1px solid ${props => props.$isRollable ? rgbaFromHex(props.$theme.offset, 0.8) : props.$theme.border};
+  background: ${props => props.$isRollable
+    ? rgbaFromHex(props.$theme.offset, 0.3)
+    : rgbaFromHex(props.$theme.background, 0.78)};
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   color: ${props => rgbaFromHex(props.$theme.primary, 0.9)};
   box-sizing: border-box;
   font-size: ${props => props.$fontSize};
   text-align: ${props => props.$align || 'left'};
+  cursor: ${props => props.$isRollable ? 'pointer' : 'text'};
 
   &::placeholder {
     color: ${props => rgbaFromHex(props.$theme.primary, 0.65)};
@@ -192,12 +196,15 @@ const TextValueInput = styled.input<{
   $weight: number;
   $fontStyle: 'normal' | 'italic';
   $stretch?: boolean;
+  $isRollable?: boolean;
 }>`
   width: 100%;
   height: 28px;
   border-radius: 4px;
-  border: 1px solid ${props => props.$theme.border};
-  background: ${props => rgbaFromHex(props.$theme.background, 0.78)};
+  border: 1px solid ${props => props.$isRollable ? rgbaFromHex(props.$theme.offset, 0.8) : props.$theme.border};
+  background: ${props => props.$isRollable
+    ? rgbaFromHex(props.$theme.offset, 0.3)
+    : rgbaFromHex(props.$theme.background, 0.78)};
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   color: ${props => rgbaFromHex(props.$theme.primary, 0.9)};
@@ -210,6 +217,7 @@ const TextValueInput = styled.input<{
   text-align: ${props => props.$align || 'center'};
   line-height: 1;
   align-self: center;
+  cursor: ${props => props.$isRollable ? 'pointer' : 'text'};
 
   &::placeholder {
     color: ${props => rgbaFromHex(props.$theme.primary, 0.65)};
@@ -533,6 +541,61 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     return draftValues[draftKey] ?? getMetadataStringValue(bid);
   };
 
+  const hasAttrFormula = (attribute: SystemAttribute | null): attribute is SystemAttribute & { attr_func: string } => {
+    const formula = attribute?.attr_func;
+    return typeof formula === 'string' && formula.trim().length > 0;
+  };
+
+  const bidNumericValueMap = useMemo(() => {
+    const map: Record<string, number> = {};
+
+    for (const attribute of attributes) {
+      const rawValue = getMetadataStringValue(attribute.attr_bid).trim();
+      if (!rawValue) {
+        continue;
+      }
+
+      const parsedValue = Number(rawValue);
+      if (Number.isFinite(parsedValue)) {
+        map[attribute.attr_bid] = parsedValue;
+      }
+    }
+
+    return map;
+  }, [attributes, unitItem.metadata]);
+
+  const buildResolvedNotation = (attribute: SystemAttribute | null): string | null => {
+    const formula = attribute?.attr_func;
+    if (typeof formula !== 'string' || formula.trim().length === 0) {
+      return null;
+    }
+
+    const conversion = toResolvedDiceNotation(formula, {
+      bidValueMap: bidNumericValueMap,
+      onMissingBid: 'error',
+    });
+
+    if (!conversion.valid || !conversion.notation) {
+      console.warn(`[FORGE] Could not convert attr_func for ${attribute?.attr_bid || 'unknown'}: ${conversion.error || 'Unknown conversion error'}`);
+      return null;
+    }
+
+    return conversion.notation;
+  };
+
+  const handleNotationClick = (attribute: SystemAttribute | null) => {
+    if (!attribute) {
+      return;
+    }
+
+    const notation = buildResolvedNotation(attribute);
+    if (!notation) {
+      return;
+    }
+
+    console.log(notation);
+  };
+
   const getListDraftKey = (
     listType: 'action' | 'item',
     bid: string,
@@ -673,6 +736,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       const fontWeight = style.fontWeight === 'bold' ? 700 : 400;
       const fontStyle = style.fontStyle === 'italic' ? 'italic' : 'normal';
       const bid = attr?.attr_bid;
+      const isRollableInput = hasAttrFormula(attr);
       const draftKey = `text-value:${component.id}:${bid || 'none'}`;
       const inputElement = (
         <TextValueInput
@@ -682,9 +746,11 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
           $weight={fontWeight}
           $fontStyle={fontStyle}
           $stretch={stretch}
+          $isRollable={isRollableInput}
           type="text"
+          readOnly={isRollableInput}
           value={bid ? getDraftOrValue(draftKey, bid) : ''}
-          onChange={(event) => {
+          onChange={isRollableInput ? undefined : (event) => {
             if (!bid) return;
             const nextValue = event.target.value;
             setDraftValues((prev) => ({
@@ -692,7 +758,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
               [draftKey]: nextValue,
             }));
           }}
-          onBlur={async (event) => {
+          onBlur={isRollableInput ? undefined : async (event) => {
             if (!bid) return;
             const nextValue = event.target.value;
             await updateAttributeValue(bid, nextValue);
@@ -701,8 +767,15 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
               return rest;
             });
           }}
+          onClick={isRollableInput ? () => handleNotationClick(attr) : undefined}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') {
+            if (isRollableInput && (event.key === 'Enter' || event.key === ' ')) {
+              event.preventDefault();
+              handleNotationClick(attr);
+              return;
+            }
+
+            if (!isRollableInput && event.key === 'Enter') {
               event.preventDefault();
               event.currentTarget.blur();
             }
@@ -806,6 +879,8 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
         <BaseCell key={component.id} $theme={systemTheme} $full={component.fullsize}>
           <HorizontalGroup>
             {bids.map((bid) => {
+              const columnAttr = resolveAttribute(attributes, bid);
+              const isRollableInput = hasAttrFormula(columnAttr);
               const draftKey = `column-value:${component.id}:${bid}`;
               return (
                 <ColumnInputTrack key={bid}>
@@ -813,15 +888,17 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     $theme={systemTheme}
                     $fontSize={fontSize}
                     $align="center"
+                    $isRollable={isRollableInput}
+                    readOnly={isRollableInput}
                     value={getDraftOrValue(draftKey, bid)}
-                    onChange={(event) => {
+                    onChange={isRollableInput ? undefined : (event) => {
                       const nextValue = event.target.value;
                       setDraftValues((prev) => ({
                         ...prev,
                         [draftKey]: nextValue,
                       }));
                     }}
-                    onBlur={async (event) => {
+                    onBlur={isRollableInput ? undefined : async (event) => {
                       const nextValue = event.target.value;
                       await updateAttributeValue(bid, nextValue);
                       setDraftValues((prev) => {
@@ -829,8 +906,15 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                         return rest;
                       });
                     }}
+                    onClick={isRollableInput ? () => handleNotationClick(columnAttr) : undefined}
                     onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
+                      if (isRollableInput && (event.key === 'Enter' || event.key === ' ')) {
+                        event.preventDefault();
+                        handleNotationClick(columnAttr);
+                        return;
+                      }
+
+                      if (!isRollableInput && event.key === 'Enter') {
                         event.preventDefault();
                         event.currentTarget.blur();
                       }

@@ -29,6 +29,33 @@ interface ValidationResult {
   position?: number;
 }
 
+interface Roll20ConversionOptions {
+  attributeReferenceMode?: 'selected' | 'character' | 'plain';
+  characterName?: string;
+  wrapInlineRoll?: boolean;
+  bidAttributeMap?: Record<string, string>;
+  resolveBidAttribute?: (bid: string) => string | undefined;
+  onMissingBid?: 'error' | 'useBidAsAttribute';
+}
+
+interface Roll20ConversionResult {
+  valid: boolean;
+  rollable?: string;
+  error?: string;
+}
+
+interface ResolvedNotationOptions {
+  bidValueMap?: Record<string, number>;
+  resolveBidValue?: (bid: string) => number | undefined;
+  onMissingBid?: 'error' | 'useZero';
+}
+
+interface ResolvedNotationResult {
+  valid: boolean;
+  notation?: string;
+  error?: string;
+}
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -314,6 +341,7 @@ class FormulaParser {
 
   // Function: FUNCTION(Expression [, Expression]*)
   private parseFunction(): void {
+    this.advance();
     
     this.expect(TokenType.LPAREN, 'Expected opening parenthesis after function');
     
@@ -327,6 +355,227 @@ class FormulaParser {
     }
     
     this.expect(TokenType.RPAREN, 'Expected closing parenthesis after function arguments');
+  }
+}
+
+type EvaluatedValue = {
+  kind: 'number' | 'expr';
+  value: number | string;
+  precedence: number;
+};
+
+const formatNumber = (value: number): string => {
+  if (Number.isInteger(value)) {
+    return String(value);
+  }
+
+  return value.toString();
+};
+
+const asExpr = (value: EvaluatedValue): string => {
+  return value.kind === 'number' ? formatNumber(value.value as number) : String(value.value);
+};
+
+const wrapIfNeeded = (
+  value: EvaluatedValue,
+  operator: '+' | '-' | '*' | '/',
+  side: 'left' | 'right'
+): string => {
+  const opPrecedence = operator === '+' || operator === '-' ? 1 : 2;
+  const shouldWrap =
+    value.precedence < opPrecedence ||
+    (side === 'right' && (operator === '-' || operator === '/') && value.precedence === opPrecedence);
+
+  const text = asExpr(value);
+  return shouldWrap ? `(${text})` : text;
+};
+
+class FormulaEvaluator {
+  private tokens: Token[];
+  private current: number;
+  private readonly options: ResolvedNotationOptions;
+
+  constructor(tokens: Token[], options: ResolvedNotationOptions) {
+    this.tokens = tokens;
+    this.current = 0;
+    this.options = options;
+  }
+
+  private peek(): Token {
+    return this.tokens[this.current];
+  }
+
+  private advance(): Token {
+    return this.tokens[this.current++];
+  }
+
+  private expect(type: TokenType, message: string): Token {
+    const token = this.peek();
+    if (token.type !== type) {
+      throw new Error(`${message} at position ${token.position}`);
+    }
+    return this.advance();
+  }
+
+  parse(): EvaluatedValue {
+    const value = this.parseExpression();
+    if (this.peek().type !== TokenType.EOF) {
+      throw new Error(`Unexpected token at position ${this.peek().position}: ${this.peek().value}`);
+    }
+    return value;
+  }
+
+  private parseExpression(): EvaluatedValue {
+    let left = this.parseTerm();
+
+    while (this.peek().type === TokenType.OPERATOR && (this.peek().value === '+' || this.peek().value === '-')) {
+      const operator = this.advance().value as '+' | '-';
+      const right = this.parseTerm();
+      left = this.combine(left, operator, right);
+    }
+
+    return left;
+  }
+
+  private parseTerm(): EvaluatedValue {
+    let left = this.parseFactor();
+
+    while (this.peek().type === TokenType.OPERATOR && (this.peek().value === '*' || this.peek().value === '/')) {
+      const operator = this.advance().value as '*' | '/';
+      const right = this.parseFactor();
+      left = this.combine(left, operator, right);
+    }
+
+    return left;
+  }
+
+  private parseFactor(): EvaluatedValue {
+    const token = this.peek();
+
+    if (token.type === TokenType.NUMBER) {
+      this.advance();
+      return { kind: 'number', value: Number(token.value), precedence: 3 };
+    }
+
+    if (token.type === TokenType.DICE) {
+      this.advance();
+      return { kind: 'expr', value: token.value, precedence: 3 };
+    }
+
+    if (token.type === TokenType.BID_REF) {
+      this.advance();
+      const bid = token.value;
+      const resolvedValue = this.options.resolveBidValue?.(bid) ?? this.options.bidValueMap?.[bid];
+      const onMissingBid = this.options.onMissingBid ?? 'error';
+
+      if (resolvedValue === undefined || Number.isNaN(resolvedValue)) {
+        if (onMissingBid === 'useZero') {
+          return { kind: 'number', value: 0, precedence: 3 };
+        }
+        throw new Error(`No numeric value found for BID @${bid}`);
+      }
+
+      return { kind: 'number', value: resolvedValue, precedence: 3 };
+    }
+
+    if (token.type === TokenType.FUNCTION) {
+      return this.parseFunction();
+    }
+
+    if (token.type === TokenType.LPAREN) {
+      this.advance();
+      const inner = this.parseExpression();
+      this.expect(TokenType.RPAREN, 'Expected closing parenthesis');
+
+      if (inner.kind === 'number') {
+        return inner;
+      }
+
+      return { kind: 'expr', value: `(${asExpr(inner)})`, precedence: 3 };
+    }
+
+    throw new Error(`Unexpected token at position ${token.position}: ${token.value}`);
+  }
+
+  private parseFunction(): EvaluatedValue {
+    const functionToken = this.advance();
+    const functionName = functionToken.value;
+    this.expect(TokenType.LPAREN, 'Expected opening parenthesis after function');
+
+    const args: number[] = [];
+    const firstArg = this.parseExpression();
+    if (firstArg.kind !== 'number') {
+      throw new Error(`Function ${functionName} requires numeric arguments`);
+    }
+    args.push(firstArg.value as number);
+
+    while (this.peek().type === TokenType.COMMA) {
+      this.advance();
+      const nextArg = this.parseExpression();
+      if (nextArg.kind !== 'number') {
+        throw new Error(`Function ${functionName} requires numeric arguments`);
+      }
+      args.push(nextArg.value as number);
+    }
+
+    this.expect(TokenType.RPAREN, 'Expected closing parenthesis after function arguments');
+
+    const evaluated = this.evaluateFunction(functionName, args);
+    return { kind: 'number', value: evaluated, precedence: 3 };
+  }
+
+  private evaluateFunction(name: string, args: number[]): number {
+    switch (name) {
+      case 'floor':
+        if (args.length !== 1) throw new Error('floor expects exactly 1 argument');
+        return Math.floor(args[0]);
+      case 'ceil':
+        if (args.length !== 1) throw new Error('ceil expects exactly 1 argument');
+        return Math.ceil(args[0]);
+      case 'round':
+        if (args.length !== 1) throw new Error('round expects exactly 1 argument');
+        return Math.round(args[0]);
+      case 'abs':
+        if (args.length !== 1) throw new Error('abs expects exactly 1 argument');
+        return Math.abs(args[0]);
+      case 'max':
+        if (args.length < 1) throw new Error('max expects at least 1 argument');
+        return Math.max(...args);
+      case 'min':
+        if (args.length < 1) throw new Error('min expects at least 1 argument');
+        return Math.min(...args);
+      default:
+        throw new Error(`Unsupported function: ${name}`);
+    }
+  }
+
+  private combine(left: EvaluatedValue, operator: '+' | '-' | '*' | '/', right: EvaluatedValue): EvaluatedValue {
+    if (left.kind === 'number' && right.kind === 'number') {
+      const leftValue = left.value as number;
+      const rightValue = right.value as number;
+
+      if (operator === '+') {
+        return { kind: 'number', value: leftValue + rightValue, precedence: 3 };
+      }
+      if (operator === '-') {
+        return { kind: 'number', value: leftValue - rightValue, precedence: 3 };
+      }
+      if (operator === '*') {
+        return { kind: 'number', value: leftValue * rightValue, precedence: 3 };
+      }
+
+      return { kind: 'number', value: leftValue / rightValue, precedence: 3 };
+    }
+
+    const leftExpr = wrapIfNeeded(left, operator, 'left');
+    const rightExpr = wrapIfNeeded(right, operator, 'right');
+    const precedence = operator === '+' || operator === '-' ? 1 : 2;
+
+    return {
+      kind: 'expr',
+      value: `${leftExpr}${operator}${rightExpr}`,
+      precedence,
+    };
   }
 }
 
@@ -365,3 +614,159 @@ export function validateFormula(formula: string): boolean {
   const result = validateDiceFormula(formula);
   return result.valid;
 }
+
+/**
+ * Convert a validated formula string into Roll20-ready notation.
+ *
+ * Attribute reference conversion:
+ * - @STR  -> @{selected|STR}   (default)
+ * - @STR  -> @{Character|STR}  (when attributeReferenceMode='character')
+ * - @STR  -> @{STR}            (when attributeReferenceMode='plain')
+ */
+export function toRoll20Formula(
+  formula: string,
+  options: Roll20ConversionOptions = {}
+): Roll20ConversionResult {
+  const validation = validateDiceFormula(formula);
+  if (!validation.valid) {
+    return { valid: false, error: validation.error };
+  }
+
+  const attributeReferenceMode = options.attributeReferenceMode ?? 'selected';
+  const wrapInlineRoll = options.wrapInlineRoll ?? true;
+  const onMissingBid = options.onMissingBid ?? 'error';
+
+  if (attributeReferenceMode === 'character' && !options.characterName) {
+    return {
+      valid: false,
+      error: 'characterName is required when attributeReferenceMode is character'
+    };
+  }
+
+  const tokens = tokenize(formula).filter((token) => token.type !== TokenType.EOF);
+  const convertedParts: string[] = [];
+
+  for (const token of tokens) {
+    if (token.type !== TokenType.BID_REF) {
+      convertedParts.push(token.value);
+      continue;
+    }
+
+    const mappedAttribute =
+      options.resolveBidAttribute?.(token.value) ?? options.bidAttributeMap?.[token.value];
+
+    if (!mappedAttribute && onMissingBid === 'error') {
+      return {
+        valid: false,
+        error: `No attribute mapping found for BID @${token.value}`
+      };
+    }
+
+    const attributeName = mappedAttribute ?? token.value;
+
+    if (attributeReferenceMode === 'plain') {
+      convertedParts.push(`@{${attributeName}}`);
+      continue;
+    }
+
+    if (attributeReferenceMode === 'character') {
+      convertedParts.push(`@{${options.characterName}|${attributeName}}`);
+      continue;
+    }
+
+    convertedParts.push(`@{selected|${attributeName}}`);
+  }
+
+  const converted = convertedParts.join('');
+
+  return {
+    valid: true,
+    rollable: wrapInlineRoll ? `[[${converted}]]` : converted
+  };
+}
+
+/**
+ * Resolve BID references to numeric values and evaluate arithmetic/functions,
+ * while preserving dice terms (e.g. "1d20 + floor((@Z017-10)/2)" -> "1d20+3").
+ */
+export function toResolvedDiceNotation(
+  formula: string,
+  options: ResolvedNotationOptions = {}
+): ResolvedNotationResult {
+  const validation = validateDiceFormula(formula);
+  if (!validation.valid) {
+    return { valid: false, error: validation.error };
+  }
+
+  try {
+    const tokens = tokenize(formula);
+    const evaluator = new FormulaEvaluator(tokens, options);
+    const evaluated = evaluator.parse();
+
+    return {
+      valid: true,
+      notation: asExpr(evaluated),
+    };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    return { valid: false, error: errorMessage };
+  }
+}
+
+// ============================================================================
+// INTEGRATION NOTES (func -> output string)
+// ============================================================================
+// This file validates formula syntax and supports two output modes:
+// 1) Roll20 reference notation via `toRoll20Formula`.
+// 2) Resolved dice notation via `toResolvedDiceNotation` (evaluates numeric math).
+//
+// Expected `func` format (grammar summary):
+// - Literals: `12`, `3.5`
+// - Dice: `1d20`, `4d6kh3`, `4d6kl3`, `4d6dh1`, `4d6dl1`, `1d6!`
+// - Attribute references: `@STR`, `@DEX` (1-4 uppercase letters/numbers)
+// - Operators: `+`, `-`, `*`, `/`
+// - Parentheses: `( ... )`
+// - Functions: `floor(...)`, `ceil(...)`, `round(...)`, `abs(...)`, `max(...)`, `min(...)`
+// - Function args are comma-separated expressions: `max(1d20, @DEX + 2)`
+//
+// Output shape from this file:
+// - validateDiceFormula(func) -> { valid: true }
+// - validateDiceFormula(func) -> { valid: false, error: string }
+// - validateFormula(func) -> boolean
+// - toRoll20Formula(func, options) -> { valid: true, rollable: string }
+// - toRoll20Formula(func, options) -> { valid: false, error: string }
+// - toResolvedDiceNotation(func, options) -> { valid: true, notation: string }
+// - toResolvedDiceNotation(func, options) -> { valid: false, error: string }
+//
+// How to use this in another app (to get Roll20 notation):
+// 1) Receive `func` string from storage/content.
+// 2) Build a user-specific BID -> Roll20 attribute mapping.
+// 3) Call toRoll20Formula(func, { bidAttributeMap, ...options }).
+// 3) If valid, send `rollable` to Roll20.
+// 4) If invalid, reject it and show `error`.
+//
+// Example conversion for Roll20 (dynamic BID mapping):
+// const func = "1d20 + floor((@Z021 - 10) / 2)";
+// const bidAttributeMap = { Z021: "Strength" };
+// const result = toRoll20Formula(func, {
+//   attributeReferenceMode: 'selected',
+//   bidAttributeMap
+// });
+// if (!result.valid) throw new Error(result.error);
+// result.rollable === "[[1d20+floor((@{selected|Strength}-10)/2)]]"
+//
+// How to use this in another app (to get resolved dice notation):
+// 1) Receive `func` string from storage/content.
+// 2) Build a BID -> numeric value map (e.g. { Z017: 16 }).
+// 3) Call toResolvedDiceNotation(func, { bidValueMap }).
+// 4) If valid, use `notation` (e.g. "1d20+3").
+// 5) If invalid, reject it and show `error`.
+//
+// Modes for attribute references:
+// - selected (default): @STR -> @{selected|STR}
+// - character:          @STR -> @{CharacterName|STR}
+// - plain:              @STR -> @{STR}
+//
+// Missing BID behavior:
+// - onMissingBid: 'error' (default) -> conversion fails if BID is unmapped
+// - onMissingBid: 'useBidAsAttribute' -> fallback to using BID name directly

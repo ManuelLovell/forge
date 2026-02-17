@@ -4,6 +4,7 @@ import { Plus, X } from 'lucide-react';
 import type { Item } from '@owlbear-rodeo/sdk';
 import { OwlbearIds } from '../helpers/Constants';
 import { toResolvedDiceNotation } from '../helpers/FormulaParser';
+import LOGGER from '../helpers/Logger';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
 import { deserializeCardLayout } from '../helpers/deserializeCardLayout';
 import { UnitConstants } from '../interfaces/MetadataKeys';
@@ -37,6 +38,11 @@ type ItemListEntry = {
   name: string;
   description: string;
   inUse: boolean;
+};
+
+type InlineNotationToken = {
+  raw: string;
+  notation: string;
 };
 
 const CardShell = styled.div<{ $theme: CardLayoutTheme; $backgroundUrl?: string }>`
@@ -139,7 +145,7 @@ const DisabledInput = styled.input<{ $theme: CardLayoutTheme; $fontSize: string;
   border-radius: 4px;
   border: 1px solid ${props => props.$isRollable ? rgbaFromHex(props.$theme.offset, 0.8) : props.$theme.border};
   background: ${props => props.$isRollable
-    ? rgbaFromHex(props.$theme.offset, 0.3)
+    ? rgbaFromHex(props.$theme.offset, 0.5)
     : rgbaFromHex(props.$theme.background, 0.78)};
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
@@ -203,7 +209,7 @@ const TextValueInput = styled.input<{
   border-radius: 4px;
   border: 1px solid ${props => props.$isRollable ? rgbaFromHex(props.$theme.offset, 0.8) : props.$theme.border};
   background: ${props => props.$isRollable
-    ? rgbaFromHex(props.$theme.offset, 0.3)
+    ? rgbaFromHex(props.$theme.offset, 0.5)
     : rgbaFromHex(props.$theme.background, 0.78)};
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
@@ -416,7 +422,33 @@ const ListDescriptionInput = styled.textarea<{ $theme: CardLayoutTheme }>`
   font-style: italic;
   font-size: 13px;
   line-height: 1.15;
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
+`;
+
+const InlineNotationRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+`;
+
+const InlineNotationButton = styled.button<{ $theme: CardLayoutTheme }>`
+  height: 22px;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 4px;
+  border: 1px solid ${props => rgbaFromHex(props.$theme.offset, 0.8)};
+  background: ${props => rgbaFromHex(props.$theme.offset, 0.5)};
+  color: ${props => rgbaFromHex(props.$theme.primary, 0.95)};
+  padding: 0 6px;
+  box-sizing: border-box;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const ActionNameRow = styled.div`
@@ -497,7 +529,6 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
   controlContent,
 }) => {
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
-  const [listDraftValues, setListDraftValues] = useState<Record<string, string | boolean>>({});
   const { rows } = useMemo(() => deserializeCardLayout(cardLayout), [cardLayout]);
   const unitName = useMemo(() => {
     const metadataName = unitItem.metadata?.[UnitConstants.UNIT_NAME];
@@ -596,30 +627,6 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     console.log(notation);
   };
 
-  const getListDraftKey = (
-    listType: 'action' | 'item',
-    bid: string,
-    entryId: string,
-    field: 'name' | 'description' | 'inUse'
-  ): string => `${listType}:${bid}:${entryId}:${field}`;
-
-  const getListTextDraftOrValue = (draftKey: string, fallbackValue: string): string => {
-    const draftValue = listDraftValues[draftKey];
-    return typeof draftValue === 'string' ? draftValue : fallbackValue;
-  };
-
-  const getListBoolDraftOrValue = (draftKey: string, fallbackValue: boolean): boolean => {
-    const draftValue = listDraftValues[draftKey];
-    return typeof draftValue === 'boolean' ? draftValue : fallbackValue;
-  };
-
-  const clearListDraftKey = (draftKey: string) => {
-    setListDraftValues((prev) => {
-      const { [draftKey]: _removed, ...rest } = prev;
-      return rest;
-    });
-  };
-
   const updateAttributeValue = async (bid: string, value: string) => {
     await onUpdateMetadata({
       [getMetadataKeyForBid(bid)]: value,
@@ -659,7 +666,66 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     });
   };
 
-  const updateListValue = async (bid: string, value: ActionListEntry[] | ItemListEntry[]) => {
+  const emitListDebugLog = (event: string, payload: Record<string, unknown>) => {
+    LOGGER.log(event, payload);
+    console.log('[FORGE LIST DEBUG]', event, payload);
+  };
+
+  const autoSizeTextarea = (element: HTMLTextAreaElement | null) => {
+    if (!element) {
+      return;
+    }
+
+    element.style.height = '0px';
+    element.style.height = `${Math.max(element.scrollHeight, 44)}px`;
+  };
+
+  const parseInlineNotationTokens = (text: string): InlineNotationToken[] => {
+    const tokens: InlineNotationToken[] = [];
+    const matches = text.matchAll(/\[([^\[\]]+)\]/g);
+
+    for (const match of matches) {
+      const raw = match[0];
+      const formula = (match[1] || '').trim();
+      if (!formula) {
+        continue;
+      }
+
+      const conversion = toResolvedDiceNotation(formula, {
+        bidValueMap: bidNumericValueMap,
+        onMissingBid: 'error',
+      });
+
+      if (!conversion.valid || !conversion.notation) {
+        continue;
+      }
+
+      tokens.push({ raw, notation: conversion.notation });
+    }
+
+    return tokens;
+  };
+
+  const updateListValue = async (
+    bid: string,
+    value: ActionListEntry[] | ItemListEntry[],
+    context: {
+      listType: 'action' | 'item';
+      reason: 'add' | 'delete' | 'blur-save' | 'toggle-save';
+      entryId?: string;
+      field?: 'name' | 'description' | 'inUse';
+    }
+  ) => {
+    emitListDebugLog('List metadata update', {
+      listType: context.listType,
+      bid,
+      reason: context.reason,
+      entryId: context.entryId,
+      field: context.field,
+      entryCount: value.length,
+      timestamp: Date.now(),
+    });
+
     await onUpdateMetadata({
       [getMetadataKeyForBid(bid)]: value,
     });
@@ -950,7 +1016,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     ...actionEntries,
                     { id: crypto.randomUUID(), name: '', description: '' },
                   ];
-                  await updateListValue(listBid, nextEntries);
+                  await updateListValue(listBid, nextEntries, { listType: 'action', reason: 'add' });
                 }}
               >
                 <Plus size={14} />
@@ -961,33 +1027,25 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
               <ListEntry key={entry.id || `${component.id}-action-${index}`}>
                 <ActionNameRow>
                   <ActionNameInputWrap>
-                    {(() => {
-                      const nameDraftKey = getListDraftKey('action', listBid || 'none', entry.id, 'name');
-                      return (
                     <ListNameInput
                       $theme={systemTheme}
                       type="text"
-                      value={getListTextDraftOrValue(nameDraftKey, entry.name)}
+                      defaultValue={entry.name}
                       placeholder="Action Name"
-                      onChange={(event) => {
-                        const nextValue = event.target.value;
-                        setListDraftValues((prev) => ({
-                          ...prev,
-                          [nameDraftKey]: nextValue,
-                        }));
-                      }}
                       onBlur={async (event) => {
                         if (!listBid) return;
-                        const nextValue = getListTextDraftOrValue(nameDraftKey, event.target.value);
+                        const nextValue = event.target.value;
                         const nextEntries = actionEntries.map((current) =>
                           current.id === entry.id ? { ...current, name: nextValue } : current
                         );
-                        await updateListValue(listBid, nextEntries);
-                        clearListDraftKey(nameDraftKey);
+                        await updateListValue(listBid, nextEntries, {
+                          listType: 'action',
+                          reason: 'blur-save',
+                          entryId: entry.id,
+                          field: 'name',
+                        });
                       }}
                     />
-                      );
-                    })()}
                   </ActionNameInputWrap>
                   <DeleteIconWrap
                     type="button"
@@ -996,36 +1054,61 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     onClick={async () => {
                       if (!listBid) return;
                       const nextEntries = actionEntries.filter((current) => current.id !== entry.id);
-                      await updateListValue(listBid, nextEntries);
+                      await updateListValue(listBid, nextEntries, {
+                        listType: 'action',
+                        reason: 'delete',
+                        entryId: entry.id,
+                      });
                     }}
                   >
                     <X size={14} />
                   </DeleteIconWrap>
                 </ActionNameRow>
                 {(() => {
-                  const descriptionDraftKey = getListDraftKey('action', listBid || 'none', entry.id, 'description');
+                  const inlineNotationTokens = parseInlineNotationTokens(entry.description);
+
                   return (
-                    <ListDescriptionInput
-                      $theme={systemTheme}
-                      value={getListTextDraftOrValue(descriptionDraftKey, entry.description)}
-                      placeholder="Action Description"
-                      onChange={(event) => {
-                        const nextValue = event.target.value;
-                        setListDraftValues((prev) => ({
-                          ...prev,
-                          [descriptionDraftKey]: nextValue,
-                        }));
-                      }}
-                      onBlur={async (event) => {
-                        if (!listBid) return;
-                        const nextValue = getListTextDraftOrValue(descriptionDraftKey, event.target.value);
-                        const nextEntries = actionEntries.map((current) =>
-                          current.id === entry.id ? { ...current, description: nextValue } : current
-                        );
-                        await updateListValue(listBid, nextEntries);
-                        clearListDraftKey(descriptionDraftKey);
-                      }}
-                    />
+                    <>
+                      <ListDescriptionInput
+                        $theme={systemTheme}
+                        defaultValue={entry.description}
+                        ref={autoSizeTextarea}
+                        placeholder="Action Description"
+                        onInput={(event) => {
+                          autoSizeTextarea(event.currentTarget);
+                        }}
+                        onBlur={async (event) => {
+                          if (!listBid) return;
+                          const nextValue = event.target.value;
+                          const nextEntries = actionEntries.map((current) =>
+                            current.id === entry.id ? { ...current, description: nextValue } : current
+                          );
+                          await updateListValue(listBid, nextEntries, {
+                            listType: 'action',
+                            reason: 'blur-save',
+                            entryId: entry.id,
+                            field: 'description',
+                          });
+                        }}
+                      />
+                      {inlineNotationTokens.length > 0 ? (
+                        <InlineNotationRow>
+                          {inlineNotationTokens.map((token, tokenIndex) => (
+                            <InlineNotationButton
+                              key={`${entry.id}-action-inline-${tokenIndex}`}
+                              type="button"
+                              $theme={systemTheme}
+                              onClick={() => {
+                                console.log(token.notation);
+                              }}
+                              title={token.notation}
+                            >
+                              {token.notation}
+                            </InlineNotationButton>
+                          ))}
+                        </InlineNotationRow>
+                      ) : null}
+                    </>
                   );
                 })()}
               </ListEntry>
@@ -1056,7 +1139,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     ...itemEntries,
                     { id: crypto.randomUUID(), name: '', description: '', inUse: false },
                   ];
-                  await updateListValue(listBid, nextEntries);
+                  await updateListValue(listBid, nextEntries, { listType: 'item', reason: 'add' });
                 }}
               >
                 <Plus size={14} />
@@ -1067,61 +1150,45 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
               <ListEntry key={entry.id || `${component.id}-item-${index}`}>
                 <ItemTitleRow>
                   <ItemCheckboxSlot>
-                    {(() => {
-                      const inUseDraftKey = getListDraftKey('item', listBid || 'none', entry.id, 'inUse');
-                      return (
                         <ItemUseCheckbox
                           $theme={systemTheme}
                           type="checkbox"
-                          checked={getListBoolDraftOrValue(inUseDraftKey, entry.inUse)}
-                          onChange={(event) => {
-                            const nextValue = event.target.checked;
-                            setListDraftValues((prev) => ({
-                              ...prev,
-                              [inUseDraftKey]: nextValue,
-                            }));
-                          }}
+                          defaultChecked={entry.inUse}
                           onBlur={async (event) => {
                             if (!listBid) return;
-                            const nextValue = getListBoolDraftOrValue(inUseDraftKey, event.target.checked);
+                            const nextValue = event.target.checked;
                             const nextEntries = itemEntries.map((current) =>
                               current.id === entry.id ? { ...current, inUse: nextValue } : current
                             );
-                            await updateListValue(listBid, nextEntries);
-                            clearListDraftKey(inUseDraftKey);
+                            await updateListValue(listBid, nextEntries, {
+                              listType: 'item',
+                              reason: 'toggle-save',
+                              entryId: entry.id,
+                              field: 'inUse',
+                            });
                           }}
                         />
-                      );
-                    })()}
                   </ItemCheckboxSlot>
                   <ItemTitleCenter $theme={systemTheme}>
-                    {(() => {
-                      const nameDraftKey = getListDraftKey('item', listBid || 'none', entry.id, 'name');
-                      return (
                         <ListNameInput
                           $theme={systemTheme}
                           type="text"
-                          value={getListTextDraftOrValue(nameDraftKey, entry.name)}
+                          defaultValue={entry.name}
                           placeholder="Item Name"
-                          onChange={(event) => {
-                            const nextValue = event.target.value;
-                            setListDraftValues((prev) => ({
-                              ...prev,
-                              [nameDraftKey]: nextValue,
-                            }));
-                          }}
                           onBlur={async (event) => {
                             if (!listBid) return;
-                            const nextValue = getListTextDraftOrValue(nameDraftKey, event.target.value);
+                            const nextValue = event.target.value;
                             const nextEntries = itemEntries.map((current) =>
                               current.id === entry.id ? { ...current, name: nextValue } : current
                             );
-                            await updateListValue(listBid, nextEntries);
-                            clearListDraftKey(nameDraftKey);
+                            await updateListValue(listBid, nextEntries, {
+                              listType: 'item',
+                              reason: 'blur-save',
+                              entryId: entry.id,
+                              field: 'name',
+                            });
                           }}
                         />
-                      );
-                    })()}
                   </ItemTitleCenter>
                   <DeleteIconWrap
                     type="button"
@@ -1130,36 +1197,61 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     onClick={async () => {
                       if (!listBid) return;
                       const nextEntries = itemEntries.filter((current) => current.id !== entry.id);
-                      await updateListValue(listBid, nextEntries);
+                      await updateListValue(listBid, nextEntries, {
+                        listType: 'item',
+                        reason: 'delete',
+                        entryId: entry.id,
+                      });
                     }}
                   >
                     <X size={14} />
                   </DeleteIconWrap>
                 </ItemTitleRow>
                 {(() => {
-                  const descriptionDraftKey = getListDraftKey('item', listBid || 'none', entry.id, 'description');
+                  const inlineNotationTokens = parseInlineNotationTokens(entry.description);
+
                   return (
-                    <ListDescriptionInput
-                      $theme={systemTheme}
-                      value={getListTextDraftOrValue(descriptionDraftKey, entry.description)}
-                      placeholder="Item Description"
-                      onChange={(event) => {
-                        const nextValue = event.target.value;
-                        setListDraftValues((prev) => ({
-                          ...prev,
-                          [descriptionDraftKey]: nextValue,
-                        }));
-                      }}
-                      onBlur={async (event) => {
-                        if (!listBid) return;
-                        const nextValue = getListTextDraftOrValue(descriptionDraftKey, event.target.value);
-                        const nextEntries = itemEntries.map((current) =>
-                          current.id === entry.id ? { ...current, description: nextValue } : current
-                        );
-                        await updateListValue(listBid, nextEntries);
-                        clearListDraftKey(descriptionDraftKey);
-                      }}
-                    />
+                    <>
+                      <ListDescriptionInput
+                        $theme={systemTheme}
+                        defaultValue={entry.description}
+                        ref={autoSizeTextarea}
+                        placeholder="Item Description"
+                        onInput={(event) => {
+                          autoSizeTextarea(event.currentTarget);
+                        }}
+                        onBlur={async (event) => {
+                          if (!listBid) return;
+                          const nextValue = event.target.value;
+                          const nextEntries = itemEntries.map((current) =>
+                            current.id === entry.id ? { ...current, description: nextValue } : current
+                          );
+                          await updateListValue(listBid, nextEntries, {
+                            listType: 'item',
+                            reason: 'blur-save',
+                            entryId: entry.id,
+                            field: 'description',
+                          });
+                        }}
+                      />
+                      {inlineNotationTokens.length > 0 ? (
+                        <InlineNotationRow>
+                          {inlineNotationTokens.map((token, tokenIndex) => (
+                            <InlineNotationButton
+                              key={`${entry.id}-item-inline-${tokenIndex}`}
+                              type="button"
+                              $theme={systemTheme}
+                              onClick={() => {
+                                console.log(token.notation);
+                              }}
+                              title={token.notation}
+                            >
+                              {token.notation}
+                            </InlineNotationButton>
+                          ))}
+                        </InlineNotationRow>
+                      ) : null}
+                    </>
                   );
                 })()}
               </ListEntry>

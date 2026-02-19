@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { Plus, X } from 'lucide-react';
 import type { Item } from '@owlbear-rodeo/sdk';
@@ -529,6 +529,10 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
   controlContent,
 }) => {
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
+  const [rollableEditMode, setRollableEditMode] = useState<Record<string, boolean>>({});
+  const longPressTimersRef = useRef<Record<string, number>>({});
+  const suppressNextClickRef = useRef<Record<string, boolean>>({});
+  const LONG_PRESS_MS = 500;
   const { rows } = useMemo(() => deserializeCardLayout(cardLayout), [cardLayout]);
   const unitName = useMemo(() => {
     const metadataName = unitItem.metadata?.[UnitConstants.UNIT_NAME];
@@ -625,6 +629,69 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     }
 
     console.log(notation);
+  };
+
+  useEffect(() => {
+    return () => {
+      Object.values(longPressTimersRef.current).forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+    };
+  }, []);
+
+  const isRollableEditing = (draftKey: string): boolean => {
+    return !!rollableEditMode[draftKey];
+  };
+
+  const enableRollableEditMode = (draftKey: string, input?: HTMLInputElement | null) => {
+    setRollableEditMode((prev) => ({
+      ...prev,
+      [draftKey]: true,
+    }));
+
+    window.setTimeout(() => {
+      input?.focus();
+      input?.select();
+    }, 0);
+  };
+
+  const disableRollableEditMode = (draftKey: string) => {
+    setRollableEditMode((prev) => {
+      const { [draftKey]: _removed, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  const startLongPressEditMode = (draftKey: string, input: HTMLInputElement) => {
+    const existingTimer = longPressTimersRef.current[draftKey];
+    if (existingTimer) {
+      window.clearTimeout(existingTimer);
+    }
+
+    longPressTimersRef.current[draftKey] = window.setTimeout(() => {
+      suppressNextClickRef.current[draftKey] = true;
+      enableRollableEditMode(draftKey, input);
+      delete longPressTimersRef.current[draftKey];
+    }, LONG_PRESS_MS);
+  };
+
+  const cancelLongPressEditMode = (draftKey: string) => {
+    const existingTimer = longPressTimersRef.current[draftKey];
+    if (!existingTimer) {
+      return;
+    }
+
+    window.clearTimeout(existingTimer);
+    delete longPressTimersRef.current[draftKey];
+  };
+
+  const shouldSuppressRollClick = (draftKey: string): boolean => {
+    if (!suppressNextClickRef.current[draftKey]) {
+      return false;
+    }
+
+    delete suppressNextClickRef.current[draftKey];
+    return true;
   };
 
   const updateAttributeValue = async (bid: string, value: string) => {
@@ -804,6 +871,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       const bid = attr?.attr_bid;
       const isRollableInput = hasAttrFormula(attr);
       const draftKey = `text-value:${component.id}:${bid || 'none'}`;
+      const isEditingRollableInput = isRollableInput && isRollableEditing(draftKey);
       const inputElement = (
         <TextValueInput
           $theme={systemTheme}
@@ -814,9 +882,9 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
           $stretch={stretch}
           $isRollable={isRollableInput}
           type="text"
-          readOnly={isRollableInput}
+          readOnly={isRollableInput && !isEditingRollableInput}
           value={bid ? getDraftOrValue(draftKey, bid) : ''}
-          onChange={isRollableInput ? undefined : (event) => {
+          onChange={isRollableInput && !isEditingRollableInput ? undefined : (event) => {
             if (!bid) return;
             const nextValue = event.target.value;
             setDraftValues((prev) => ({
@@ -824,7 +892,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
               [draftKey]: nextValue,
             }));
           }}
-          onBlur={isRollableInput ? undefined : async (event) => {
+          onBlur={isRollableInput && !isEditingRollableInput ? undefined : async (event) => {
             if (!bid) return;
             const nextValue = event.target.value;
             await updateAttributeValue(bid, nextValue);
@@ -832,16 +900,45 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
               const { [draftKey]: _removed, ...rest } = prev;
               return rest;
             });
+            if (isRollableInput) {
+              disableRollableEditMode(draftKey);
+            }
           }}
-          onClick={isRollableInput ? () => handleNotationClick(attr) : undefined}
+          onClick={isRollableInput ? () => {
+            if (isEditingRollableInput) {
+              return;
+            }
+
+            if (shouldSuppressRollClick(draftKey)) {
+              return;
+            }
+
+            handleNotationClick(attr);
+          } : undefined}
+          onContextMenu={isRollableInput ? (event) => {
+            event.preventDefault();
+            enableRollableEditMode(draftKey, event.currentTarget);
+          } : undefined}
+          onTouchStart={isRollableInput ? (event) => {
+            if (isEditingRollableInput) {
+              return;
+            }
+            startLongPressEditMode(draftKey, event.currentTarget);
+          } : undefined}
+          onTouchEnd={isRollableInput ? () => {
+            cancelLongPressEditMode(draftKey);
+          } : undefined}
+          onTouchCancel={isRollableInput ? () => {
+            cancelLongPressEditMode(draftKey);
+          } : undefined}
           onKeyDown={(event) => {
-            if (isRollableInput && (event.key === 'Enter' || event.key === ' ')) {
+            if (isRollableInput && !isEditingRollableInput && (event.key === 'Enter' || event.key === ' ')) {
               event.preventDefault();
               handleNotationClick(attr);
               return;
             }
 
-            if (!isRollableInput && event.key === 'Enter') {
+            if ((isEditingRollableInput || !isRollableInput) && event.key === 'Enter') {
               event.preventDefault();
               event.currentTarget.blur();
             }
@@ -948,6 +1045,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
               const columnAttr = resolveAttribute(attributes, bid);
               const isRollableInput = hasAttrFormula(columnAttr);
               const draftKey = `column-value:${component.id}:${bid}`;
+              const isEditingRollableInput = isRollableInput && isRollableEditing(draftKey);
               return (
                 <ColumnInputTrack key={bid}>
                   <DisabledInput
@@ -955,32 +1053,61 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     $fontSize={fontSize}
                     $align="center"
                     $isRollable={isRollableInput}
-                    readOnly={isRollableInput}
+                    readOnly={isRollableInput && !isEditingRollableInput}
                     value={getDraftOrValue(draftKey, bid)}
-                    onChange={isRollableInput ? undefined : (event) => {
+                    onChange={isRollableInput && !isEditingRollableInput ? undefined : (event) => {
                       const nextValue = event.target.value;
                       setDraftValues((prev) => ({
                         ...prev,
                         [draftKey]: nextValue,
                       }));
                     }}
-                    onBlur={isRollableInput ? undefined : async (event) => {
+                    onBlur={isRollableInput && !isEditingRollableInput ? undefined : async (event) => {
                       const nextValue = event.target.value;
                       await updateAttributeValue(bid, nextValue);
                       setDraftValues((prev) => {
                         const { [draftKey]: _removed, ...rest } = prev;
                         return rest;
                       });
+                      if (isRollableInput) {
+                        disableRollableEditMode(draftKey);
+                      }
                     }}
-                    onClick={isRollableInput ? () => handleNotationClick(columnAttr) : undefined}
+                    onClick={isRollableInput ? () => {
+                      if (isEditingRollableInput) {
+                        return;
+                      }
+
+                      if (shouldSuppressRollClick(draftKey)) {
+                        return;
+                      }
+
+                      handleNotationClick(columnAttr);
+                    } : undefined}
+                    onContextMenu={isRollableInput ? (event) => {
+                      event.preventDefault();
+                      enableRollableEditMode(draftKey, event.currentTarget);
+                    } : undefined}
+                    onTouchStart={isRollableInput ? (event) => {
+                      if (isEditingRollableInput) {
+                        return;
+                      }
+                      startLongPressEditMode(draftKey, event.currentTarget);
+                    } : undefined}
+                    onTouchEnd={isRollableInput ? () => {
+                      cancelLongPressEditMode(draftKey);
+                    } : undefined}
+                    onTouchCancel={isRollableInput ? () => {
+                      cancelLongPressEditMode(draftKey);
+                    } : undefined}
                     onKeyDown={(event) => {
-                      if (isRollableInput && (event.key === 'Enter' || event.key === ' ')) {
+                      if (isRollableInput && !isEditingRollableInput && (event.key === 'Enter' || event.key === ' ')) {
                         event.preventDefault();
                         handleNotationClick(columnAttr);
                         return;
                       }
 
-                      if (!isRollableInput && event.key === 'Enter') {
+                      if ((isEditingRollableInput || !isRollableInput) && event.key === 'Enter') {
                         event.preventDefault();
                         event.currentTarget.blur();
                       }

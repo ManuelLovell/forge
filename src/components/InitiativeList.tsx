@@ -18,6 +18,7 @@ import { HexToRgba } from '../helpers/HexToRGB';
 import { ViewportFunctions } from '../helpers/ViewPortUtility';
 import { PopupModal } from './PopupModal';
 import { GRID_SELECTION_EFFECT } from '../assets/gridSelectionEffect';
+import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 
 const TURN_EFFECT_ID = `${EXTENSION_ID}/current-turn-effect`;
 const ELEVATION_BADGE_FLAG = `${EXTENSION_ID}/elevation-badge`;
@@ -285,17 +286,18 @@ const TurnIcon = styled.div`
   }
 `;
 
-const InitiativeInput = styled.input<{ theme: ForgeTheme }>`
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid ${props => props.theme.BORDER};
+const InitiativeInput = styled.input<{ theme: ForgeTheme; $isRollable?: boolean }>`
+  background: ${props => props.$isRollable ? rgbaFromHex(props.theme.OFFSET, 0.3) : 'rgba(0, 0, 0, 0.3)'};
+  border: 1px solid ${props => props.$isRollable ? rgbaFromHex(props.theme.OFFSET, 0.8) : props.theme.BORDER};
   border-radius: 4px;
-  color: ${props => props.theme.OFFSET};
+  color: ${props => props.theme.PRIMARY};
   padding: 2px 4px;
   font-size: 18px;
   font-weight: 700;
   width: 50px;
   text-align: center;
   backdrop-filter: blur(12px);
+  cursor: ${props => props.$isRollable ? 'pointer' : 'text'};
   
   /* Remove spinner controls */
   &::-webkit-outer-spin-button,
@@ -333,9 +335,9 @@ const NameCell = styled(DataCell) <{ theme: ForgeTheme; $outlineColor?: string }
       : 'none'};
 `;
 
-const ValueInput = styled.input<{ $small?: boolean; theme: ForgeTheme }>`
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid ${props => props.theme.BORDER};
+const ValueInput = styled.input<{ $small?: boolean; $isRollable?: boolean; theme: ForgeTheme }>`
+  background: ${props => props.$isRollable ? rgbaFromHex(props.theme.OFFSET, 0.3) : 'rgba(0, 0, 0, 0.4)'};
+  border: 1px solid ${props => props.$isRollable ? rgbaFromHex(props.theme.OFFSET, 0.8) : props.theme.BORDER};
   border-radius: 4px;
   color: ${props => props.theme.PRIMARY};
   padding: 2px 4px;
@@ -343,6 +345,7 @@ const ValueInput = styled.input<{ $small?: boolean; theme: ForgeTheme }>`
   width: ${props => props.$small ? '40px' : '60px'};
   text-align: center;
   backdrop-filter: blur(12px);
+  cursor: ${props => props.$isRollable ? 'pointer' : 'text'};
   
   /* Remove spinner controls */
   &::-webkit-outer-spin-button,
@@ -740,7 +743,11 @@ export const InitiativeList: React.FC = () => {
   const [effectEndTiming, setEffectEndTiming] = useState<EffectEndTiming>('start');
   const [effectsModalError, setEffectsModalError] = useState<string | null>(null);
   const [listReferenceModal, setListReferenceModal] = useState<ListReferenceModalState | null>(null);
+  const [rollableEditMode, setRollableEditMode] = useState<Record<string, boolean>>({});
+  const longPressTimersRef = useRef<Record<string, number>>({});
+  const suppressNextClickRef = useRef<Record<string, boolean>>({});
   const tableRef = useRef<HTMLTableElement>(null);
+  const LONG_PRESS_MS = 500;
 
   // Control for setting the data to Room or to Scene
   const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
@@ -1351,6 +1358,123 @@ export const InitiativeList: React.FC = () => {
     });
   };
 
+  const resolveAttributeForBid = (bid: string) => {
+    return attributes.find((attribute) => attribute.attr_bid === bid) || null;
+  };
+
+  const hasAttrFormula = (bid: string): boolean => {
+    const attribute = resolveAttributeForBid(bid);
+    return typeof attribute?.attr_func === 'string' && attribute.attr_func.trim().length > 0;
+  };
+
+  const buildBidNumericValueMapForUnit = (unit: Unit): Record<string, number> => {
+    const map: Record<string, number> = {};
+
+    for (const attribute of attributes) {
+      const key = `${EXTENSION_ID}/${attribute.attr_bid}`;
+      const rawValue = unit.attributes?.[key];
+      if (rawValue === undefined || rawValue === null || rawValue === '') {
+        continue;
+      }
+
+      const parsedValue = Number(rawValue);
+      if (Number.isFinite(parsedValue)) {
+        map[attribute.attr_bid] = parsedValue;
+      }
+    }
+
+    return map;
+  };
+
+  const handleNotationClick = (unit: Unit, bid: string) => {
+    const attribute = resolveAttributeForBid(bid);
+    const formula = attribute?.attr_func;
+    if (typeof formula !== 'string' || formula.trim().length === 0) {
+      return;
+    }
+
+    const conversion = toResolvedDiceNotation(formula, {
+      bidValueMap: buildBidNumericValueMapForUnit(unit),
+      onMissingBid: 'error',
+    });
+
+    if (!conversion.valid || !conversion.notation) {
+      LOGGER.warn('Could not resolve notation for initiative list value-column', {
+        unitId: unit.id,
+        bid,
+        error: conversion.error,
+      });
+      return;
+    }
+
+    console.log(conversion.notation);
+  };
+
+  useEffect(() => {
+    return () => {
+      Object.values(longPressTimersRef.current).forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+    };
+  }, []);
+
+  const getRollableFieldKey = (unitId: string, bid: string): string => `value-column:${unitId}:${bid}`;
+
+  const isRollableEditing = (fieldKey: string): boolean => {
+    return !!rollableEditMode[fieldKey];
+  };
+
+  const enableRollableEditMode = (fieldKey: string, input?: HTMLInputElement | null) => {
+    setRollableEditMode((prev) => ({
+      ...prev,
+      [fieldKey]: true,
+    }));
+
+    window.setTimeout(() => {
+      input?.focus();
+      input?.select();
+    }, 0);
+  };
+
+  const disableRollableEditMode = (fieldKey: string) => {
+    setRollableEditMode((prev) => {
+      const { [fieldKey]: _removed, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  const startLongPressEditMode = (fieldKey: string, input: HTMLInputElement) => {
+    const existingTimer = longPressTimersRef.current[fieldKey];
+    if (existingTimer) {
+      window.clearTimeout(existingTimer);
+    }
+
+    longPressTimersRef.current[fieldKey] = window.setTimeout(() => {
+      suppressNextClickRef.current[fieldKey] = true;
+      enableRollableEditMode(fieldKey, input);
+      delete longPressTimersRef.current[fieldKey];
+    }, LONG_PRESS_MS);
+  };
+
+  const cancelLongPressEditMode = (fieldKey: string) => {
+    const existingTimer = longPressTimersRef.current[fieldKey];
+    if (!existingTimer) {
+      return;
+    }
+
+    window.clearTimeout(existingTimer);
+    delete longPressTimersRef.current[fieldKey];
+  };
+
+  const shouldSuppressRollClick = (fieldKey: string): boolean => {
+    if (!suppressNextClickRef.current[fieldKey]) {
+      return false;
+    }
+
+    delete suppressNextClickRef.current[fieldKey];
+    return true;
+  };
+
   // Deserialize list layout on mount or when listLayout changes
   useEffect(() => {
     if (!isLoading) {
@@ -1807,17 +1931,57 @@ export const InitiativeList: React.FC = () => {
           );
         }
         // Normal mode: show initiative input
+        const initiativeFieldKey = `initiative:${unit.id}`;
+        const isEditingInitiative = isRollableEditing(initiativeFieldKey);
         return (
           <InitiativeCell theme={theme}>
             <InitiativeInput
               theme={theme}
+              $isRollable={!isEditingInitiative}
               type="text"
               inputMode="decimal"
               value={initiativeDrafts[unit.id] ?? String(unit.initiative)}
-              onChange={(e) => handleInitiativeDraftChange(unit.id, e.target.value)}
-              onBlur={(e) => commitInitiativeInput(unit.id, e.target.value)}
+              readOnly={!isEditingInitiative}
+              onChange={!isEditingInitiative ? undefined : (e) => handleInitiativeDraftChange(unit.id, e.target.value)}
+              onBlur={!isEditingInitiative ? undefined : (e) => {
+                commitInitiativeInput(unit.id, e.target.value);
+                disableRollableEditMode(initiativeFieldKey);
+              }}
+              onClick={() => {
+                if (isEditingInitiative) {
+                  return;
+                }
+
+                if (shouldSuppressRollClick(initiativeFieldKey)) {
+                  return;
+                }
+
+                handleRollInitiative(unit.id);
+              }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                enableRollableEditMode(initiativeFieldKey, event.currentTarget);
+              }}
+              onTouchStart={(event) => {
+                if (isEditingInitiative) {
+                  return;
+                }
+                startLongPressEditMode(initiativeFieldKey, event.currentTarget);
+              }}
+              onTouchEnd={() => {
+                cancelLongPressEditMode(initiativeFieldKey);
+              }}
+              onTouchCancel={() => {
+                cancelLongPressEditMode(initiativeFieldKey);
+              }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (!isEditingInitiative && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  handleRollInitiative(unit.id);
+                  return;
+                }
+
+                if (isEditingInitiative && e.key === 'Enter') {
                   e.preventDefault();
                   e.currentTarget.blur();
                 }
@@ -1833,6 +1997,7 @@ export const InitiativeList: React.FC = () => {
             title="Right-click to assign owner"
             $outlineColor={unit.ownerNameOutlineColor}
             onDoubleClick={() => handleUnitNameDoubleClick(unit.id)}
+            onContextMenu={(event) => handleUnitContextMenu(event, unit.id)}
           >
             {unit.name}
           </NameCell>
@@ -1875,43 +2040,86 @@ export const InitiativeList: React.FC = () => {
         return (
           <DataCell theme={theme}>
             <ValueContainer>
-              {col.styles?.bidList?.map((bid, idx) => (
-                <React.Fragment key={bid}>
-                  {idx > 0 && <Divider theme={theme}>{col.styles?.dividers?.[idx - 1] || '/'}</Divider>}
-                  <ValueInput
-                    theme={theme}
-                    value={unit.attributes[`${EXTENSION_ID}/${bid}`] || '0'}
-                    $small={col.styles?.bidList && col.styles.bidList.length > 2}
-                    onChange={(e) => {
-                      const newValue = e.target.value;
+              {col.styles?.bidList?.map((bid, idx) => {
+                const isRollableInput = hasAttrFormula(bid);
+                const fieldKey = getRollableFieldKey(unit.id, bid);
+                const isEditingRollableInput = isRollableInput && isRollableEditing(fieldKey);
 
-                      // Update local state only
-                      setUnits(prevUnits =>
-                        prevUnits.map(u =>
-                          u.id === unit.id
-                            ? {
-                              ...u,
-                              attributes: {
-                                ...u.attributes,
-                                [`${EXTENSION_ID}/${bid}`]: newValue
+                return (
+                  <React.Fragment key={bid}>
+                    {idx > 0 && <Divider theme={theme}>{col.styles?.dividers?.[idx - 1] || '/'}</Divider>}
+                    <ValueInput
+                      theme={theme}
+                      $isRollable={isRollableInput}
+                      value={unit.attributes[`${EXTENSION_ID}/${bid}`] || '0'}
+                      $small={col.styles?.bidList && col.styles.bidList.length > 2}
+                      readOnly={isRollableInput && !isEditingRollableInput}
+                      onChange={isRollableInput && !isEditingRollableInput ? undefined : (e) => {
+                        const newValue = e.target.value;
+
+                        setUnits(prevUnits =>
+                          prevUnits.map(u =>
+                            u.id === unit.id
+                              ? {
+                                ...u,
+                                attributes: {
+                                  ...u.attributes,
+                                  [`${EXTENSION_ID}/${bid}`]: newValue
+                                }
                               }
-                            }
-                            : u
-                        )
-                      );
-                    }}
-                    onBlur={(e) => {
-                      commitValueColumnInput(unit.id, bid, e.target.value);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        e.currentTarget.blur();
-                      }
-                    }}
-                  />
-                </React.Fragment>
-              ))}
+                              : u
+                          )
+                        );
+                      }}
+                      onBlur={isRollableInput && !isEditingRollableInput ? undefined : (e) => {
+                        commitValueColumnInput(unit.id, bid, e.target.value);
+                        if (isRollableInput) {
+                          disableRollableEditMode(fieldKey);
+                        }
+                      }}
+                      onClick={isRollableInput ? () => {
+                        if (isEditingRollableInput) {
+                          return;
+                        }
+
+                        if (shouldSuppressRollClick(fieldKey)) {
+                          return;
+                        }
+
+                        handleNotationClick(unit, bid);
+                      } : undefined}
+                      onContextMenu={isRollableInput ? (event) => {
+                        event.preventDefault();
+                        enableRollableEditMode(fieldKey, event.currentTarget);
+                      } : undefined}
+                      onTouchStart={isRollableInput ? (event) => {
+                        if (isEditingRollableInput) {
+                          return;
+                        }
+                        startLongPressEditMode(fieldKey, event.currentTarget);
+                      } : undefined}
+                      onTouchEnd={isRollableInput ? () => {
+                        cancelLongPressEditMode(fieldKey);
+                      } : undefined}
+                      onTouchCancel={isRollableInput ? () => {
+                        cancelLongPressEditMode(fieldKey);
+                      } : undefined}
+                      onKeyDown={(e) => {
+                        if (isRollableInput && !isEditingRollableInput && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          handleNotationClick(unit, bid);
+                          return;
+                        }
+
+                        if ((isEditingRollableInput || !isRollableInput) && e.key === 'Enter') {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
+                    />
+                  </React.Fragment>
+                );
+              })}
             </ValueContainer>
           </DataCell>
         );
@@ -2078,7 +2286,6 @@ export const InitiativeList: React.FC = () => {
                 key={unit.id}
                 $isCurrentTurn={unit.id === currentTurnId}
                 theme={theme}
-                onContextMenu={(event) => handleUnitContextMenu(event, unit.id)}
               >
                 {listColumns.map(col => (
                   <React.Fragment key={col.id}>

@@ -45,6 +45,7 @@ const SmallInput = styled.input<{ theme: ForgeTheme }>`
   color: ${props => props.theme.PRIMARY};
   border: 2px solid ${props => props.theme.BORDER};
   border-radius: 6px;
+  width: 50%;
   
   &::placeholder {
     color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.5)};
@@ -84,7 +85,6 @@ export const SettingsPage = () => {
   const cacheReady = useSceneStore((state) => state.cacheReady);
 
   // List Controls state
-  const [showRollerColumn, setShowRollerColumn] = useState(false);
   const [popcornInitiative, setPopcornInitiative] = useState(false);
   const [reverseInitiative, setReverseInitiative] = useState(false);
   const [diceRange, setDiceRange] = useState('D20');
@@ -122,9 +122,6 @@ export const SettingsPage = () => {
     if (!cacheReady) return;
 
     // Load all settings from metadata
-    if (storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] !== undefined) {
-      setShowRollerColumn(storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] as boolean);
-    }
     if (storageContainer[SettingsConstants.POPCORN_INITIATIVE] !== undefined) {
       setPopcornInitiative(storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean);
     }
@@ -259,19 +256,7 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show Roller Column</ControlLabel>
-            <ToggleControl
-              label="Show Roller Column"
-              isOn={showRollerColumn}
-              onChange={async (value) => {
-                setShowRollerColumn(value);
-                await saveData(SettingsConstants.SHOW_ROLLER_COLUMN, value);
-              }}
-            />
-          </ControlRow>
-          {showRollerColumn && (
-            <SubControlRow theme={theme}>
-              <SubControlLabel theme={theme}>Dice Range: </SubControlLabel>
+              <ControlLabel theme={theme}>Initiative Die: </ControlLabel>
               <SmallInput
                 theme={theme}
                 type="text"
@@ -285,8 +270,7 @@ export const SettingsPage = () => {
                 placeholder="D20"
                 maxLength={3}
               />
-            </SubControlRow>
-          )}
+          </ControlRow>
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>Show Card Column</ControlLabel>

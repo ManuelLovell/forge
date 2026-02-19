@@ -94,6 +94,7 @@ export const SettingsPage = () => {
   const [showPlayerView, setShowPlayerView] = useState(false);
   const [showNonPartyUnits, setShowNonPartyUnits] = useState(false);
   const [showHpColorIndicator, setShowHpColorIndicator] = useState(false);
+  const [showOwnerOnlyEdit, setShowOwnerOnlyEdit] = useState(false);
 
   // Game Controls state
   const [showHpBars, setShowHpBars] = useState(false);
@@ -136,6 +137,9 @@ export const SettingsPage = () => {
     }
     if (storageContainer[SettingsConstants.SHOW_PLAYER_VIEW] !== undefined) {
       setShowPlayerView(storageContainer[SettingsConstants.SHOW_PLAYER_VIEW] as boolean);
+    }
+    if (storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] !== undefined) {
+      setShowOwnerOnlyEdit(storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] as boolean);
     }
     if (storageContainer[SettingsConstants.SHOW_NON_PARTY_UNITS] !== undefined) {
       setShowNonPartyUnits(storageContainer[SettingsConstants.SHOW_NON_PARTY_UNITS] as boolean);
@@ -321,6 +325,18 @@ export const SettingsPage = () => {
               onChange={async (value) => {
                 setShowHpColorIndicator(value);
                 await saveData(SettingsConstants.SHOW_HP_COLOR_INDICATOR, value);
+              }}
+            />
+          </ControlRow>
+
+          <ControlRow theme={theme}>
+            <ControlLabel theme={theme}>GM/Owner Only Edit</ControlLabel>
+            <ToggleControl
+              label="Owner Only Edit"
+              isOn={showOwnerOnlyEdit}
+              onChange={async (value) => {
+                setShowOwnerOnlyEdit(value);
+                await saveData(SettingsConstants.SHOW_OWNER_ONLY_EDIT, value);
               }}
             />
           </ControlRow>

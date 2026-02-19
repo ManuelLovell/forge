@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Item } from '@owlbear-rodeo/sdk';
 import OBR from '@owlbear-rodeo/sdk';
 import styled from 'styled-components';
+import { Menu } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import { OwlbearIds } from '../helpers/Constants';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
@@ -104,6 +105,64 @@ const CloseIcon = styled.img`
   display: block;
 `;
 
+const TrayOverlay = styled.div<{ $theme: ThemeData; $open: boolean }>`
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  height: 90%;
+  border-radius: 12px 12px 10px 10px;
+  border: 2px solid ${props => props.$theme.border};
+  background: ${props => rgbaFromHex(props.$theme.background, 0.84)};
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transform: ${props => props.$open ? 'translateY(0)' : 'translateY(calc(100% - 40px))'};
+  transition: transform 0.22s ease;
+  z-index: 20;
+  overflow: visible;
+`;
+
+const TrayHandleBuffer = styled.div<{ $theme: ThemeData }>`
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 52px;
+  height: 52px;
+  backdrop-filter: blur(8px);
+  background: ${props => rgbaFromHex(props.$theme.background, 0.50)};
+  border-radius: 50%;
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const TrayHandleButton = styled.button<{ $theme: ThemeData }>`
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 2px solid ${props => props.$theme.border};
+  background: ${props => rgbaFromHex(props.$theme.background, 0.98)};
+  color: ${props => props.$theme.primary};
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 22;
+`;
+
+const TrayBody = styled.div<{ $theme: ThemeData }>`
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 14px 10px 10px;
+  color: ${props => rgbaFromHex(props.$theme.primary, 0.9)};
+`;
+
 const readUnitIdFromQuery = (): string | null => {
   const params = new URLSearchParams(window.location.search);
   const raw = params.get('unitid');
@@ -153,6 +212,7 @@ export const CardPopoverPage = () => {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(() => readUnitIdFromQuery());
   const [cache, setCache] = useState<CardCache>({ metadata: {}, items: [] });
   const [isReady, setIsReady] = useState(false);
+  const [isTrayOpen, setIsTrayOpen] = useState(false);
 
   const cardLayout = useMemo(() => {
     const fromMetadata = parseSystemArrayField<CardLayoutComponent>(cache.metadata[SYSTEM_KEYS.CURRENT_CARD]);
@@ -339,6 +399,22 @@ export const CardPopoverPage = () => {
           />
         )}
       </ContentViewport>
+
+      <TrayOverlay $theme={theme} $open={isTrayOpen}>
+        <TrayHandleBuffer $theme={theme}>
+          <TrayHandleButton
+            type="button"
+            $theme={theme}
+            aria-label={isTrayOpen ? 'Close Tray' : 'Open Tray'}
+            onClick={() => {
+              setIsTrayOpen((prev) => !prev);
+            }}
+          >
+            <Menu size={22} />
+          </TrayHandleButton>
+        </TrayHandleBuffer>
+        <TrayBody $theme={theme} />
+      </TrayOverlay>
     </Root>
   );
 };

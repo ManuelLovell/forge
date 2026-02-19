@@ -49,7 +49,7 @@ const CardShell = styled.div<{ $theme: CardLayoutTheme; $backgroundUrl?: string 
   width: 100%;
   max-width: 350px;
   height: 700px;
-  padding: 0 2px;
+  padding: 0 2px 40px;
   max-height: calc(100vh - 16px);
   overflow-y: auto;
   overflow-x: hidden;

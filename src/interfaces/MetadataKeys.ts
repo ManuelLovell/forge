@@ -35,6 +35,7 @@ export class SettingsConstants {
   static SHOW_PLAYER_VIEW = `${EXTENSION_ID}/playview`;
   static SHOW_NON_PARTY_UNITS = `${EXTENSION_ID}/npcview`;
   static SHOW_HP_COLOR_INDICATOR = `${EXTENSION_ID}/hpcolors`;
+  static SHOW_OWNER_ONLY_EDIT = `${EXTENSION_ID}/ownedit`;
 
   // Game Controls
   static SHOW_HP_BARS = `${EXTENSION_ID}/showhpbar`;

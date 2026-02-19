@@ -66,6 +66,7 @@ interface Unit {
   name: string;
   elevation: number;
   attributes: Record<string, any>;
+  createdUserId?: string;
   ownerNameOutlineColor?: string;
 }
 
@@ -759,6 +760,8 @@ export const InitiativeList: React.FC = () => {
   const showCardColumn = storageContainer[SettingsConstants.SHOW_CARD_ACCESS] as boolean || false;
   const diceRange = (storageContainer[SettingsConstants.DICE_RANGE] as string | undefined) || '';
   const showTurnEffect = storageContainer[SettingsConstants.SHOW_TURN_EFFECT] as boolean || false;
+  const showOwnerOnlyEdit = storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] as boolean || false;
+  const isCurrentUserGm = String((playerData as any)?.role || '').toUpperCase() === 'GM';
 
   const parseTrackedEffects = (rawValue: unknown): TrackedEffect[] => {
     if (!Array.isArray(rawValue)) {
@@ -977,6 +980,7 @@ export const InitiativeList: React.FC = () => {
           name,
           elevation,
           attributes,
+          createdUserId: item.createdUserId,
           ownerNameOutlineColor,
         };
       });
@@ -1475,6 +1479,23 @@ export const InitiativeList: React.FC = () => {
     return true;
   };
 
+  const canInteractWithUnit = (unit: Unit): boolean => {
+    if (!showOwnerOnlyEdit) {
+      return true;
+    }
+
+    if (isCurrentUserGm) {
+      return true;
+    }
+
+    const currentPlayerId = playerData?.id;
+    if (!currentPlayerId) {
+      return false;
+    }
+
+    return unit.createdUserId === currentPlayerId;
+  };
+
   // Deserialize list layout on mount or when listLayout changes
   useEffect(() => {
     if (!isLoading) {
@@ -1897,6 +1918,8 @@ export const InitiativeList: React.FC = () => {
   };
 
   const renderCell = (col: ListColumn, unit: Unit) => {
+    const canInteract = canInteractWithUnit(unit);
+
     switch (col.type) {
       case 'initiative':
         if (popcornInitiative) {
@@ -1906,6 +1929,9 @@ export const InitiativeList: React.FC = () => {
               <TurnIcon
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (!canInteract) {
+                    return;
+                  }
                   if (completedUnits.has(unit.id)) {
                     // Already completed, do nothing
                     return;
@@ -1937,17 +1963,20 @@ export const InitiativeList: React.FC = () => {
           <InitiativeCell theme={theme}>
             <InitiativeInput
               theme={theme}
-              $isRollable={!isEditingInitiative}
+              $isRollable={canInteract && !isEditingInitiative}
               type="text"
               inputMode="decimal"
               value={initiativeDrafts[unit.id] ?? String(unit.initiative)}
-              readOnly={!isEditingInitiative}
-              onChange={!isEditingInitiative ? undefined : (e) => handleInitiativeDraftChange(unit.id, e.target.value)}
-              onBlur={!isEditingInitiative ? undefined : (e) => {
+              readOnly={!canInteract || !isEditingInitiative}
+              onChange={!canInteract || !isEditingInitiative ? undefined : (e) => handleInitiativeDraftChange(unit.id, e.target.value)}
+              onBlur={!canInteract || !isEditingInitiative ? undefined : (e) => {
                 commitInitiativeInput(unit.id, e.target.value);
                 disableRollableEditMode(initiativeFieldKey);
               }}
               onClick={() => {
+                if (!canInteract) {
+                  return;
+                }
                 if (isEditingInitiative) {
                   return;
                 }
@@ -1959,10 +1988,16 @@ export const InitiativeList: React.FC = () => {
                 handleRollInitiative(unit.id);
               }}
               onContextMenu={(event) => {
+                if (!canInteract) {
+                  return;
+                }
                 event.preventDefault();
                 enableRollableEditMode(initiativeFieldKey, event.currentTarget);
               }}
               onTouchStart={(event) => {
+                if (!canInteract) {
+                  return;
+                }
                 if (isEditingInitiative) {
                   return;
                 }
@@ -1975,6 +2010,9 @@ export const InitiativeList: React.FC = () => {
                 cancelLongPressEditMode(initiativeFieldKey);
               }}
               onKeyDown={(e) => {
+                if (!canInteract) {
+                  return;
+                }
                 if (!isEditingInitiative && (e.key === 'Enter' || e.key === ' ')) {
                   e.preventDefault();
                   handleRollInitiative(unit.id);
@@ -1997,7 +2035,7 @@ export const InitiativeList: React.FC = () => {
             title="Right-click to assign owner"
             $outlineColor={unit.ownerNameOutlineColor}
             onDoubleClick={() => handleUnitNameDoubleClick(unit.id)}
-            onContextMenu={(event) => handleUnitContextMenu(event, unit.id)}
+            onContextMenu={canInteract ? (event) => handleUnitContextMenu(event, unit.id) : undefined}
           >
             {unit.name}
           </NameCell>
@@ -2008,8 +2046,12 @@ export const InitiativeList: React.FC = () => {
           <RollerCell theme={theme}>
             <RollerButton
               theme={theme}
+              disabled={!canInteract}
               onClick={(e) => {
                 e.stopPropagation();
+                if (!canInteract) {
+                  return;
+                }
                 handleRollInitiative(unit.id);
               }}
               title={`Roll initiative (1-${getDiceSides(diceRange)})`}
@@ -2025,8 +2067,12 @@ export const InitiativeList: React.FC = () => {
             <ActionButton
               id={`card-access-${unit.id}`}
               theme={theme}
+              disabled={!canInteract}
               onClick={(e) => {
                 e.stopPropagation();
+                if (!canInteract) {
+                  return;
+                }
                 void handleOpenCardPopover(e.currentTarget.id, unit.id);
               }}
               title={`Open card for ${unit.name}`}
@@ -2050,11 +2096,11 @@ export const InitiativeList: React.FC = () => {
                     {idx > 0 && <Divider theme={theme}>{col.styles?.dividers?.[idx - 1] || '/'}</Divider>}
                     <ValueInput
                       theme={theme}
-                      $isRollable={isRollableInput}
+                      $isRollable={canInteract && isRollableInput}
                       value={unit.attributes[`${EXTENSION_ID}/${bid}`] || '0'}
                       $small={col.styles?.bidList && col.styles.bidList.length > 2}
-                      readOnly={isRollableInput && !isEditingRollableInput}
-                      onChange={isRollableInput && !isEditingRollableInput ? undefined : (e) => {
+                      readOnly={!canInteract || (isRollableInput && !isEditingRollableInput)}
+                      onChange={!canInteract || (isRollableInput && !isEditingRollableInput) ? undefined : (e) => {
                         const newValue = e.target.value;
 
                         setUnits(prevUnits =>
@@ -2071,13 +2117,16 @@ export const InitiativeList: React.FC = () => {
                           )
                         );
                       }}
-                      onBlur={isRollableInput && !isEditingRollableInput ? undefined : (e) => {
+                      onBlur={!canInteract || (isRollableInput && !isEditingRollableInput) ? undefined : (e) => {
                         commitValueColumnInput(unit.id, bid, e.target.value);
                         if (isRollableInput) {
                           disableRollableEditMode(fieldKey);
                         }
                       }}
                       onClick={isRollableInput ? () => {
+                        if (!canInteract) {
+                          return;
+                        }
                         if (isEditingRollableInput) {
                           return;
                         }
@@ -2089,10 +2138,16 @@ export const InitiativeList: React.FC = () => {
                         handleNotationClick(unit, bid);
                       } : undefined}
                       onContextMenu={isRollableInput ? (event) => {
+                        if (!canInteract) {
+                          return;
+                        }
                         event.preventDefault();
                         enableRollableEditMode(fieldKey, event.currentTarget);
                       } : undefined}
                       onTouchStart={isRollableInput ? (event) => {
+                        if (!canInteract) {
+                          return;
+                        }
                         if (isEditingRollableInput) {
                           return;
                         }
@@ -2105,6 +2160,9 @@ export const InitiativeList: React.FC = () => {
                         cancelLongPressEditMode(fieldKey);
                       } : undefined}
                       onKeyDown={(e) => {
+                        if (!canInteract) {
+                          return;
+                        }
                         if (isRollableInput && !isEditingRollableInput && (e.key === 'Enter' || e.key === ' ')) {
                           e.preventDefault();
                           handleNotationClick(unit, bid);
@@ -2129,8 +2187,12 @@ export const InitiativeList: React.FC = () => {
           <DataCell theme={theme}>
             <ActionButton
               theme={theme}
+              disabled={!canInteract}
               onClick={(event) => {
                 event.stopPropagation();
+                if (!canInteract) {
+                  return;
+                }
                 const bidId = col.styles?.bidList?.[0];
                 if (!bidId) {
                   return;
@@ -2156,7 +2218,8 @@ export const InitiativeList: React.FC = () => {
                   key={bid}
                   type="checkbox"
                   checked={!!unit.attributes[`${EXTENSION_ID}/${bid}`]}
-                  onChange={(e) => {
+                  disabled={!canInteract}
+                  onChange={!canInteract ? undefined : (e) => {
                     const newValue = e.target.checked;
 
                     // Update local state
@@ -2214,9 +2277,13 @@ export const InitiativeList: React.FC = () => {
                 max={999}
                 step={1}
                 value={elevationDraftValue ?? String(unit.elevation ?? 0)}
-                onChange={(e) => handleElevationDraftChange(unit.id, e.target.value)}
-                onBlur={(e) => commitElevationChange(unit.id, e.target.value)}
+                readOnly={!canInteract}
+                onChange={!canInteract ? undefined : (e) => handleElevationDraftChange(unit.id, e.target.value)}
+                onBlur={!canInteract ? undefined : (e) => commitElevationChange(unit.id, e.target.value)}
                 onKeyDown={(e) => {
+                  if (!canInteract) {
+                    return;
+                  }
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     e.currentTarget.blur();
@@ -2235,7 +2302,11 @@ export const InitiativeList: React.FC = () => {
                 <ActionButton
                   theme={theme}
                   $active={hasActiveEffects}
+                  disabled={!canInteract}
                   onClick={() => {
+                    if (!canInteract) {
+                      return;
+                    }
                     handleOpenEffectsModal(unit.id);
                   }}
                 >

@@ -18,6 +18,7 @@ export const ContentArea = styled.div<{ theme: ForgeTheme; $backgroundUrl?: stri
       width: 350px;
       right: 0;
       bottom: 56px;
+      filter: blur(2px);
       background-image: url(${props.$backgroundUrl});
       background-size: contain;
       background-repeat: no-repeat;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import OBR from '@owlbear-rodeo/sdk';
 import styled from 'styled-components';
@@ -11,6 +11,7 @@ import { useSceneStore } from '../helpers/BSCache';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
+import { bulkImportUnitCollection, exportUnitCollection } from '../helpers/unitCollectionDb';
 
 // Styled Components
 const SectionTitle = styled.h2<{ theme: ForgeTheme }>`
@@ -115,6 +116,7 @@ export const SettingsPage = () => {
 
   // Other
   const [enableConsoleLog, setEnableConsoleLog] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
 
   //Control for setting the data to Room or to Scene
   const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
@@ -203,6 +205,64 @@ export const SettingsPage = () => {
     }
   };
 
+  const handleExportCollection = async () => {
+    try {
+      const records = await exportUnitCollection();
+      const json = JSON.stringify(records, null, 2);
+      const blob = new Blob([json], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `forge-collection-${new Date().toISOString().slice(0, 10)}.txt`;
+      link.click();
+      URL.revokeObjectURL(url);
+      alert(`Collection export complete. ${records.length} record(s) written.`);
+    } catch (error) {
+      LOGGER.log('Collection export failed', error);
+      alert('Collection export failed. See console log for details.');
+    }
+  };
+
+  const handleImportClick = () => {
+    const shouldProceed = window.confirm(
+      'Import will overwrite duplicate records that share the same Name and Author. Continue?',
+    );
+
+    if (!shouldProceed) {
+      return;
+    }
+
+    importFileInputRef.current?.click();
+  };
+
+  const handleImportCollectionFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+
+    if (!selectedFile) {
+      return;
+    }
+
+    try {
+      const text = await selectedFile.text();
+      const parsed = JSON.parse(text);
+
+      if (!Array.isArray(parsed)) {
+        alert('Import file must contain a JSON array of collection records.');
+        return;
+      }
+
+      const summary = await bulkImportUnitCollection(parsed);
+      alert(
+        `Collection import complete. Created: ${summary.created}, Updated: ${summary.updated}, Skipped: ${summary.skipped}.`,
+      );
+    } catch (error) {
+      LOGGER.log('Collection import failed', error);
+      alert('Collection import failed. Ensure the file is valid JSON and try again.');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -216,9 +276,16 @@ export const SettingsPage = () => {
         <Card theme={theme}>
           <SectionTitle theme={theme}>Collection Management</SectionTitle>
           <ButtonGroup>
-            <Button theme={theme} onClick={() => LOGGER.log('Export clicked')}>Export</Button>
-            <Button theme={theme} onClick={() => LOGGER.log('Import clicked')}>Import</Button>
+            <Button theme={theme} onClick={handleExportCollection}>Export</Button>
+            <Button theme={theme} onClick={handleImportClick}>Import</Button>
           </ButtonGroup>
+          <input
+            ref={importFileInputRef}
+            type="file"
+            accept=".txt,.json,text/plain,application/json"
+            onChange={handleImportCollectionFile}
+            style={{ display: 'none' }}
+          />
         </Card>
 
         {/* List Controls */}
@@ -406,7 +473,7 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show names on tokens</ControlLabel>
+            <ControlLabel theme={theme}>Show Names on Tokens</ControlLabel>
             <ToggleControl
               label="Show names on tokens"
               isOn={showNames}

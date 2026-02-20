@@ -52,7 +52,7 @@ export const initializeChatLogListener = () => {
   if (store.initialized) {
     return;
   }
-    const unsubscribe = OBR.broadcast.onMessage(
+    OBR.broadcast.onMessage(
       `${OwlbearIds.EXTENSIONID}/chatlog`,
       (event: any) => {
         const addMessage = useChatLogStore.getState().addMessage;

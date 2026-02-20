@@ -49,6 +49,8 @@ const CardShell = styled.div<{ $theme: CardLayoutTheme; $backgroundUrl?: string 
   width: 100%;
   max-width: 350px;
   height: 700px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   padding: 0 2px 40px;
   max-height: calc(100vh - 16px);
   overflow-y: auto;
@@ -611,7 +613,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     });
 
     if (!conversion.valid || !conversion.notation) {
-      console.warn(`[FORGE] Could not convert attr_func for ${attribute?.attr_bid || 'unknown'}: ${conversion.error || 'Unknown conversion error'}`);
+      LOGGER.warn(`[FORGE] Could not convert attr_func for ${attribute?.attr_bid || 'unknown'}: ${conversion.error || 'Unknown conversion error'}`);
       return null;
     }
 
@@ -628,7 +630,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       return;
     }
 
-    console.log(notation);
+    LOGGER.log(notation);
   };
 
   useEffect(() => {
@@ -735,7 +737,6 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
   const emitListDebugLog = (event: string, payload: Record<string, unknown>) => {
     LOGGER.log(event, payload);
-    console.log('[FORGE LIST DEBUG]', event, payload);
   };
 
   const autoSizeTextarea = (element: HTMLTextAreaElement | null) => {
@@ -1226,7 +1227,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                               type="button"
                               $theme={systemTheme}
                               onClick={() => {
-                                console.log(token.notation);
+                                LOGGER.log(token.notation);
                               }}
                               title={token.notation}
                             >
@@ -1369,7 +1370,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                               type="button"
                               $theme={systemTheme}
                               onClick={() => {
-                                console.log(token.notation);
+                                LOGGER.log(token.notation);
                               }}
                               title={token.notation}
                             >

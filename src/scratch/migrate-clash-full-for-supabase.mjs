@@ -39,13 +39,33 @@ const normalizeText = (value) => {
     .replace(/\uFFFD/g, "'");
 };
 
+const normalizeDiceExpression = (value) => (
+  value
+    .replace(/\s+/g, '')
+    .replace(/−/g, '-')
+    .trim()
+);
+
+const chipifyActionDescription = (value) => {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return normalized;
+  }
+
+  return normalized
+    .replace(/([+-]\d+)\s+to hit\b/gi, (_match, modifier) => `[1d20${modifier}] to hit`)
+    .replace(/\b\d+\s*\((\s*\d+d\d+(?:\s*[+-]\s*(?:\d+d\d+|\d+))*)\)/gi, (_match, dice) => `[${normalizeDiceExpression(dice)}]`)
+    .replace(/\((\s*\d+d\d+(?:\s*[+-]\s*(?:\d+d\d+|\d+))*)\)/gi, (_match, dice) => `[${normalizeDiceExpression(dice)}]`)
+    .replace(/(?<!\[)\b(\d*d\d+(?:\s*[+-]\s*\d+)?)\b(?!\])/gi, (_match, dice) => `[${normalizeDiceExpression(dice)}]`);
+};
+
 const mapActionEntries = (entries, prefix, unitId, label) => {
   if (!Array.isArray(entries) || entries.length === 0) return [];
 
   return entries
     .map((entry, index) => {
       const name = normalizeText(entry?.name);
-      const description = normalizeText(entry?.description ?? entry?.desc);
+      const description = chipifyActionDescription(entry?.description ?? entry?.desc);
       if (!name && !description) return null;
 
       return {
@@ -63,7 +83,7 @@ const mapAbilityEntries = (entries, unitId) => {
   return entries
     .map((entry, index) => {
       const name = normalizeText(entry?.name);
-      const description = normalizeText(entry?.description ?? entry?.desc);
+      const description = chipifyActionDescription(entry?.description ?? entry?.desc);
       if (!name && !description) return null;
 
       return {

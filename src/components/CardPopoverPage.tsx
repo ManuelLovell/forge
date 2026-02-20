@@ -690,19 +690,31 @@ export const CardPopoverPage = () => {
       return;
     }
 
+    const stateKeysToPreserve = [
+      UnitConstants.FABRICATED,
+      UnitConstants.INITIATIVE,
+      UnitConstants.ON_LIST,
+    ];
+
     await OBR.scene.items.updateItems([unitItem.id], (itemsToUpdate) => {
       const currentMetadata = itemsToUpdate[0].metadata as Record<string, unknown>;
       const nonExtensionMetadata: Record<string, unknown> = {};
+      const preservedStateMetadata: Record<string, unknown> = {};
 
       for (const [key, value] of Object.entries(currentMetadata)) {
         if (!key.startsWith(`${OwlbearIds.EXTENSIONID}/`)) {
           nonExtensionMetadata[key] = value;
+        }
+
+        if (stateKeysToPreserve.includes(key)) {
+          preservedStateMetadata[key] = value;
         }
       }
 
       itemsToUpdate[0].metadata = {
         ...nonExtensionMetadata,
         ...nextMetadata,
+        ...preservedStateMetadata,
       };
     });
 
@@ -714,9 +726,14 @@ export const CardPopoverPage = () => {
         }
 
         const nonExtensionMetadata: Record<string, unknown> = {};
+        const preservedStateMetadata: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(item.metadata || {})) {
           if (!key.startsWith(`${OwlbearIds.EXTENSIONID}/`)) {
             nonExtensionMetadata[key] = value;
+          }
+
+          if (stateKeysToPreserve.includes(key)) {
+            preservedStateMetadata[key] = value;
           }
         }
 
@@ -725,6 +742,7 @@ export const CardPopoverPage = () => {
           metadata: {
             ...nonExtensionMetadata,
             ...nextMetadata,
+            ...preservedStateMetadata,
           },
         };
       }),

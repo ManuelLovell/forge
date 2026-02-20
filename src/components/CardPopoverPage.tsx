@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Item } from '@owlbear-rodeo/sdk';
 import OBR from '@owlbear-rodeo/sdk';
 import styled from 'styled-components';
-import { Menu, Search } from 'lucide-react';
+import { Cloud, Menu, Search } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import LOGGER from '../helpers/Logger';
@@ -16,6 +16,7 @@ import {
   type UnitCollectionRecord,
   upsertUnitFromMetadata,
 } from '../helpers/unitCollectionDb';
+import { supabase } from '../supabase/supabaseClient';
 import type { CardLayoutComponent, SystemAttribute } from '../interfaces/SystemResponse';
 
 const SYSTEM_KEYS = {
@@ -33,6 +34,19 @@ type UnitMetadataTransferPayload = {
   name: string;
   author: string;
   metadata: Record<string, unknown>;
+};
+
+type CollectionSearchRecord = UnitCollectionRecord & {
+  source: 'local' | 'remote';
+};
+
+type SupabaseCreatureRow = {
+  external_id: string;
+  name: string;
+  author: string;
+  favorite: boolean | null;
+  metadata: Record<string, unknown> | null;
+  is_active: boolean | null;
 };
 
 type ThemeData = CardLayoutTheme & {
@@ -259,6 +273,21 @@ const CollectionAuthorRow = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
+`;
+
+const SourceTag = styled.span<{ $theme: ThemeData }>`
+  margin-left: 6px;
+  width: 18px;
+  height: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid ${props => rgbaFromHex(props.$theme.border, 0.85)};
+  background: ${props => rgbaFromHex(props.$theme.offset, 0.35)};
+  color: ${props => props.$theme.primary};
 `;
 
 const AuthorName = styled.span<{ $color: string }>`
@@ -495,6 +524,7 @@ export const CardPopoverPage = () => {
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [isFavoriteEnabled, setIsFavoriteEnabled] = useState(false);
   const [collectionRecords, setCollectionRecords] = useState<UnitCollectionRecord[]>([]);
+  const [remoteCollectionRecords, setRemoteCollectionRecords] = useState<UnitCollectionRecord[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
@@ -714,9 +744,41 @@ export const CardPopoverPage = () => {
     return `hsl(${hue}, 70%, 65%)`;
   };
 
-  const visibleCollectionRecords = useMemo(() => {
+  const searchSupabaseCollection = async (query: string): Promise<UnitCollectionRecord[]> => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from('bs_forge_creatures')
+      .select('external_id,name,author,favorite,metadata,is_active')
+      .eq('is_active', true)
+      .or(`name.ilike.%${trimmed}%,author.ilike.%${trimmed}%`)
+      .limit(250);
+
+    if (error) {
+      throw error;
+    }
+
+    const rows = (data ?? []) as SupabaseCreatureRow[];
+    return rows
+      .filter((row) => row && typeof row.name === 'string' && typeof row.author === 'string')
+      .map((row) => ({
+        id: `remote:${row.external_id}`,
+        name: row.name,
+        author: row.author,
+        favorite: row.favorite === true,
+        metadata: (row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata))
+          ? row.metadata
+          : {},
+        updatedAt: 0,
+      }));
+  };
+
+  const visibleCollectionRecords = useMemo<CollectionSearchRecord[]>(() => {
     const query = appliedSearchQuery.trim().toLowerCase();
-    const sorted = [...collectionRecords].sort((left, right) => {
+    const localSorted = [...collectionRecords].sort((left, right) => {
       if (left.favorite !== right.favorite) {
         return left.favorite ? -1 : 1;
       }
@@ -724,14 +786,36 @@ export const CardPopoverPage = () => {
     });
 
     if (!query) {
-      return sorted.filter((record) => record.favorite);
+      return localSorted
+        .filter((record) => record.favorite)
+        .map((record) => ({ ...record, source: 'local' as const }));
     }
 
-    return sorted.filter((record) =>
+    const localMatches = localSorted.filter((record) =>
       record.name.toLowerCase().includes(query)
       || record.author.toLowerCase().includes(query),
     );
-  }, [collectionRecords, appliedSearchQuery]);
+
+    const localKeys = new Set(localMatches.map((record) => `${record.name.toLowerCase()}::${record.author.toLowerCase()}`));
+
+    const remoteMatches = remoteCollectionRecords
+      .filter((record) =>
+        record.name.toLowerCase().includes(query)
+        || record.author.toLowerCase().includes(query),
+      )
+      .filter((record) => !localKeys.has(`${record.name.toLowerCase()}::${record.author.toLowerCase()}`))
+      .sort((left, right) => {
+        if (left.favorite !== right.favorite) {
+          return left.favorite ? -1 : 1;
+        }
+        return left.name.localeCompare(right.name);
+      });
+
+    return [
+      ...localMatches.map((record) => ({ ...record, source: 'local' as const })),
+      ...remoteMatches.map((record) => ({ ...record, source: 'remote' as const })),
+    ];
+  }, [collectionRecords, remoteCollectionRecords, appliedSearchQuery]);
 
   const handleTrayPinClick = () => {
     LOGGER.log('Tray action clicked: pin');
@@ -863,9 +947,23 @@ export const CardPopoverPage = () => {
   const handleTraySearchClick = () => {
     const query = trayQuery.trim();
     setAppliedSearchQuery(query);
+    if (!query) {
+      setRemoteCollectionRecords([]);
+      return;
+    }
+
+    searchSupabaseCollection(query)
+      .then((records) => {
+        setRemoteCollectionRecords(records);
+      })
+      .catch(async (error) => {
+        LOGGER.log('Supabase collection search failed', error);
+        setRemoteCollectionRecords([]);
+        await OBR.notification.show('Could not search online collection.', 'ERROR');
+      });
   };
 
-  const handleCollectionRecordImport = async (record: UnitCollectionRecord) => {
+  const handleCollectionRecordImport = async (record: CollectionSearchRecord) => {
     if (!unitItem) {
       await OBR.notification.show('No unit selected to import into.', 'ERROR');
       return;
@@ -874,14 +972,20 @@ export const CardPopoverPage = () => {
     try {
       await replaceUnitExtensionMetadata(record.metadata);
       setIsFavoriteEnabled(false);
-      await OBR.notification.show(`Imported ${record.name}.`);
+      await OBR.notification.show(record.source === 'remote'
+        ? `Imported ${record.name} from online collection.`
+        : `Imported ${record.name}.`);
     } catch (error) {
       LOGGER.log('Collection record import failed', error);
       await OBR.notification.show('Could not import collection record.', 'ERROR');
     }
   };
 
-  const handleCollectionRecordDelete = async (record: UnitCollectionRecord) => {
+  const handleCollectionRecordDelete = async (record: CollectionSearchRecord) => {
+    if (record.source !== 'local') {
+      return;
+    }
+
     try {
       await deleteUnitCollectionRecord(record.id);
       await loadCollectionRecords();
@@ -909,6 +1013,7 @@ export const CardPopoverPage = () => {
 
     setAppliedSearchQuery('');
     setTrayQuery('');
+    setRemoteCollectionRecords([]);
   }, [isTrayOpen]);
 
   return (
@@ -1046,6 +1151,11 @@ export const CardPopoverPage = () => {
                           <AuthorName $color={getAuthorColorByInitial(record.author)}>
                             {record.author}
                           </AuthorName>
+                          {record.source === 'remote' ? (
+                            <SourceTag $theme={theme} title="Online">
+                              <Cloud size={11} />
+                            </SourceTag>
+                          ) : null}
                         </CollectionAuthorRow>
                       </CollectionInfo>
                       <CollectionActions>
@@ -1059,16 +1169,18 @@ export const CardPopoverPage = () => {
                         >
                           Import
                         </CollectionActionButton>
-                        <CollectionActionButton
-                          type="button"
-                          $theme={theme}
-                          $variant="delete"
-                          onClick={() => {
-                            handleCollectionRecordDelete(record);
-                          }}
-                        >
-                          X
-                        </CollectionActionButton>
+                        {record.source === 'local' ? (
+                          <CollectionActionButton
+                            type="button"
+                            $theme={theme}
+                            $variant="delete"
+                            onClick={() => {
+                              handleCollectionRecordDelete(record);
+                            }}
+                          >
+                            X
+                          </CollectionActionButton>
+                        ) : null}
                       </CollectionActions>
                     </CollectionRow>
                   ))}

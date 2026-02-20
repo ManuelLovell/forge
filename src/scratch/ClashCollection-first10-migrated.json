@@ -1,0 +1,817 @@
+[
+  {
+    "id": "000d558c-a443-4a1e-8208-f2970bab2989",
+    "name": "Jotun",
+    "author": "tob-2023",
+    "favorite": false,
+    "metadata": {
+      "com.battle-system.forge/name": "Jotun",
+      "com.battle-system.forge/Z002": "Gargantuan",
+      "com.battle-system.forge/Z004": "Giant",
+      "com.battle-system.forge/Z003": "Chaotic Neutral",
+      "com.battle-system.forge/Z007": 20,
+      "com.battle-system.forge/Z005": 370,
+      "com.battle-system.forge/Z006": 370,
+      "com.battle-system.forge/Z017": 30,
+      "com.battle-system.forge/Z018": 8,
+      "com.battle-system.forge/Z019": 26,
+      "com.battle-system.forge/Z020": 18,
+      "com.battle-system.forge/Z021": 20,
+      "com.battle-system.forge/Z022": 14,
+      "com.battle-system.forge/Z023": 10,
+      "com.battle-system.forge/Z024": -1,
+      "com.battle-system.forge/Z025": 15,
+      "com.battle-system.forge/Z026": 4,
+      "com.battle-system.forge/Z027": 12,
+      "com.battle-system.forge/Z028": 9,
+      "com.battle-system.forge/Z008": 60,
+      "com.battle-system.forge/Z009": 0,
+      "com.battle-system.forge/Z010": 0,
+      "com.battle-system.forge/Z011": 0,
+      "com.battle-system.forge/Z012": 0,
+      "com.battle-system.forge/Z013": "darkvision 120 ft., passive Perception 15",
+      "com.battle-system.forge/Z014": "Arcana: 11, Nature: 11, History: 11, Stealth: 6",
+      "com.battle-system.forge/Z015": "Common, Giant",
+      "com.battle-system.forge/Z016": 22,
+      "com.battle-system.forge/Z029": 7,
+      "com.battle-system.forge/Z030": "",
+      "com.battle-system.forge/Z031": "",
+      "com.battle-system.forge/Z032": "cold; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "com.battle-system.forge/Z033": "",
+      "com.battle-system.forge/Z034": [
+        {
+          "id": "000d558c-a443-4a1e-8208-f2970bab2989-abl-001",
+          "name": "Demigod's Vitality",
+          "description": "The jotun's ability scores and hp maximum can't be reduced except by means of a wish spell."
+        },
+        {
+          "id": "000d558c-a443-4a1e-8208-f2970bab2989-abl-002",
+          "name": "Icy Weapons",
+          "description": "The jotun's weapon attacks are magical. When the jotun hits with any weapon, the weapon deals an extra 6d8 cold damage (included in the attack)."
+        },
+        {
+          "id": "000d558c-a443-4a1e-8208-f2970bab2989-abl-003",
+          "name": "Magic Resistance",
+          "description": "The jotun has advantage on saving throws against spells and other magical effects."
+        },
+        {
+          "id": "000d558c-a443-4a1e-8208-f2970bab2989-abl-004",
+          "name": "Material Bound",
+          "description": "The jotun is immune to any spell or effect that would force it to leave the Material Plane, unless the jotun wants to leave. It has disadvantage on saving throws against effects that would return it to the Material Plane from another plane of existence."
+        },
+        {
+          "id": "000d558c-a443-4a1e-8208-f2970bab2989-abl-005",
+          "name": "Too Big to Notice",
+          "description": "While the jotun remains motionless in nonmagical, natural terrain, it has advantage on Dexterity (Stealth) checks."
+        }
+      ],
+      "com.battle-system.forge/Z035": [
+        {
+          "id": "000d558c-a443-4a1e-8208-f2970bab2989-std-001",
+          "name": "[Standard] Multiattack",
+          "description": "The jotun can use its Frightful Presence. It then makes three Greatclub or Rock attacks."
+        },
+        {
+          "id": "000d558c-a443-4a1e-8208-f2970bab2989-std-002",
+          "name": "[Standard] Greatclub",
+          "description": "Melee Weapon Attack: +17 to hit, reach 15 ft., one target. Hit: 28 (4d8 + 10) bludgeoning damage plus 27 (6d8) cold damage."
+        },
+        {
+          "id": "000d558c-a443-4a1e-8208-f2970bab2989-std-003",
+          "name": "[Standard] Rock",
+          "description": "Ranged Weapon Attack: +17 to hit, range 60/240 ft., one target. Hit: 32 (4d10 + 10) bludgeoning damage plus 27 (6d8) cold damage."
+        },
+        {
+          "id": "000d558c-a443-4a1e-8208-f2970bab2989-std-004",
+          "name": "[Standard] Frightful Presence",
+          "description": "Each creature of the jotun's choice within 120 feet of the jotun and aware of it must succeed on a DC 20 Wisdom saving throw or become frightened for 1 minute. A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. If a creature's saving throw is successful or the effect ends for it, the creature is immune to the jotun's Frightful Presence for the next 24 hours."
+        },
+        {
+          "id": "000d558c-a443-4a1e-8208-f2970bab2989-std-005",
+          "name": "[Standard] Icy Sweep (Recharge 5-6)",
+          "description": "The jotun swings its ice-coated greatclub in a wide arc. Each creature within 20 feet of the jotun must make a DC 23 Dexterity saving throw. On a failure, a creature takes 36 (8d8) bludgeoning damage and 54 (12d8) cold damage and is pushed up to 15 feet away from the jotun and knocked prone. On a success, a creature takes half the damage and isn't pushed or knocked prone."
+        },
+        {
+          "id": "000d558c-a443-4a1e-8208-f2970bab2989-std-006",
+          "name": "[Standard] Spellcasting",
+          "description": "The jotun casts one of the following spells, requiring no material components and using Wisdom as the spellcasting ability (spell save DC 20):\nAt will: earthquake, speak with animals\n3/day: bestow curse, gust of wind\n1/day: divination"
+        },
+        {
+          "id": "000d558c-a443-4a1e-8208-f2970bab2989-rea-001",
+          "name": "[Reaction] Rock Catching",
+          "description": "If a rock or similar object is hurled at the jotun, the jotun can, with a successful DC 10 Dexterity saving throw, catch the missile and take no bludgeoning damage from it."
+        }
+      ]
+    }
+  },
+  {
+    "id": "004c13fb-201d-4f15-95bc-80f94fde3434",
+    "name": "Ancient Light Dragon",
+    "author": "cc",
+    "favorite": false,
+    "metadata": {
+      "com.battle-system.forge/name": "Ancient Light Dragon",
+      "com.battle-system.forge/Z002": "Gargantuan",
+      "com.battle-system.forge/Z004": "Dragon",
+      "com.battle-system.forge/Z003": "neutral good",
+      "com.battle-system.forge/Z007": 22,
+      "com.battle-system.forge/Z005": 407,
+      "com.battle-system.forge/Z006": 407,
+      "com.battle-system.forge/Z017": 26,
+      "com.battle-system.forge/Z018": 10,
+      "com.battle-system.forge/Z019": 27,
+      "com.battle-system.forge/Z020": 18,
+      "com.battle-system.forge/Z021": 20,
+      "com.battle-system.forge/Z022": 19,
+      "com.battle-system.forge/Z023": 8,
+      "com.battle-system.forge/Z024": 7,
+      "com.battle-system.forge/Z025": 15,
+      "com.battle-system.forge/Z026": 4,
+      "com.battle-system.forge/Z027": 12,
+      "com.battle-system.forge/Z028": 11,
+      "com.battle-system.forge/Z008": 40,
+      "com.battle-system.forge/Z009": 0,
+      "com.battle-system.forge/Z010": 0,
+      "com.battle-system.forge/Z011": 0,
+      "com.battle-system.forge/Z012": 80,
+      "com.battle-system.forge/Z013": "blindsight 60 ft., darkvision 120 ft., passive Perception 22",
+      "com.battle-system.forge/Z014": "arcana: 11, nature: 11, religion: 11, perception: 12, persuasion: 11",
+      "com.battle-system.forge/Z015": "Celestial, Draconic",
+      "com.battle-system.forge/Z016": 22,
+      "com.battle-system.forge/Z029": 7,
+      "com.battle-system.forge/Z030": "",
+      "com.battle-system.forge/Z031": "fire",
+      "com.battle-system.forge/Z032": "radiant; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "com.battle-system.forge/Z033": "blinded",
+      "com.battle-system.forge/Z034": [
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-abl-001",
+          "name": "Ethereal Sight",
+          "description": "The dragon can see 60 feet into the Ethereal Plane when it is on the Material Plane, and vice versa."
+        },
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-abl-002",
+          "name": "Illumination",
+          "description": "The dragon sheds bright light in a 30-foot radius and dim light for an additional 30 feet."
+        },
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-abl-003",
+          "name": "Incorporeal Movement",
+          "description": "The dragon can move through other creatures and objects as if they were difficult terrain. It takes 5 (1d10) force damage if it ends its turn inside an object."
+        },
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-abl-004",
+          "name": "Legendary Resistance (3/Day)",
+          "description": "If the dragon fails a saving throw, it can choose to succeed instead."
+        },
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-abl-005",
+          "name": "Void Traveler",
+          "description": "The light dragon travels from star to star and does not require air, food, drink, or sleep. When flying between stars, the light dragon magically glides on solar winds, making the immense journey through the void in an impossibly short time."
+        }
+      ],
+      "com.battle-system.forge/Z035": [
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-std-001",
+          "name": "[Standard] Bite",
+          "description": "Melee Weapon Attack: +15 to hit, reach 15 ft., one target. Hit: 19 (2d10 + 8) piercing damage."
+        },
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-std-002",
+          "name": "[Standard] Claw",
+          "description": "Melee Weapon Attack: +15 to hit, reach 10 ft., one target. Hit: 15 (2d6 + 8) slashing damage."
+        },
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-std-003",
+          "name": "[Standard] Tail",
+          "description": "Melee Weapon Attack: +15 to hit, reach 20 ft., one target. Hit: 17 (2d8 + 8) bludgeoning damage."
+        },
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-std-004",
+          "name": "[Standard] Frightful Presence",
+          "description": "Each creature of the dragon's choice that is within 120 feet of the dragon and aware of it must succeed on a DC 23 Wisdom saving throw or become frightened for 1 minute. A creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success. If a creature's saving throw is successful or the effect ends for it, the creature is immune to the dragon's Frightful Presence for the next 24 hours."
+        },
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-std-005",
+          "name": "[Standard] Breath Weapon (Recharge 5-6)",
+          "description": "The dragon uses one of the following breath weapons:\nRadiant Breath. The dragon exhales radiant energy in a 90-foot cone. Each creature in that area must make a DC 23 Dexterity saving throw, taking 77 (14d10) radiant damage on a failed save, or half as much damage on a successful one.\nFlaring Breath. The dragon emits a flash of dazzling light from its maw in a 90-foot cone. Each creature in that area must make a DC 23 Constitution saving throw or be blinded. Undead within the area of effect must also make a DC 23 Wisdom saving throw or be turned for 1 minute. Undead of CR 3 or lower who fail the saving throw are instantly destroyed."
+        },
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-leg-001",
+          "name": "[Legendary] Detect",
+          "description": "The dragon makes a Wisdom (Perception) check."
+        },
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-leg-002",
+          "name": "[Legendary] Tail Attack",
+          "description": "The dragon makes a tail attack."
+        },
+        {
+          "id": "004c13fb-201d-4f15-95bc-80f94fde3434-leg-003",
+          "name": "[Legendary] Wing Attack (Costs 2 Actions)",
+          "description": "The dragon beats its wings. Each creature within 10 feet of the dragon must succeed on a DC 23 Dexterity saving throw or take 15 (2d6 + 8) bludgeoning damage and be knocked prone. The dragon can then fly up to half its flying speed."
+        }
+      ]
+    }
+  },
+  {
+    "id": "00605f11-6179-4470-84e3-88748c1ec15d",
+    "name": "Kongamato",
+    "author": "tob-2023",
+    "favorite": false,
+    "metadata": {
+      "com.battle-system.forge/name": "Kongamato",
+      "com.battle-system.forge/Z002": "Large",
+      "com.battle-system.forge/Z004": "Beast",
+      "com.battle-system.forge/Z003": "Unaligned",
+      "com.battle-system.forge/Z007": 16,
+      "com.battle-system.forge/Z005": 127,
+      "com.battle-system.forge/Z006": 127,
+      "com.battle-system.forge/Z017": 19,
+      "com.battle-system.forge/Z018": 18,
+      "com.battle-system.forge/Z019": 14,
+      "com.battle-system.forge/Z020": 2,
+      "com.battle-system.forge/Z021": 10,
+      "com.battle-system.forge/Z022": 7,
+      "com.battle-system.forge/Z023": 4,
+      "com.battle-system.forge/Z024": 4,
+      "com.battle-system.forge/Z025": 2,
+      "com.battle-system.forge/Z026": -4,
+      "com.battle-system.forge/Z027": 0,
+      "com.battle-system.forge/Z028": -2,
+      "com.battle-system.forge/Z008": 60,
+      "com.battle-system.forge/Z009": 0,
+      "com.battle-system.forge/Z010": 0,
+      "com.battle-system.forge/Z011": 0,
+      "com.battle-system.forge/Z012": 10,
+      "com.battle-system.forge/Z013": "passive Perception 13",
+      "com.battle-system.forge/Z014": "Perception: 3",
+      "com.battle-system.forge/Z015": "?",
+      "com.battle-system.forge/Z016": 6,
+      "com.battle-system.forge/Z029": 3,
+      "com.battle-system.forge/Z030": "",
+      "com.battle-system.forge/Z031": "",
+      "com.battle-system.forge/Z032": "",
+      "com.battle-system.forge/Z033": "",
+      "com.battle-system.forge/Z034": [
+        {
+          "id": "00605f11-6179-4470-84e3-88748c1ec15d-abl-001",
+          "name": "Breaker of Boats",
+          "description": "The kongamato deals double damage to objects and structures made of wood or lighter materials."
+        },
+        {
+          "id": "00605f11-6179-4470-84e3-88748c1ec15d-abl-002",
+          "name": "Carry Off",
+          "description": "The kongamato can fly at half its flying speed when dragging two creatures it has grappled or at its full flying speed if dragging only one creature it has grappled."
+        },
+        {
+          "id": "00605f11-6179-4470-84e3-88748c1ec15d-abl-003",
+          "name": "Flyby",
+          "description": "The kongamato doesn't provoke opportunity attacks when it flies out of an enemy's reach."
+        }
+      ],
+      "com.battle-system.forge/Z035": [
+        {
+          "id": "00605f11-6179-4470-84e3-88748c1ec15d-std-001",
+          "name": "[Standard] Multiattack",
+          "description": "The kongamato makes one Beak attack and two Claw attacks."
+        },
+        {
+          "id": "00605f11-6179-4470-84e3-88748c1ec15d-std-002",
+          "name": "[Standard] Beak",
+          "description": "Melee Weapon Attack: +7 to hit, reach 10 ft., one target. Hit: 15 (2d10 + 4) piercing damage."
+        },
+        {
+          "id": "00605f11-6179-4470-84e3-88748c1ec15d-std-003",
+          "name": "[Standard] Claw",
+          "description": "Melee Weapon Attack: +7 to hit, reach 5 ft., one target. Hit: 13 (2d8 + 4) slashing damage, and the target is grappled (escape DC 15) if it is a Medium or smaller creature. The kongamato has two claws, each of which can grapple only one target."
+        },
+        {
+          "id": "00605f11-6179-4470-84e3-88748c1ec15d-std-004",
+          "name": "[Standard] Terrifying Screech (Recharge 5-6)",
+          "description": "The kongamato releases a screech in a 30-foot cone. Each creature in the area must make a DC 15 Constitution saving throw. On a failure, a creature takes 28 (8d6) thunder damage and is frightened until the end of its next turn. On a success, a creature takes half the damage and isn't frightened."
+        }
+      ]
+    }
+  },
+  {
+    "id": "0071e496-6b43-450a-9223-bd5cec8de553",
+    "name": "Ahu-Nixta",
+    "author": "cc",
+    "favorite": false,
+    "metadata": {
+      "com.battle-system.forge/name": "Ahu-Nixta",
+      "com.battle-system.forge/Z002": "Large",
+      "com.battle-system.forge/Z004": "Aberration",
+      "com.battle-system.forge/Z003": "neutral evil",
+      "com.battle-system.forge/Z007": 14,
+      "com.battle-system.forge/Z005": 67,
+      "com.battle-system.forge/Z006": 67,
+      "com.battle-system.forge/Z017": 17,
+      "com.battle-system.forge/Z018": 15,
+      "com.battle-system.forge/Z019": 14,
+      "com.battle-system.forge/Z020": 19,
+      "com.battle-system.forge/Z021": 13,
+      "com.battle-system.forge/Z022": 10,
+      "com.battle-system.forge/Z023": 3,
+      "com.battle-system.forge/Z024": 2,
+      "com.battle-system.forge/Z025": 2,
+      "com.battle-system.forge/Z026": 4,
+      "com.battle-system.forge/Z027": 1,
+      "com.battle-system.forge/Z028": 0,
+      "com.battle-system.forge/Z008": 30,
+      "com.battle-system.forge/Z009": 30,
+      "com.battle-system.forge/Z010": 0,
+      "com.battle-system.forge/Z011": 0,
+      "com.battle-system.forge/Z012": 30,
+      "com.battle-system.forge/Z013": "darkvision 60 ft., passive Perception 13",
+      "com.battle-system.forge/Z014": "perception: 3",
+      "com.battle-system.forge/Z015": "Deep Speech, Void Speech",
+      "com.battle-system.forge/Z016": 3,
+      "com.battle-system.forge/Z029": 2,
+      "com.battle-system.forge/Z030": "",
+      "com.battle-system.forge/Z031": "",
+      "com.battle-system.forge/Z032": "poison, psychic",
+      "com.battle-system.forge/Z033": "charmed, exhaustion, frightened, paralyzed, petrified, poisoned, prone",
+      "com.battle-system.forge/Z034": [
+        {
+          "id": "0071e496-6b43-450a-9223-bd5cec8de553-abl-001",
+          "name": "Clockwork Encasement",
+          "description": "The creature within the machine is a somewhat shapeless mass, both protected and given concrete manipulators by its armor. The clockwork armor has a variety of manipulators that the ahu-nixta can use to attack or to interact with objects outside of the armor. When the ahu-nixta is reduced to 0 hp, its clockwork armor breaks and the ahunixta exits it. Once out of its armor, the creature's pulpy mass no longer receives the benefits of the listed Damage or Condition Immunities, except for psychic and prone.\n\nWithout its clockwork armor, the ahu-nixta has the following statistics: AC 12, hp 37 (5d10 + 10), Strength 9 (-1), and all its modes of travel are reduced to 20 feet. In addition, it has no attack actions, though it can still cast its spells. The ahu-nixta's body can form eyes, mouths, and grabbing appendages. Its grabbing appendages can pick up objects and manipulate them, but the appendages can't be used for combat. The ahu-nixta's extra appendages can open and close glass-covered viewing ports in the clockwork armor, requiring no action, so it can see and interact with objects outside the armor.\n\nThe ahu-nixta can exit or enter its clockwork armor as a bonus action."
+        },
+        {
+          "id": "0071e496-6b43-450a-9223-bd5cec8de553-abl-002",
+          "name": "Immutable Form",
+          "description": "The clockwork armor of the ahu-nixta is immune to any spell or effect that would alter its form, as is the creature that controls it as long as the ahu-nixta remains within the armor."
+        },
+        {
+          "id": "0071e496-6b43-450a-9223-bd5cec8de553-abl-003",
+          "name": "Innate Spellcasting",
+          "description": "The ahu-nixta's innate spellcasting ability is Intelligence (spell save DC 14, +6 to hit with spell attacks). The ahu-nixta can innately cast the following spells, requiring no material components.\nAt will: fear, fire bolt (2d10), telekinesis"
+        }
+      ],
+      "com.battle-system.forge/Z035": [
+        {
+          "id": "0071e496-6b43-450a-9223-bd5cec8de553-std-001",
+          "name": "[Standard] Multiattack",
+          "description": "The ahu-nixta makes three melee attacks. It can cast one at will spell in place of two melee attacks."
+        },
+        {
+          "id": "0071e496-6b43-450a-9223-bd5cec8de553-std-002",
+          "name": "[Standard] Whirring Blades",
+          "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 8 (2d4 + 3) slashing damage."
+        },
+        {
+          "id": "0071e496-6b43-450a-9223-bd5cec8de553-std-003",
+          "name": "[Standard] Pronged Scepter",
+          "description": "Melee Weapon Attack: +5 to hit, reach 10 ft., one target. Hit: 6 (1d6 + 3) piercing damage."
+        },
+        {
+          "id": "0071e496-6b43-450a-9223-bd5cec8de553-std-004",
+          "name": "[Standard] Bashing Rod",
+          "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 8 (1d10 + 3) bludgeoning damage."
+        }
+      ]
+    }
+  },
+  {
+    "id": "008471d7-8fcd-42ae-8281-2d7740fef7d6",
+    "name": "Silver Dragon Wyrmling",
+    "author": "menagerie",
+    "favorite": false,
+    "metadata": {
+      "com.battle-system.forge/name": "Silver Dragon Wyrmling",
+      "com.battle-system.forge/Z002": "Medium",
+      "com.battle-system.forge/Z004": "Dragon",
+      "com.battle-system.forge/Z003": "",
+      "com.battle-system.forge/Z007": 17,
+      "com.battle-system.forge/Z005": 60,
+      "com.battle-system.forge/Z006": 60,
+      "com.battle-system.forge/Z017": 18,
+      "com.battle-system.forge/Z018": 14,
+      "com.battle-system.forge/Z019": 16,
+      "com.battle-system.forge/Z020": 12,
+      "com.battle-system.forge/Z021": 10,
+      "com.battle-system.forge/Z022": 14,
+      "com.battle-system.forge/Z023": 4,
+      "com.battle-system.forge/Z024": 2,
+      "com.battle-system.forge/Z025": 3,
+      "com.battle-system.forge/Z026": 1,
+      "com.battle-system.forge/Z027": 0,
+      "com.battle-system.forge/Z028": 2,
+      "com.battle-system.forge/Z008": 30,
+      "com.battle-system.forge/Z009": 0,
+      "com.battle-system.forge/Z010": 0,
+      "com.battle-system.forge/Z011": 0,
+      "com.battle-system.forge/Z012": 60,
+      "com.battle-system.forge/Z013": "blindsight 10 ft., darkvision 60 ft., passive Perception 12",
+      "com.battle-system.forge/Z014": "stealth: 4, perception: 2",
+      "com.battle-system.forge/Z015": "Draconic",
+      "com.battle-system.forge/Z016": 3,
+      "com.battle-system.forge/Z029": 2,
+      "com.battle-system.forge/Z030": "",
+      "com.battle-system.forge/Z031": "",
+      "com.battle-system.forge/Z032": "cold",
+      "com.battle-system.forge/Z033": "",
+      "com.battle-system.forge/Z034": [
+        {
+          "id": "008471d7-8fcd-42ae-8281-2d7740fef7d6-abl-001",
+          "name": "Cloud Strider",
+          "description": "The dragon suffers no harmful effects from high altitude."
+        }
+      ],
+      "com.battle-system.forge/Z035": [
+        {
+          "id": "008471d7-8fcd-42ae-8281-2d7740fef7d6-std-001",
+          "name": "[Standard] Bite",
+          "description": "Melee Weapon Attack: +6 to hit  reach 5 ft.  one target. Hit: 20 (3d10 + 4) piercing damage."
+        },
+        {
+          "id": "008471d7-8fcd-42ae-8281-2d7740fef7d6-std-002",
+          "name": "[Standard] Breath Weapons (Recharge 5-6)",
+          "description": "The dragon uses one of the following breath weapons:"
+        },
+        {
+          "id": "008471d7-8fcd-42ae-8281-2d7740fef7d6-std-003",
+          "name": "[Standard] Frost Breath",
+          "description": "The dragon exhales freezing wind in a 15-foot cone. Each creature in the area makes a DC 13 Constitution saving throw  taking 17 (5d6) cold damage on a failed save or half damage on a success."
+        },
+        {
+          "id": "008471d7-8fcd-42ae-8281-2d7740fef7d6-std-004",
+          "name": "[Standard] Paralyzing Breath",
+          "description": "The dragon exhales paralytic gas in a 15-foot cone. Each creature in the area must succeed on a DC 13 Constitution saving throw or be paralyzed until the end of its next turn."
+        }
+      ]
+    }
+  },
+  {
+    "id": "00a1f2a1-e099-48bb-8eae-0780c7ee152e",
+    "name": "Horned Serpent",
+    "author": "cc",
+    "favorite": false,
+    "metadata": {
+      "com.battle-system.forge/name": "Horned Serpent",
+      "com.battle-system.forge/Z002": "Large",
+      "com.battle-system.forge/Z004": "Monstrosity",
+      "com.battle-system.forge/Z003": "unaligned",
+      "com.battle-system.forge/Z007": 18,
+      "com.battle-system.forge/Z005": 210,
+      "com.battle-system.forge/Z006": 210,
+      "com.battle-system.forge/Z017": 22,
+      "com.battle-system.forge/Z018": 16,
+      "com.battle-system.forge/Z019": 20,
+      "com.battle-system.forge/Z020": 4,
+      "com.battle-system.forge/Z021": 14,
+      "com.battle-system.forge/Z022": 16,
+      "com.battle-system.forge/Z023": 6,
+      "com.battle-system.forge/Z024": 7,
+      "com.battle-system.forge/Z025": 5,
+      "com.battle-system.forge/Z026": -3,
+      "com.battle-system.forge/Z027": 6,
+      "com.battle-system.forge/Z028": 3,
+      "com.battle-system.forge/Z008": 40,
+      "com.battle-system.forge/Z009": 40,
+      "com.battle-system.forge/Z010": 0,
+      "com.battle-system.forge/Z011": 0,
+      "com.battle-system.forge/Z012": 0,
+      "com.battle-system.forge/Z013": "darkvision 60 ft., passive Perception 16",
+      "com.battle-system.forge/Z014": "stealth: 7, perception: 6",
+      "com.battle-system.forge/Z015": "-",
+      "com.battle-system.forge/Z016": 12,
+      "com.battle-system.forge/Z029": 4,
+      "com.battle-system.forge/Z030": "",
+      "com.battle-system.forge/Z031": "fire",
+      "com.battle-system.forge/Z032": "necrotic, poison",
+      "com.battle-system.forge/Z033": "poisoned",
+      "com.battle-system.forge/Z034": [
+        {
+          "id": "00a1f2a1-e099-48bb-8eae-0780c7ee152e-abl-001",
+          "name": "Amphibious",
+          "description": "The horned serpent can breathe air and water."
+        },
+        {
+          "id": "00a1f2a1-e099-48bb-8eae-0780c7ee152e-abl-002",
+          "name": "Corpse Cough",
+          "description": "Those who fail a saving throw against the horned serpent's Gem Gaze or bite attack become infected with the corpse cough disease. The infected creature can't benefit from short or long rests due to a constant, wet cough. The infected creature must succeed on a DC 17 Constitution saving throw each day or take 18 (4d8) necrotic damage. The target's hp maximum is reduced by an amount equal to the necrotic damage taken. The target dies if this effect reduces its hp maximum to 0. The reduction lasts until the target is cured of the disease with a greater restoration spell or similar magic. If the infected creature comes into physical contact with a blood relative before the disease is cured, the relative must succeed on a DC 17 Constitution saving throw or also become infected with the disease. The blood relative is afflicted with a constant, wet cough within hours of infection, but the disease's full effects don't manifest until 1d4 days later. Corpse cough is so named due to the smell of the cough as the infected creature's lungs become necrotic."
+        },
+        {
+          "id": "00a1f2a1-e099-48bb-8eae-0780c7ee152e-abl-003",
+          "name": "Poisonous Aura",
+          "description": "At the start of each of the horned serpent's turns, each creature within 20 feet of it must make a DC 17 Constitution saving throw, taking 18 (4d8) poison damage on a failed save, or half as much damage on a successful one."
+        },
+        {
+          "id": "00a1f2a1-e099-48bb-8eae-0780c7ee152e-abl-004",
+          "name": "Shielded Mind",
+          "description": "The horned serpent is immune to scrying and to any effect that would sense its emotions, read its thoughts, or detect its location."
+        }
+      ],
+      "com.battle-system.forge/Z035": [
+        {
+          "id": "00a1f2a1-e099-48bb-8eae-0780c7ee152e-std-001",
+          "name": "[Standard] Multiattack",
+          "description": "The horned serpent makes one gore attack and one bite attack."
+        },
+        {
+          "id": "00a1f2a1-e099-48bb-8eae-0780c7ee152e-std-002",
+          "name": "[Standard] Gore",
+          "description": "Melee Weapon Attack: +10 to hit, reach 10 ft., one target. Hit: 19 (4d6 + 5) piercing damage."
+        },
+        {
+          "id": "00a1f2a1-e099-48bb-8eae-0780c7ee152e-std-003",
+          "name": "[Standard] Bite",
+          "description": "Melee Weapon Attack: +10 to hit, reach 10 ft., one target. Hit: 21 (3d10 + 5) piercing damage, and the target must succeed on a DC 17 Constitution saving throw or become infected with the corpse cough disease (see the Corpse Cough trait)."
+        },
+        {
+          "id": "00a1f2a1-e099-48bb-8eae-0780c7ee152e-std-004",
+          "name": "[Standard] Gem Gaze (Recharge 5-6)",
+          "description": "The horned serpent's gem flashes, bathing a 30-foot cone in iridescent light. Each creature in the area must make a DC 17 Constitution saving throw. On a failed save, a creature takes 35 (10d6) radiant damage and is infected with the corpse cough disease (see the Corpse Cough trait). On a success, a creature takes half the damage and isn't infected with the disease. Gem Gaze has no effect on constructs and undead."
+        }
+      ]
+    }
+  },
+  {
+    "id": "00bf0dd0-5ccd-4cf2-b354-e6ea3b5c3b46",
+    "name": "Specter",
+    "author": "wotc-srd",
+    "favorite": false,
+    "metadata": {
+      "com.battle-system.forge/name": "Specter",
+      "com.battle-system.forge/Z002": "Medium",
+      "com.battle-system.forge/Z004": "Undead",
+      "com.battle-system.forge/Z003": "chaotic evil",
+      "com.battle-system.forge/Z007": 12,
+      "com.battle-system.forge/Z005": 22,
+      "com.battle-system.forge/Z006": 22,
+      "com.battle-system.forge/Z017": 1,
+      "com.battle-system.forge/Z018": 14,
+      "com.battle-system.forge/Z019": 11,
+      "com.battle-system.forge/Z020": 10,
+      "com.battle-system.forge/Z021": 10,
+      "com.battle-system.forge/Z022": 11,
+      "com.battle-system.forge/Z023": -5,
+      "com.battle-system.forge/Z024": 2,
+      "com.battle-system.forge/Z025": 0,
+      "com.battle-system.forge/Z026": 0,
+      "com.battle-system.forge/Z027": 0,
+      "com.battle-system.forge/Z028": 0,
+      "com.battle-system.forge/Z008": 0,
+      "com.battle-system.forge/Z009": 0,
+      "com.battle-system.forge/Z010": 0,
+      "com.battle-system.forge/Z011": 0,
+      "com.battle-system.forge/Z012": 50,
+      "com.battle-system.forge/Z013": "darkvision 60 ft., passive Perception 10",
+      "com.battle-system.forge/Z014": "",
+      "com.battle-system.forge/Z015": "understands all languages it knew in life but can't speak",
+      "com.battle-system.forge/Z016": 1,
+      "com.battle-system.forge/Z029": 2,
+      "com.battle-system.forge/Z030": "",
+      "com.battle-system.forge/Z031": "acid, cold, fire, lightning, thunder; bludgeoning, piercing, and slashing from nonmagical attacks",
+      "com.battle-system.forge/Z032": "necrotic, poison",
+      "com.battle-system.forge/Z033": "charmed, exhaustion, grappled, paralyzed, petrified, poisoned, prone, restrained, unconscious",
+      "com.battle-system.forge/Z034": [
+        {
+          "id": "00bf0dd0-5ccd-4cf2-b354-e6ea3b5c3b46-abl-001",
+          "name": "Incorporeal Movement",
+          "description": "The specter can move through other creatures and objects as if they were difficult terrain. It takes 5 (1d10) force damage if it ends its turn inside an object."
+        },
+        {
+          "id": "00bf0dd0-5ccd-4cf2-b354-e6ea3b5c3b46-abl-002",
+          "name": "Sunlight Sensitivity",
+          "description": "While in sunlight, the specter has disadvantage on attack rolls, as well as on Wisdom (Perception) checks that rely on sight."
+        }
+      ],
+      "com.battle-system.forge/Z035": [
+        {
+          "id": "00bf0dd0-5ccd-4cf2-b354-e6ea3b5c3b46-std-001",
+          "name": "[Standard] Life Drain",
+          "description": "Melee Spell Attack: +4 to hit, reach 5 ft., one creature. Hit: 10 (3d6) necrotic damage. The target must succeed on a DC 10 Constitution saving throw or its hit point maximum is reduced by an amount equal to the damage taken. This reduction lasts until the creature finishes a long rest. The target dies if this effect reduces its hit point maximum to 0."
+        }
+      ]
+    }
+  },
+  {
+    "id": "00d33d5d-6aec-4228-930f-3bfc9f221946",
+    "name": "Owl Harpy",
+    "author": "tob",
+    "favorite": false,
+    "metadata": {
+      "com.battle-system.forge/name": "Owl Harpy",
+      "com.battle-system.forge/Z002": "Medium",
+      "com.battle-system.forge/Z004": "Monstrosity",
+      "com.battle-system.forge/Z003": "neutral evil",
+      "com.battle-system.forge/Z007": 14,
+      "com.battle-system.forge/Z005": 112,
+      "com.battle-system.forge/Z006": 112,
+      "com.battle-system.forge/Z017": 12,
+      "com.battle-system.forge/Z018": 17,
+      "com.battle-system.forge/Z019": 16,
+      "com.battle-system.forge/Z020": 11,
+      "com.battle-system.forge/Z021": 14,
+      "com.battle-system.forge/Z022": 14,
+      "com.battle-system.forge/Z023": 1,
+      "com.battle-system.forge/Z024": 3,
+      "com.battle-system.forge/Z025": 3,
+      "com.battle-system.forge/Z026": 0,
+      "com.battle-system.forge/Z027": 2,
+      "com.battle-system.forge/Z028": 2,
+      "com.battle-system.forge/Z008": 20,
+      "com.battle-system.forge/Z009": 0,
+      "com.battle-system.forge/Z010": 0,
+      "com.battle-system.forge/Z011": 0,
+      "com.battle-system.forge/Z012": 80,
+      "com.battle-system.forge/Z013": "blindsight 60 ft., passive Perception 12",
+      "com.battle-system.forge/Z014": "stealth: 6, performance: 7",
+      "com.battle-system.forge/Z015": "Common, Abyssal, Giant",
+      "com.battle-system.forge/Z016": 5,
+      "com.battle-system.forge/Z029": 3,
+      "com.battle-system.forge/Z030": "thunder",
+      "com.battle-system.forge/Z031": "",
+      "com.battle-system.forge/Z032": "",
+      "com.battle-system.forge/Z033": "",
+      "com.battle-system.forge/Z034": [
+        {
+          "id": "00d33d5d-6aec-4228-930f-3bfc9f221946-abl-001",
+          "name": "Quiet Flight",
+          "description": "The owl harpy gains an additional +3 to Stealth (+9 in total) while flying."
+        },
+        {
+          "id": "00d33d5d-6aec-4228-930f-3bfc9f221946-abl-002",
+          "name": "Dissonance",
+          "description": "The owl harpy can't use its blindsight while deafened."
+        },
+        {
+          "id": "00d33d5d-6aec-4228-930f-3bfc9f221946-abl-003",
+          "name": "Innate Spellcasting",
+          "description": "the owl harpy's innate spellcasting ability is Charisma. The owl harpy can innately cast the following spells, requiring no material components:\n\n3/day: darkness"
+        }
+      ],
+      "com.battle-system.forge/Z035": [
+        {
+          "id": "00d33d5d-6aec-4228-930f-3bfc9f221946-std-001",
+          "name": "[Standard] Multiattack",
+          "description": "The owl harpy makes two claw attacks and two talon attacks."
+        },
+        {
+          "id": "00d33d5d-6aec-4228-930f-3bfc9f221946-std-002",
+          "name": "[Standard] Claws",
+          "description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 8 (2d4 + 3) slashing damage."
+        },
+        {
+          "id": "00d33d5d-6aec-4228-930f-3bfc9f221946-std-003",
+          "name": "[Standard] Talons",
+          "description": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage."
+        },
+        {
+          "id": "00d33d5d-6aec-4228-930f-3bfc9f221946-std-004",
+          "name": "[Standard] Hovering Darkness",
+          "description": "An owl harpy that hovers in flight can shake a fine, magical dander from her wings over a creature within 20 feet and directly below her. The creature must succeed on a DC 15 Constitution saving throw or fall unconscious and be poisoned for 10 minutes. It wakes up if it takes damage or if a creature uses an action to shake it awake, but waking up doesn't end the poisoning."
+        },
+        {
+          "id": "00d33d5d-6aec-4228-930f-3bfc9f221946-std-005",
+          "name": "[Standard] Luring Song",
+          "description": "The owl harpy sings a magical melody. Every humanoid and giant within 300 feet of the harpy that can hear the song must succeed on a DC 15 Wisdom saving throw or be charmed until the song ends. The harpy must use a bonus action on its subsequent turns to continue singing. It can stop singing at any time. The song ends if the harpy becomes incapacitated. While charmed by the harpy, a target is incapacitated and ignores the songs of other harpies. A charmed target that is more than 5 feet away from the harpy must move at its highest rate (including dashing, if necessary) along the most direct route to get within 5 feet of the harpy. The charmed creature doesn't maneuver to avoid opportunity attacks, but it can repeat the saving throw every time it takes damage from anything other than the harpy. It also repeats the saving throw before entering damaging terrain (lava or a pit, for example), if the most direct route includes a dangerous space. A creature also repeats the saving throw at the end of each of its turns. A successful saving throw ends the effect on that creature and makes the creature immune to this harpy's song for 24 hours."
+        }
+      ]
+    }
+  },
+  {
+    "id": "00dd0a4c-a260-4725-9a0b-25ecba4c1a60",
+    "name": "Rotsam Swarm",
+    "author": "tob2",
+    "favorite": false,
+    "metadata": {
+      "com.battle-system.forge/name": "Rotsam Swarm",
+      "com.battle-system.forge/Z002": "Large",
+      "com.battle-system.forge/Z004": "Ooze",
+      "com.battle-system.forge/Z003": "unaligned",
+      "com.battle-system.forge/Z007": 9,
+      "com.battle-system.forge/Z005": 142,
+      "com.battle-system.forge/Z006": 142,
+      "com.battle-system.forge/Z017": 19,
+      "com.battle-system.forge/Z018": 8,
+      "com.battle-system.forge/Z019": 18,
+      "com.battle-system.forge/Z020": 1,
+      "com.battle-system.forge/Z021": 9,
+      "com.battle-system.forge/Z022": 6,
+      "com.battle-system.forge/Z023": 4,
+      "com.battle-system.forge/Z024": -1,
+      "com.battle-system.forge/Z025": 4,
+      "com.battle-system.forge/Z026": -5,
+      "com.battle-system.forge/Z027": -1,
+      "com.battle-system.forge/Z028": -2,
+      "com.battle-system.forge/Z008": 10,
+      "com.battle-system.forge/Z009": 30,
+      "com.battle-system.forge/Z010": 0,
+      "com.battle-system.forge/Z011": 0,
+      "com.battle-system.forge/Z012": 0,
+      "com.battle-system.forge/Z013": "blindsight 60 ft. (blind beyond this radius), passive Perception 9",
+      "com.battle-system.forge/Z014": "",
+      "com.battle-system.forge/Z015": "?",
+      "com.battle-system.forge/Z016": 6,
+      "com.battle-system.forge/Z029": 3,
+      "com.battle-system.forge/Z030": "",
+      "com.battle-system.forge/Z031": "bludgeoning, piercing, slashing",
+      "com.battle-system.forge/Z032": "necrotic",
+      "com.battle-system.forge/Z033": "blinded, charmed, deafened, exhaustion, frightened, grappled, paralyzed, petrified, prone, restrained, stunned",
+      "com.battle-system.forge/Z034": [
+        {
+          "id": "00dd0a4c-a260-4725-9a0b-25ecba4c1a60-abl-001",
+          "name": "Bog Rot",
+          "description": "A creature that fails its saving throw against the rotsam's diseased bite attack becomes infected with the bog rot disease. Until the disease is cured, the infected creature's skin breaks out in a rot-like rash that slowly spreads across its body, and its hp maximum decreases by 7 (2d6) for every 24 hours that elapse. After the first 24 hours, the creature's skin starts to smell like rot, and creatures have advantage on Wisdom (Perception) and Wisdom (Survival) checks to find the infected creature. The reduction and rot smell last until the disease is cured. The creature dies if the disease reduces its hp maximum to 0."
+        },
+        {
+          "id": "00dd0a4c-a260-4725-9a0b-25ecba4c1a60-abl-002",
+          "name": "Spider Climb",
+          "description": "The rotsam can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check."
+        },
+        {
+          "id": "00dd0a4c-a260-4725-9a0b-25ecba4c1a60-abl-003",
+          "name": "Swarm",
+          "description": "The swarm can occupy another creature's space and vice versa, and the swarm can move through any opening large enough for a Tiny rotsam. The swarm can't regain hp or gain temporary hp."
+        }
+      ],
+      "com.battle-system.forge/Z035": [
+        {
+          "id": "00dd0a4c-a260-4725-9a0b-25ecba4c1a60-std-001",
+          "name": "[Standard] Diseased Bites",
+          "description": "Melee Weapon Attack: +7 to hit, reach 0 ft., one creature in the swarm's space. Hit: 10 (4d4) piercing damage plus 21 (6d6) necrotic damage, or 5 (2d4) piercing damage and 10 (3d6) necrotic damage if the swarm has half of its hp or fewer. The target must make a DC 15 Constitution saving throw or contract a disease (see the Bog Rot trait)."
+        }
+      ]
+    }
+  },
+  {
+    "id": "010dc7d6-ea9d-46ba-bc5a-fce24e896e5c",
+    "name": "War Ostrich",
+    "author": "tob-2023",
+    "favorite": false,
+    "metadata": {
+      "com.battle-system.forge/name": "War Ostrich",
+      "com.battle-system.forge/Z002": "Large",
+      "com.battle-system.forge/Z004": "Beast",
+      "com.battle-system.forge/Z003": "Unaligned",
+      "com.battle-system.forge/Z007": 11,
+      "com.battle-system.forge/Z005": 42,
+      "com.battle-system.forge/Z006": 42,
+      "com.battle-system.forge/Z017": 15,
+      "com.battle-system.forge/Z018": 12,
+      "com.battle-system.forge/Z019": 16,
+      "com.battle-system.forge/Z020": 2,
+      "com.battle-system.forge/Z021": 10,
+      "com.battle-system.forge/Z022": 5,
+      "com.battle-system.forge/Z023": 2,
+      "com.battle-system.forge/Z024": 1,
+      "com.battle-system.forge/Z025": 3,
+      "com.battle-system.forge/Z026": -4,
+      "com.battle-system.forge/Z027": 0,
+      "com.battle-system.forge/Z028": -3,
+      "com.battle-system.forge/Z008": 60,
+      "com.battle-system.forge/Z009": 0,
+      "com.battle-system.forge/Z010": 0,
+      "com.battle-system.forge/Z011": 0,
+      "com.battle-system.forge/Z012": 0,
+      "com.battle-system.forge/Z013": "passive Perception 10",
+      "com.battle-system.forge/Z014": "",
+      "com.battle-system.forge/Z015": "?",
+      "com.battle-system.forge/Z016": 0.5,
+      "com.battle-system.forge/Z029": 2,
+      "com.battle-system.forge/Z030": "",
+      "com.battle-system.forge/Z031": "",
+      "com.battle-system.forge/Z032": "",
+      "com.battle-system.forge/Z033": "",
+      "com.battle-system.forge/Z034": [
+        {
+          "id": "010dc7d6-ea9d-46ba-bc5a-fce24e896e5c-abl-001",
+          "name": "Leaping Pounce",
+          "description": "If the war ostrich jumps at least 15 feet straight toward a creature and then hits it with a Claw attack on the same turn, that target must succeed on a DC 13 Strength saving throw or be knocked prone. If the target is prone, the ostrich can make one Beak attack against it as a bonus action."
+        },
+        {
+          "id": "010dc7d6-ea9d-46ba-bc5a-fce24e896e5c-abl-002",
+          "name": "Standing Leap",
+          "description": "The war ostrich's long jump is up to 30 feet and its high jump is up to 15 feet, with or without a running start."
+        }
+      ],
+      "com.battle-system.forge/Z035": [
+        {
+          "id": "010dc7d6-ea9d-46ba-bc5a-fce24e896e5c-std-001",
+          "name": "[Standard] Beak",
+          "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 6 (1d8 + 2) piercing damage."
+        },
+        {
+          "id": "010dc7d6-ea9d-46ba-bc5a-fce24e896e5c-std-002",
+          "name": "[Standard] Claw",
+          "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) bludgeoning damage."
+        },
+        {
+          "id": "010dc7d6-ea9d-46ba-bc5a-fce24e896e5c-std-003",
+          "name": "[Standard] Intimidating Screech",
+          "description": "The war ostrich screeches at a creature it can see within 30 feet of it. The target must succeed on a DC 13 Wisdom saving throw or have disadvantage on attack rolls until the end of its next turn, as the screech rattles it."
+        },
+        {
+          "id": "010dc7d6-ea9d-46ba-bc5a-fce24e896e5c-bon-001",
+          "name": "[Bonus] Skittish",
+          "description": "The war ostrich takes the Dash or Disengage action."
+        }
+      ]
+    }
+  }
+]

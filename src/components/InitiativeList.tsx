@@ -674,6 +674,27 @@ const ListReferenceDescription = styled.div<{ theme: ForgeTheme }>`
   white-space: pre-wrap;
 `;
 
+const ListReferenceInlineNotationRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+`;
+
+const ListReferenceInlineNotationButton = styled.button<{ theme: ForgeTheme }>`
+  border: 1px solid ${props => rgbaFromHex(props.theme.OFFSET, 0.7)};
+  border-radius: 999px;
+  background: ${props => rgbaFromHex(props.theme.OFFSET, 0.35)};
+  color: ${props => props.theme.PRIMARY};
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+
+  &:hover {
+    background: ${props => rgbaFromHex(props.theme.OFFSET, 0.55)};
+  }
+`;
+
 const ListReferenceEmpty = styled.p<{ theme: ForgeTheme }>`
   color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.75)};
   margin: 0;
@@ -1731,6 +1752,54 @@ export const InitiativeList: React.FC = () => {
     [selectedListReferenceEntries]
   );
 
+  const selectedListBidValueMap = useMemo(() => {
+    if (!selectedListReferenceUnit) {
+      return {} as Record<string, number>;
+    }
+
+    const map: Record<string, number> = {};
+
+    for (const attribute of attributes) {
+      const key = `${EXTENSION_ID}/${attribute.attr_bid}`;
+      const rawValue = selectedListReferenceUnit.attributes?.[key];
+      if (rawValue === undefined || rawValue === null || rawValue === '') {
+        continue;
+      }
+
+      const parsed = Number(rawValue);
+      if (Number.isFinite(parsed)) {
+        map[attribute.attr_bid] = parsed;
+      }
+    }
+
+    return map;
+  }, [selectedListReferenceUnit, attributes]);
+
+  const parseListInlineNotationTokens = (text: string): string[] => {
+    const tokens: string[] = [];
+    const matches = text.matchAll(/\[([^\[\]]+)\]/g);
+
+    for (const match of matches) {
+      const formula = (match[1] || '').trim();
+      if (!formula) {
+        continue;
+      }
+
+      const conversion = toResolvedDiceNotation(formula, {
+        bidValueMap: selectedListBidValueMap,
+        onMissingBid: 'error',
+      });
+
+      if (!conversion.valid || !conversion.notation) {
+        continue;
+      }
+
+      tokens.push(conversion.notation);
+    }
+
+    return tokens;
+  };
+
   const handleOpenEffectsModal = (unitId: string) => {
     setEffectsModalError(null);
     setEffectNameInput('');
@@ -2553,6 +2622,31 @@ export const InitiativeList: React.FC = () => {
                   {entry.description ? (
                     <ListReferenceDescription theme={theme}>{entry.description}</ListReferenceDescription>
                   ) : null}
+                  {(() => {
+                    const inlineNotationTokens = parseListInlineNotationTokens(entry.description || '');
+
+                    if (inlineNotationTokens.length === 0) {
+                      return null;
+                    }
+
+                    return (
+                      <ListReferenceInlineNotationRow>
+                        {inlineNotationTokens.map((notation, index) => (
+                          <ListReferenceInlineNotationButton
+                            key={`${entry.id}-inline-notation-${index}`}
+                            type="button"
+                            theme={theme}
+                            onClick={() => {
+                              LOGGER.log(notation);
+                            }}
+                            title={notation}
+                          >
+                            {notation}
+                          </ListReferenceInlineNotationButton>
+                        ))}
+                      </ListReferenceInlineNotationRow>
+                    );
+                  })()}
                 </ListReferenceItem>
               ))}
             </ListReferenceItems>

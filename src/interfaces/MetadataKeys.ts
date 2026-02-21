@@ -14,6 +14,7 @@ export class MenuConstants {
 export class UnitConstants {
   static ON_LIST = `${EXTENSION_ID}/on-list`;
   static IN_PARTY = `${EXTENSION_ID}/in-party`;
+  static VIEW_UNIT = `${EXTENSION_ID}/view-unit`;
   static FABRICATED = `${EXTENSION_ID}/fabd`;
   static UNIT_NAME = `${EXTENSION_ID}/name`;
   static INITIATIVE = `${EXTENSION_ID}/init`;

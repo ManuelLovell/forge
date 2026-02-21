@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import styled from 'styled-components';
-import OBR, { buildEffect, buildText, isImage } from '@owlbear-rodeo/sdk';
+import OBR, { buildText, isImage } from '@owlbear-rodeo/sdk';
 import { useSystemData } from '../helpers/useSystemData';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSceneStore } from '../helpers/BSCache';
@@ -17,12 +17,10 @@ import LOGGER from '../helpers/Logger';
 import { HexToRgba } from '../helpers/HexToRGB';
 import { ViewportFunctions } from '../helpers/ViewPortUtility';
 import { PopupModal } from './PopupModal';
-import { GRID_SELECTION_EFFECT } from '../assets/gridSelectionEffect';
 import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 import { EffectsManagerModal, useEffectsManager } from './EffectsManager';
 import { ElevationSpecialCell, EffectsSpecialCell } from './InitiativeSpecialCells';
 
-const TURN_EFFECT_ID = `${EXTENSION_ID}/current-turn-effect`;
 const ELEVATION_BADGE_FLAG = `${EXTENSION_ID}/elevation-badge`;
 const ELEVATION_BADGE_OWNER = `${EXTENSION_ID}/elevation-badge-owner`;
 const ELEVATION_METADATA_KEY = `${EXTENSION_ID}/elevation`;
@@ -695,7 +693,6 @@ export const InitiativeList: React.FC = () => {
   const showRollerColumn = storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] as boolean || false;
   const showCardColumn = storageContainer[SettingsConstants.SHOW_CARD_ACCESS] as boolean || false;
   const diceRange = (storageContainer[SettingsConstants.DICE_RANGE] as string | undefined) || '';
-  const showTurnEffect = storageContainer[SettingsConstants.SHOW_TURN_EFFECT] as boolean || false;
   const showOwnerOnlyEdit = storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] as boolean || false;
   const isCurrentUserGm = String((playerData as RoleLike | null | undefined)?.role || '').toUpperCase() === 'GM';
 
@@ -1621,89 +1618,6 @@ export const InitiativeList: React.FC = () => {
 
     return tokens;
   };
-
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    const syncTurnEffect = async () => {
-      if (!showTurnEffect || !currentTurnId) {
-        try {
-          await OBR.scene.local.deleteItems([TURN_EFFECT_ID]);
-        } catch {
-        }
-        return;
-      }
-
-      const currentTurnItem = items.find((item) => item.id === currentTurnId);
-      if (!currentTurnItem) {
-        try {
-          await OBR.scene.local.deleteItems([TURN_EFFECT_ID]);
-        } catch {
-        }
-        return;
-      }
-
-      if (isCancelled) {
-        return;
-      }
-
-      try {
-        let updatedExistingEffect = false;
-        await OBR.scene.local.updateItems([TURN_EFFECT_ID], (localItems) => {
-          const turnEffect = localItems[0] as typeof localItems[0] & { attachedTo?: string };
-          if (!turnEffect) {
-            return;
-          }
-
-          turnEffect.attachedTo = currentTurnId;
-          updatedExistingEffect = true;
-        });
-
-        if (updatedExistingEffect) {
-          LOGGER.log('Updating turn effect attachment for current turn');
-          return;
-        }
-      } catch {
-      }
-
-      if (isCancelled) {
-        return;
-      }
-
-      try {
-        const effect = buildEffect()
-          .id(TURN_EFFECT_ID)
-          .name('Current Turn Effect')
-          .effectType('ATTACHMENT')
-          .attachedTo(currentTurnId)
-          .locked(true)
-          .disableHit(true)
-          .sksl(GRID_SELECTION_EFFECT)
-          .build();
-
-        LOGGER.log('Adding turn effect to scene for current turn');
-        await OBR.scene.local.addItems([effect]);
-      } catch (error) {
-        LOGGER.error('Failed to sync current turn effect', error);
-      }
-    };
-
-    syncTurnEffect();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [showTurnEffect, currentTurnId, items]);
-
-  useEffect(() => {
-    return () => {
-        LOGGER.log('Removing turn effect to scene for current turn');
-      OBR.scene.local.deleteItems([TURN_EFFECT_ID]).catch(() => {
-      });
-    };
-  }, []);
-
   // Adjust window width based on table width
   useEffect(() => {
     if (tableRef.current && listColumns.length > 0) {

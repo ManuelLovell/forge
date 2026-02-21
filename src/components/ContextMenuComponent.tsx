@@ -1,11 +1,132 @@
 import { useEffect } from 'react';
 import OBR, { Metadata } from '@owlbear-rodeo/sdk';
 import LOGGER from './../helpers/Logger';
-import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
+import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { Regex } from '../helpers/Regex';
 import { useSceneStore } from '../helpers/BSCache';
 import { AddOrReplaceAdjective } from '../helpers/Adjectives';
+import { filterExtensionMetadata, getAllUnitCollectionRecords, type UnitCollectionRecord } from '../helpers/unitCollectionDb';
+import { supabase } from '../supabase/supabaseClient';
+
+const VIEW_UNIT_CONTEXT_MENU_ID = 'com.battle-system.forge/view-unit';
+
+type SupabaseCollectionRow = {
+    name: string;
+    metadata: Record<string, unknown> | null;
+    is_active: boolean | null;
+};
+
+const normalizeLookupName = (name: string): string => name.trim().toLowerCase();
+
+const getSearchNameFromItem = (itemName: string): string => {
+    const trimmed = itemName.trim();
+    if (!trimmed) {
+        return itemName;
+    }
+
+    return Regex.ALPHANUMERICTEXTMATCH.test(trimmed)
+        ? trimmed.slice(0, -2)
+        : trimmed;
+};
+
+const openCardPopoverForUnit = async (unitId: string) => {
+    const windowHeight = await OBR.viewport.getHeight();
+    const modalBuffer = 100;
+    const viewableHeight = windowHeight > 800 ? 700 : windowHeight - modalBuffer;
+
+    await OBR.popover.open({
+        id: OwlbearIds.CARDSID,
+        url: `/pages/forgecard.html?unitid=${encodeURIComponent(unitId)}`,
+        height: viewableHeight,
+        width: 350,
+        anchorReference: 'POSITION',
+        anchorPosition: {
+            left: (await OBR.viewport.getWidth()) / 2,
+            top: (await OBR.viewport.getHeight()) / 2,
+        },
+        anchorOrigin: { horizontal: 'CENTER', vertical: 'CENTER' },
+        transformOrigin: { horizontal: 'CENTER', vertical: 'CENTER' },
+        hidePaper: true,
+        disableClickAway: true,
+    });
+};
+
+const getFirstCollectionMatchesByName = async (names: string[]): Promise<Map<string, Record<string, unknown>>> => {
+    const normalizedNames = Array.from(new Set(
+        names
+            .map((name) => name.trim())
+            .filter((name) => name.length > 0)
+    ));
+
+    const byNormalizedName = new Map<string, Record<string, unknown>>();
+    if (normalizedNames.length === 0) {
+        return byNormalizedName;
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('bs_forge_creatures')
+            .select('name,metadata,is_active')
+            .eq('is_active', true)
+            .in('name', normalizedNames)
+            .limit(250);
+
+        if (!error && Array.isArray(data)) {
+            const rows = data as SupabaseCollectionRow[];
+            for (const row of rows) {
+                const normalized = normalizeLookupName(String(row.name || ''));
+                if (!normalized || byNormalizedName.has(normalized)) {
+                    continue;
+                }
+
+                const metadata = row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
+                    ? filterExtensionMetadata(row.metadata)
+                    : null;
+                if (!metadata) {
+                    continue;
+                }
+
+                byNormalizedName.set(normalized, metadata);
+            }
+        }
+    } catch (error) {
+        LOGGER.log('Supabase collection lookup failed, falling back to local collection', error);
+    }
+
+    const localRecords = await getAllUnitCollectionRecords();
+    const localByName = new Map<string, UnitCollectionRecord[]>();
+    for (const record of localRecords) {
+        const normalized = normalizeLookupName(record.name);
+        if (!normalized) {
+            continue;
+        }
+
+        const existing = localByName.get(normalized);
+        if (existing) {
+            existing.push(record);
+        } else {
+            localByName.set(normalized, [record]);
+        }
+    }
+
+    for (const name of normalizedNames) {
+        const normalized = normalizeLookupName(name);
+        if (byNormalizedName.has(normalized)) {
+            continue;
+        }
+
+        const localMatches = localByName.get(normalized);
+        const firstLocal = localMatches?.[0];
+        if (!firstLocal || !firstLocal.metadata) {
+            continue;
+        }
+
+        byNormalizedName.set(normalized, filterExtensionMetadata(firstLocal.metadata));
+    }
+
+    return byNormalizedName;
+};
 
 export function SetupContextMenu({ children }: { children: React.ReactNode }) {
     const roomMetadata = useSceneStore((state) => state.roomMetadata);
@@ -60,36 +181,40 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                     } else {
                         // Prepare update pack so we can batch update
                         // Names to check will be used to check Collections for prebuilt units
-                        const namesToCheck: { id: string, name: string }[] = [];
+                        const collectionNamesToCheck: string[] = [];
                         // Metadata updates is the batch to apply at the end
                         const metadataUpdates: { id: string, metadata: Metadata }[] = [];
+
+                        for (let item of context.items) {
+                            if (item.metadata[UnitConstants.FABRICATED] === true) {
+                                continue;
+                            }
+
+                            const textItem = item as typeof item & { text?: { plainText?: string } };
+                            const itemName = getSearchNameFromItem(textItem.text?.plainText || item.name);
+                            collectionNamesToCheck.push(itemName);
+                        }
+
+                        await OBR.action.setBadgeText('Retrieving Data.. ⏱️');
+                        const collectionMatches = await getFirstCollectionMatchesByName(collectionNamesToCheck);
+                        await OBR.action.setBadgeText(undefined);
+
                         for (let item of context.items) {
                             const update: Metadata = {};
-                            update[UnitConstants.ON_LIST] = true;
-                            update[UnitConstants.INITIATIVE] = 0;
+
                             // If already fabricated, we don't need to build it again
                             if (item.metadata[UnitConstants.FABRICATED] !== true) {
                                 const textItem = item as typeof item & { text?: { plainText?: string } };
-                                let itemName = textItem.text?.plainText || item.name;
-                                // We check to see if the name ends with a number (for duplicates)
-                                // and take the clean name for searching
-                                if (Regex.ALPHANUMERICTEXTMATCH.test(item.name)) {
-                                    itemName = itemName.slice(0, -2);
-                                }
-                                namesToCheck.push({ id: item.id, name: itemName });
+                                const itemName = getSearchNameFromItem(textItem.text?.plainText || item.name);
 
-                                /* Later we will add collection search here based on name
-                                function-find-data-in-collection
-                                await OBR.action.setBadgeText("Retrieving Data.. ⏱️");
-                                if (BSCACHE.USER_REGISTERED && namesToCheck.length > 0) {
-                                    search online - add data to metadataUpdates
-                                } else {
-                                    search local - add data to metadataUpdates
+                                const match = collectionMatches.get(normalizeLookupName(itemName));
+                                if (match) {
+                                    Object.assign(update, match);
                                 }
-                                await OBR.action.setBadgeText(undefined);
-                                */
 
-                                update[UnitConstants.UNIT_NAME] = item.name;
+                                if (typeof update[UnitConstants.UNIT_NAME] !== 'string' || !String(update[UnitConstants.UNIT_NAME]).trim()) {
+                                    update[UnitConstants.UNIT_NAME] = item.name;
+                                }
                                 update[UnitConstants.FABRICATED] = true;
                                 // Check descriptive name setting
                                 if (storageContainer[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] !== undefined) {
@@ -102,6 +227,9 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                     }
                                 }
                             }
+
+                            update[UnitConstants.ON_LIST] = true;
+                            update[UnitConstants.INITIATIVE] = 0;
                             metadataUpdates.push({ id: item.id, metadata: update });
                         }
 
@@ -169,6 +297,77 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                             }
                         });
                     }
+                }
+            })
+
+            OBR.contextMenu.create({
+                id: VIEW_UNIT_CONTEXT_MENU_ID,
+                icons: [
+                    {
+                        icon: "/icon.svg",
+                        label: "[Forge] View Unit",
+                        filter: {
+                            max: 1,
+                            every: [{ key: ["metadata", UnitConstants.IN_PARTY], operator: "!=", value: true }],
+                            some: [
+                                { key: "layer", value: "CHARACTER", coordinator: "||" },
+                                { key: "layer", value: "MOUNT" }],
+                        },
+                    }
+                ],
+                async onClick(context) {
+                    LOGGER.info(`View Unit Clicked: ${context.items[0].name}`);
+
+                    const selectedItem = context.items[0];
+                    if (!selectedItem) {
+                        return;
+                    }
+
+                    const update: Metadata = {};
+
+                    if (selectedItem.metadata[UnitConstants.FABRICATED] !== true) {
+                        const textItem = selectedItem as typeof selectedItem & { text?: { plainText?: string } };
+                        const itemName = getSearchNameFromItem(textItem.text?.plainText || selectedItem.name);
+
+                        await OBR.action.setBadgeText('Retrieving Data.. ⏱️');
+                        const collectionMatches = await getFirstCollectionMatchesByName([itemName]);
+                        await OBR.action.setBadgeText(undefined);
+
+                        const match = collectionMatches.get(normalizeLookupName(itemName));
+                        if (match) {
+                            Object.assign(update, match);
+                        }
+
+                        if (typeof update[UnitConstants.UNIT_NAME] !== 'string' || !String(update[UnitConstants.UNIT_NAME]).trim()) {
+                            update[UnitConstants.UNIT_NAME] = selectedItem.name;
+                        }
+
+                        update[UnitConstants.FABRICATED] = true;
+
+                        if (storageContainer[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] !== undefined) {
+                            const currentNamesInScene = sceneItems
+                                .filter((x) => x.metadata[UnitConstants.UNIT_NAME] != null && x.id !== selectedItem.id)
+                                .map((x) => x.metadata[UnitConstants.UNIT_NAME]);
+                            if (currentNamesInScene.includes(itemName)) {
+                                update[UnitConstants.UNIT_NAME] = AddOrReplaceAdjective(itemName);
+                            }
+                        }
+
+                        await OBR.scene.items.updateItems([selectedItem], (items) => {
+                            const item = items[0];
+                            Object.assign(item.metadata, update);
+
+                            if (sceneMetadata[SettingsConstants.SHOW_NAMES] === true) {
+                                const writableItem = item as typeof item & { text?: { plainText?: string } };
+                                if (writableItem.text) {
+                                    writableItem.text.plainText = String(update[UnitConstants.UNIT_NAME] || '');
+                                }
+                            }
+                        });
+                    }
+
+                    await openCardPopoverForUnit(selectedItem.id);
+
                 }
             })
         });

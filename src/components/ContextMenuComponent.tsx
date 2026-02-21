@@ -23,7 +23,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                 icons: [
                     {
                         icon: "/icon.svg",
-                        label: "[Forge] Add to Combat",
+                        label: "[Forge] Enter Combat",
                         filter: {
                             every: [{ key: ["metadata", UnitConstants.ON_LIST], operator: "!=", value: true }],
                             some: [
@@ -33,7 +33,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                     },
                     {
                         icon: "/icon.svg",
-                        label: "[Forge] Remove from Combat",
+                        label: "[Forge] Exit Combat",
                         filter: {
                             every: [{ key: ["metadata", UnitConstants.ON_LIST], operator: "==", value: true }],
                             some: [
@@ -69,7 +69,8 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                             update[UnitConstants.INITIATIVE] = 0;
                             // If already fabricated, we don't need to build it again
                             if (item.metadata[UnitConstants.FABRICATED] !== true) {
-                                let itemName = (item as any).text?.plainText || item.name;
+                                const textItem = item as typeof item & { text?: { plainText?: string } };
+                                let itemName = textItem.text?.plainText || item.name;
                                 // We check to see if the name ends with a number (for duplicates)
                                 // and take the clean name for searching
                                 if (Regex.ALPHANUMERICTEXTMATCH.test(item.name)) {
@@ -110,8 +111,12 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                 const forUnit = metadataUpdates.find(update => update.id === item.id);
                                 if (forUnit) {
                                     Object.assign(item.metadata, forUnit.metadata);
-                                    if (sceneMetadata[SettingsConstants.SHOW_NAMES] === true)
-                                        (item as any).text.plainText = forUnit.metadata[UnitConstants.UNIT_NAME];
+                                    if (sceneMetadata[SettingsConstants.SHOW_NAMES] === true) {
+                                        const textItem = item as typeof item & { text?: { plainText?: string } };
+                                        if (textItem.text) {
+                                            textItem.text.plainText = String(forUnit.metadata[UnitConstants.UNIT_NAME] || '');
+                                        }
+                                    }
                                 }
                             }
                         });

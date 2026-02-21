@@ -49,6 +49,13 @@ interface SystemBackup {
   attributes: SystemAttribute[];
 }
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+};
+
 const parseImportedArrayField = <T,>(value: T[] | string, fieldName: string): T[] => {
   if (Array.isArray(value)) {
     return value;
@@ -529,9 +536,9 @@ export const SystemPage = () => {
 
       LOGGER.log('System loaded:', systemData.name);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       LOGGER.error('Error fetching system:', err);
-      setError(err.message || 'An error occurred while fetching the system');
+      setError(getErrorMessage(err, 'An error occurred while fetching the system'));
     } finally {
       setLoading(false);
     }
@@ -595,7 +602,7 @@ export const SystemPage = () => {
       setSuccess(`System "${backup.name}" restored from backup successfully!`);
       LOGGER.log('System restored from backup:', backup.name);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       LOGGER.error('Error restoring backup:', err);
       setError('Failed to restore system from backup');
     } finally {
@@ -642,7 +649,7 @@ export const SystemPage = () => {
       );
 
       setSuccess('Reset to default system successfully!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to reset to default system');
       LOGGER.error('Error resetting to default:', err);
     } finally {

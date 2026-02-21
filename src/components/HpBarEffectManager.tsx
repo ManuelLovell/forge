@@ -124,7 +124,31 @@ const getOrientationValue = (orientationRaw: unknown): number => {
   }
 };
 
-const getImageBounds = (unitItem: any, sceneGridDpi: number) => {
+interface ImageBoundsItem {
+  grid: {
+    dpi: number;
+    offset: { x: number; y: number };
+  };
+  image: {
+    width: number;
+    height: number;
+  };
+  position: {
+    x: number;
+    y: number;
+  };
+}
+
+interface EffectUniformEntry {
+  name?: string;
+  value?: unknown;
+}
+
+interface EffectWithUniforms {
+  uniforms?: EffectUniformEntry[];
+}
+
+const getImageBounds = (unitItem: ImageBoundsItem, sceneGridDpi: number) => {
   const dpiScale = sceneGridDpi / unitItem.grid.dpi;
   const width = unitItem.image.width * dpiScale;
   const height = unitItem.image.height * dpiScale;
@@ -142,7 +166,7 @@ const getImageBounds = (unitItem: any, sceneGridDpi: number) => {
 };
 
 const getHpNumberPosition = (
-  unitItem: any,
+  unitItem: ImageBoundsItem,
   sceneGridDpi: number,
   orientation: 'top' | 'bottom' | 'left' | 'right'
 ) => {
@@ -275,8 +299,9 @@ export const HpBarEffectManager = () => {
             return false;
           }
 
-          const uniform = (bar as any).uniforms?.find((entry: any) => entry.name === 'hpPercent');
-          const orientationUniform = (bar as any).uniforms?.find((entry: any) => entry.name === 'orientation');
+          const barWithUniforms = bar as typeof bar & EffectWithUniforms;
+          const uniform = barWithUniforms.uniforms?.find((entry) => entry.name === 'hpPercent');
+          const orientationUniform = barWithUniforms.uniforms?.find((entry) => entry.name === 'orientation');
           const currentUniformValue = typeof uniform?.value === 'number' ? uniform.value : NaN;
           const currentOrientationValue = typeof orientationUniform?.value === 'number' ? orientationUniform.value : NaN;
 
@@ -340,7 +365,7 @@ export const HpBarEffectManager = () => {
                 }
 
                 effectItem.attachedTo = desired.unitId;
-                const writableEffectItem = effectItem as any;
+                const writableEffectItem = effectItem as typeof effectItem & EffectWithUniforms;
                 writableEffectItem.uniforms = [
                   { name: 'hpPercent', value: desired.hpPercent },
                   { name: 'orientation', value: orientationValue },
@@ -368,7 +393,7 @@ export const HpBarEffectManager = () => {
             return false;
           }
 
-          const plainText = (numberItem as any).text?.plainText;
+          const plainText = (numberItem as typeof numberItem & { text?: { plainText?: string } }).text?.plainText;
           const isPositionChanged =
             Math.abs(numberItem.position.x - desired.position.x) > 0.01
             || Math.abs(numberItem.position.y - desired.position.y) > 0.01;
@@ -441,7 +466,10 @@ export const HpBarEffectManager = () => {
 
                 itemToUpdate.attachedTo = desired.unitId;
                 itemToUpdate.position = desired.position;
-                (itemToUpdate as any).text.plainText = desired.text;
+                const textItemToUpdate = itemToUpdate as typeof itemToUpdate & { text?: { plainText?: string } };
+                if (textItemToUpdate.text) {
+                  textItemToUpdate.text.plainText = desired.text;
+                }
                 itemToUpdate.metadata = {
                   ...itemToUpdate.metadata,
                   [HP_NUMBER_TEXT_FLAG]: true,

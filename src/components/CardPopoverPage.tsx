@@ -613,7 +613,7 @@ export const CardPopoverPage = () => {
       return metadataName;
     }
 
-    const textName = (item as any).text?.plainText;
+    const textName = (item as Item & { text?: { plainText?: string } }).text?.plainText;
     if (typeof textName === 'string' && textName.trim()) {
       return textName;
     }
@@ -650,10 +650,10 @@ export const CardPopoverPage = () => {
     }
 
     await OBR.scene.items.updateItems([unitItem.id], (itemsToUpdate) => {
-      const metadata = { ...itemsToUpdate[0].metadata };
+      const metadata: Record<string, unknown> = { ...(itemsToUpdate[0].metadata || {}) };
       Object.entries(updates).forEach(([key, value]) => {
         if (value === undefined) {
-          delete (metadata as any)[key];
+          delete metadata[key];
         } else {
           metadata[key] = value;
         }
@@ -668,10 +668,10 @@ export const CardPopoverPage = () => {
           return item;
         }
 
-        const metadata = { ...item.metadata };
+        const metadata: Record<string, unknown> = { ...(item.metadata || {}) };
         Object.entries(updates).forEach(([key, value]) => {
           if (value === undefined) {
-            delete (metadata as any)[key];
+            delete metadata[key];
           } else {
             metadata[key] = value;
           }

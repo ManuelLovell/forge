@@ -483,7 +483,7 @@ const resolveAttribute = (attributes: SystemAttribute[], idOrBid?: string) => {
 
   return attributes.find((attr) => {
     const byBid = attr.attr_bid === idOrBid;
-    const byId = String((attr as any).id ?? '') === String(idOrBid);
+    const byId = String((attr as { id?: unknown }).id ?? '') === String(idOrBid);
     return byBid || byId;
   }) || null;
 };
@@ -542,7 +542,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       return metadataName;
     }
 
-    const textName = (unitItem as any).text?.plainText;
+    const textName = (unitItem as Item & { text?: { plainText?: string } }).text?.plainText;
     if (typeof textName === 'string' && textName.trim()) {
       return textName;
     }

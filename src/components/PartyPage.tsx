@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { isImage } from '@owlbear-rodeo/sdk';
 import styled from 'styled-components';
 import { useSceneStore } from '../helpers/BSCache';
 import { useForgeTheme } from '../helpers/ThemeContext';
@@ -66,7 +67,7 @@ export const PartyPage = () => {
         ) : (
           <PartyList theme={theme}>
             {partyItems.map((item) => {
-              const tokenUrl = (item as any).image?.url as string | undefined;
+              const tokenUrl = isImage(item) ? item.image.url : undefined;
               const unitName = (item.metadata[UnitConstants.UNIT_NAME] as string) || item.name || 'Unknown';
 
               return (

@@ -197,7 +197,7 @@ export const SettingsPage = () => {
     }
   }, [cacheReady, storageContainer]);
 
-  const saveData = async (key: string, value: any) => {
+  const saveData = async (key: string, value: unknown) => {
     if (DATA_STORED_IN_ROOM) {
       await OBR.room.setMetadata({ [key]: value });
     } else {
@@ -486,8 +486,9 @@ export const SettingsPage = () => {
                   await OBR.scene.items.updateItems(unitsInList, (items) => {
                     for (let item of items) {
                       const unitName = item.metadata[UnitConstants.UNIT_NAME];
-                      if (unitName) {
-                        (item as any).text.plainText = unitName;
+                      const textItem = item as typeof item & { text?: { plainText?: string } };
+                      if (unitName && textItem.text) {
+                        textItem.text.plainText = String(unitName);
                       }
                     }
                   });
@@ -496,7 +497,10 @@ export const SettingsPage = () => {
                   LOGGER.log('Hiding names on tokens');
                   await OBR.scene.items.updateItems(unitsInList, (items) => {
                     for (let item of items) {
-                      (item as any).text.plainText = '';
+                      const textItem = item as typeof item & { text?: { plainText?: string } };
+                      if (textItem.text) {
+                        textItem.text.plainText = '';
+                      }
                     }
                   });
                 }

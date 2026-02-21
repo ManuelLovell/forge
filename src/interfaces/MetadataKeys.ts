@@ -18,6 +18,7 @@ export class UnitConstants {
   static UNIT_NAME = `${EXTENSION_ID}/name`;
   static INITIATIVE = `${EXTENSION_ID}/init`;
   static BOSS_MODE = `${EXTENSION_ID}/bossmod`;
+  static PORTRAIT_URL = `${EXTENSION_ID}/porturl`;
 }
 
 export class SettingsConstants {
@@ -49,6 +50,10 @@ export class SettingsConstants {
   static SHOW_NAMES = `${EXTENSION_ID}/showname`;
   static SHOW_TURN_EFFECT = `${EXTENSION_ID}/showturn`;
   static USE_DESCRIPTIVE_DUPLICATES = `${EXTENSION_ID}/usedescd`;
+  static PARTY_HUD_OPEN = `${EXTENSION_ID}/phudopen`;
+  static PARTY_HUD_ORIENTATION = `${EXTENSION_ID}/phudori`;
+  static PARTY_HUD_ATTR_ONE = `${EXTENSION_ID}/phudat1`;
+  static PARTY_HUD_ATTR_TWO = `${EXTENSION_ID}/phudat2`;
 
   // Dice Controls
   static ENABLE_RUMBLE = `${EXTENSION_ID}/enabrumb`;

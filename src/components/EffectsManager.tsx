@@ -9,11 +9,12 @@ import LOGGER from '../helpers/Logger';
 import { PopupModal } from './PopupModal';
 import { useForgeTheme } from '../helpers/ThemeContext';
 
-const EFFECTS_METADATA_KEY = `${EXTENSION_ID}/effects`;
+export const EFFECTS_METADATA_KEY = `${EXTENSION_ID}/effects`;
 const EFFECTS_NOTIFICATION_CHANNEL = `${EXTENSION_ID}/effects-expired`;
 
 export type EffectDurationType = 'turns' | 'rounds';
 export type EffectEndTiming = 'start' | 'end';
+export type TrackedEffectType = 'neutral' | 'buff' | 'debuff';
 
 export interface TrackedEffect {
   id: string;
@@ -21,6 +22,8 @@ export interface TrackedEffect {
   remaining: number;
   durationType: EffectDurationType;
   endTiming: EffectEndTiming;
+  effectType: TrackedEffectType;
+  targets: string[];
   createdByName: string;
   createdById?: string;
 }
@@ -46,11 +49,16 @@ const EffectsSection = styled.div`
   gap: 10px;
 `;
 
+const EffectsFormRows = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
 const EffectsFormRow = styled.div`
   display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: space-between;
   align-items: flex-end;
 `;
 
@@ -58,6 +66,15 @@ const EffectsField = styled.div`
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1 1 0;
+  min-width: 0;
+`;
+
+const EffectsButtonCell = styled.div`
+  flex: 0 0 120px;
+  min-width: 120px;
+  display: flex;
+  align-items: flex-end;
 `;
 
 const EffectsFieldLabel = styled.label<{ theme: ForgeTheme }>`
@@ -75,7 +92,9 @@ const EffectsInput = styled.input<{ theme: ForgeTheme }>`
   color: ${props => props.theme.PRIMARY};
   padding: 6px 8px;
   font-size: 13px;
-  min-width: 150px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 
   &:focus {
     outline: none;
@@ -88,6 +107,9 @@ const EffectsSelect = styled.select<{ theme: ForgeTheme }>`
   border: 1px solid ${props => props.theme.BORDER};
   border-radius: 4px;
   color: ${props => props.theme.PRIMARY};
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 6px 8px;
   height: 38px;
   font-size: 13px;
@@ -103,6 +125,12 @@ const EffectsSelect = styled.select<{ theme: ForgeTheme }>`
   }
 `;
 
+const EffectsMultiSelect = styled(EffectsSelect)`
+  min-width: 180px;
+  height: 96px;
+  padding-right: 8px;
+`;
+
 const EffectsButton = styled.button<{ theme: ForgeTheme }>`
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid ${props => props.theme.BORDER};
@@ -112,6 +140,7 @@ const EffectsButton = styled.button<{ theme: ForgeTheme }>`
   padding: 6px 10px;
   cursor: pointer;
   font-size: 13px;
+  width: auto;
 
   &:hover {
     background: ${props => rgbaFromHex(props.theme.OFFSET, 0.5)};
@@ -222,6 +251,14 @@ const parseTrackedEffects = (rawValue: unknown): TrackedEffect[] => {
     const remaining = Number.isFinite(remainingRaw) ? Math.max(0, Math.trunc(remainingRaw)) : 0;
     const durationType: EffectDurationType = effect.durationType === 'turns' ? 'turns' : 'rounds';
     const endTiming: EffectEndTiming = effect.endTiming === 'end' ? 'end' : 'start';
+    const effectType: TrackedEffectType = effect.effectType === 'buff'
+      ? 'buff'
+      : effect.effectType === 'debuff'
+        ? 'debuff'
+        : 'neutral';
+    const targets = Array.isArray(effect.targets)
+      ? Array.from(new Set(effect.targets.filter((targetId): targetId is string => typeof targetId === 'string' && targetId.length > 0)))
+      : [];
 
     if (!name || !remaining) {
       return acc;
@@ -233,6 +270,8 @@ const parseTrackedEffects = (rawValue: unknown): TrackedEffect[] => {
       remaining,
       durationType,
       endTiming,
+      effectType,
+      targets,
       createdByName: typeof effect.createdByName === 'string' && effect.createdByName
         ? effect.createdByName
         : 'Unknown',
@@ -261,6 +300,8 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
   const [effectDurationInput, setEffectDurationInput] = useState('1');
   const [effectDurationType, setEffectDurationType] = useState<EffectDurationType>('rounds');
   const [effectEndTiming, setEffectEndTiming] = useState<EffectEndTiming>('start');
+  const [effectType, setEffectType] = useState<TrackedEffectType>('neutral');
+  const [effectTargetIds, setEffectTargetIds] = useState<string[]>([]);
   const [effectsModalError, setEffectsModalError] = useState<string | null>(null);
 
   const effectsByUnitId = useMemo(() => {
@@ -395,6 +436,8 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
     setEffectDurationInput('1');
     setEffectDurationType('rounds');
     setEffectEndTiming('start');
+    setEffectType('neutral');
+    setEffectTargetIds([unitId]);
     setEffectsModalUnitId(unitId);
   };
 
@@ -421,6 +464,12 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
       return;
     }
 
+    const validTargetIds = Array.from(new Set(effectTargetIds.filter((targetId) => units.some((unit) => unit.id === targetId))));
+    if (validTargetIds.length === 0) {
+      setEffectsModalError('Select at least one target.');
+      return;
+    }
+
     const effects = getEffectsForUnit(effectsModalUnitId);
     const sourceTokenName = selectedEffectsUnit?.name
       || items.find((item) => item.id === effectsModalUnitId)?.name
@@ -432,6 +481,8 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
       remaining: durationValue,
       durationType: effectDurationType,
       endTiming: effectEndTiming,
+      effectType,
+      targets: validTargetIds,
       createdByName: sourceTokenName,
       createdById: effectsModalUnitId,
     };
@@ -440,6 +491,12 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
     setEffectsModalError(null);
     setEffectNameInput('');
     setEffectDurationInput('1');
+    setEffectType('neutral');
+    setEffectTargetIds([effectsModalUnitId]);
+  };
+
+  const handleTargetSelectionChange = (nextTargetIds: string[]) => {
+    setEffectTargetIds(Array.from(new Set(nextTargetIds)));
   };
 
   const handleDeleteEffect = async (effectId: string) => {
@@ -478,7 +535,12 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
     setEffectDurationType,
     effectEndTiming,
     setEffectEndTiming,
+    effectType,
+    setEffectType,
+    effectTargetIds,
+    setEffectTargetIds: handleTargetSelectionChange,
     effectsModalError,
+    units,
     getEffectsForUnit,
     handleOpenEffectsModal,
     handleCloseEffectsModal,
@@ -494,61 +556,136 @@ interface EffectsManagerModalProps {
 
 export const EffectsManagerModal: React.FC<EffectsManagerModalProps> = ({ manager }) => {
   const { theme } = useForgeTheme();
+  const targetsById = useMemo(() => {
+    const map = new Map<string, string>();
+    manager.units.forEach((unit) => {
+      map.set(unit.id, unit.name);
+    });
+    return map;
+  }, [manager.units]);
+
+  const getEffectTypeLabel = (effectType: TrackedEffectType) => {
+    if (effectType === 'buff') {
+      return 'Buff';
+    }
+    if (effectType === 'debuff') {
+      return 'Debuff';
+    }
+    return 'Neutral';
+  };
+
+  const getTargetsLabel = (targets: string[]) => {
+    if (targets.length === 0) {
+      return 'No targets';
+    }
+
+    const names = targets
+      .map((targetId) => targetsById.get(targetId))
+      .filter((name): name is string => typeof name === 'string' && name.length > 0);
+
+    if (names.length === 0) {
+      return `${targets.length} target${targets.length === 1 ? '' : 's'}`;
+    }
+
+    if (names.length <= 2) {
+      return names.join(', ');
+    }
+
+    return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+  };
 
   return (
     <PopupModal
       isOpen={!!manager.effectsModalUnitId}
       title={manager.selectedEffectsUnit ? `Effects: ${manager.selectedEffectsUnit.name}` : 'Effects'}
       onClose={manager.handleCloseEffectsModal}
-      maxWidth="620px"
+      minWidth="520px"
+      maxWidth="600px"
     >
       <EffectsSection>
-        <EffectsFormRow>
-          <EffectsField>
-            <EffectsFieldLabel theme={theme}>Effect</EffectsFieldLabel>
-            <EffectsInput
-              theme={theme}
-              type="text"
-              placeholder="Name"
-              value={manager.effectNameInput}
-              onChange={(e) => manager.setEffectNameInput(e.target.value)}
-            />
-          </EffectsField>
-          <EffectsField>
-            <EffectsFieldLabel theme={theme}>Duration</EffectsFieldLabel>
-            <EffectsInput
-              theme={theme}
-              type="number"
-              min={1}
-              value={manager.effectDurationInput}
-              onChange={(e) => manager.setEffectDurationInput(e.target.value)}
-              style={{ minWidth: '64px', width: '74px' }}
-            />
-          </EffectsField>
-          <EffectsField>
-            <EffectsFieldLabel theme={theme}>Unit</EffectsFieldLabel>
-            <EffectsSelect
-              theme={theme}
-              value={manager.effectDurationType}
-              onChange={(e) => manager.setEffectDurationType(e.target.value as EffectDurationType)}
-            >
-              <option value="turns">Turns</option>
-              <option value="rounds">Rounds</option>
-            </EffectsSelect>
-          </EffectsField>
-          <EffectsField>
-            <EffectsFieldLabel theme={theme}>Ends at</EffectsFieldLabel>
-            <EffectsSelect
-              theme={theme}
-              value={manager.effectEndTiming}
-              onChange={(e) => manager.setEffectEndTiming(e.target.value as EffectEndTiming)}
-            >
-              <option value="start">Start of turn</option>
-              <option value="end">End of turn</option>
-            </EffectsSelect>
-          </EffectsField>
-          <EffectsButton theme={theme} onClick={manager.handleAddEffect}>Add</EffectsButton>
-        </EffectsFormRow>
+        <EffectsFormRows>
+          <EffectsFormRow>
+            <EffectsField style={{ flex: '0 0 120px' }}>
+              <EffectsFieldLabel theme={theme}>Effect</EffectsFieldLabel>
+              <EffectsInput
+                theme={theme}
+                type="text"
+                placeholder="Name"
+                value={manager.effectNameInput}
+                onChange={(e) => manager.setEffectNameInput(e.target.value)}
+              />
+            </EffectsField>
+            <EffectsField style={{ flex: '0 0 140px' }}>
+              <EffectsFieldLabel theme={theme}>Duration</EffectsFieldLabel>
+              <EffectsInput
+                theme={theme}
+                type="number"
+                min={1}
+                value={manager.effectDurationInput}
+                onChange={(e) => manager.setEffectDurationInput(e.target.value)}
+              />
+            </EffectsField>
+            <EffectsField style={{ flex: '0 0 120px' }}>
+              <EffectsFieldLabel theme={theme}>By</EffectsFieldLabel>
+              <EffectsSelect
+                theme={theme}
+                value={manager.effectDurationType}
+                onChange={(e) => manager.setEffectDurationType(e.target.value as EffectDurationType)}
+              >
+                <option value="turns">Turns</option>
+                <option value="rounds">Rounds</option>
+              </EffectsSelect>
+            </EffectsField>
+          </EffectsFormRow>
+
+          <EffectsFormRow>
+            <EffectsField style={{ flex: '0 0 120px' }}>
+              <EffectsFieldLabel theme={theme}>Type</EffectsFieldLabel>
+              <EffectsSelect
+                theme={theme}
+                value={manager.effectType}
+                onChange={(e) => manager.setEffectType(e.target.value as TrackedEffectType)}
+              >
+                <option value="neutral">Neutral</option>
+                <option value="buff">Buff</option>
+                <option value="debuff">Debuff</option>
+              </EffectsSelect>
+            </EffectsField>
+            <EffectsField style={{ flex: '0 0 140px' }}>
+              <EffectsFieldLabel theme={theme}>Ends at</EffectsFieldLabel>
+              <EffectsSelect
+                theme={theme}
+                value={manager.effectEndTiming}
+                onChange={(e) => manager.setEffectEndTiming(e.target.value as EffectEndTiming)}
+              >
+                <option value="start">Start of turn</option>
+                <option value="end">End of turn</option>
+              </EffectsSelect>
+            </EffectsField>
+            <EffectsButtonCell>
+              <EffectsButton theme={theme} onClick={manager.handleAddEffect} style={{ width: '100%' }}>Add</EffectsButton>
+            </EffectsButtonCell>
+          </EffectsFormRow>
+        </EffectsFormRows>
+
+        <EffectsField>
+          <EffectsFieldLabel theme={theme}>Targets</EffectsFieldLabel>
+          <EffectsMultiSelect
+            theme={theme}
+            multiple
+            value={manager.effectTargetIds}
+            onChange={(e) => {
+              const values = Array.from(e.target.selectedOptions).map((option) => option.value);
+              manager.setEffectTargetIds(values);
+            }}
+          >
+            {manager.units.map((unit) => (
+              <option key={unit.id} value={unit.id}>
+                {unit.name}
+              </option>
+            ))}
+          </EffectsMultiSelect>
+        </EffectsField>
 
         {manager.effectsModalError && <EffectsError theme={theme}>{manager.effectsModalError}</EffectsError>}
 
@@ -561,7 +698,10 @@ export const EffectsManagerModal: React.FC<EffectsManagerModalProps> = ({ manage
                 <div>
                   <EffectName theme={theme}>{effect.name}</EffectName>
                   <EffectItemMeta theme={theme}>
-                    {effect.remaining} {effect.durationType} • ends at {effect.endTiming === 'start' ? 'start of turn' : 'end of turn'} • by {effect.createdByName}
+                    {getEffectTypeLabel(effect.effectType)} • {effect.remaining} {effect.durationType} • ends at {effect.endTiming === 'start' ? 'start of turn' : 'end of turn'} • by {effect.createdByName}
+                  </EffectItemMeta>
+                  <EffectItemMeta theme={theme}>
+                    Targets: {getTargetsLabel(effect.targets)}
                   </EffectItemMeta>
                 </div>
                 <EffectsButton

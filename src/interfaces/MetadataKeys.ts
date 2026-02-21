@@ -42,6 +42,8 @@ export class SettingsConstants {
   static HP_BAR_ORIENTATION = `${EXTENSION_ID}/hporient`;
   static HP_CURRENT_BID = `${EXTENSION_ID}/hpcurrbid`;
   static HP_MAX_BID = `${EXTENSION_ID}/hpmaxbid`;
+  static BUFF_VISUAL_PRESET = `${EXTENSION_ID}/buffvis`;
+  static DEBUFF_VISUAL_PRESET = `${EXTENSION_ID}/debfvis`;
   static SHOW_HP_NUMBERS = `${EXTENSION_ID}/showhpnum`;
   static SHOW_NAMES = `${EXTENSION_ID}/showname`;
   static SHOW_TURN_EFFECT = `${EXTENSION_ID}/showturn`;

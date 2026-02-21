@@ -14,6 +14,14 @@ import { Upload, X } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import LOGGER from '../helpers/Logger';
 import { SettingsConstants } from '../interfaces/MetadataKeys';
+import {
+  BUFF_VISUAL_PRESET_OPTIONS,
+  DEBUFF_VISUAL_PRESET_OPTIONS,
+  DEFAULT_BUFF_VISUAL_PRESET,
+  DEFAULT_DEBUFF_VISUAL_PRESET,
+  isBuffVisualPreset,
+  isDebuffVisualPreset,
+} from '../helpers/EffectVisualPresets';
 
 const EXTENSION_ID = OwlbearIds.EXTENSIONID;
 const BACKUP_KEY_PREFIX = 'com.battle-system.forge';
@@ -304,6 +312,8 @@ export const SystemPage = () => {
   const [systemAttributes, setSystemAttributes] = useState<SystemAttribute[]>([]);
   const [hpCurrentBid, setHpCurrentBid] = useState('');
   const [hpMaxBid, setHpMaxBid] = useState('');
+  const [buffVisualPreset, setBuffVisualPreset] = useState(DEFAULT_BUFF_VISUAL_PRESET);
+  const [debuffVisualPreset, setDebuffVisualPreset] = useState(DEFAULT_DEBUFF_VISUAL_PRESET);
 
   // Backup management
   const [backups, setBackups] = useState<SystemBackup[]>([]);
@@ -331,6 +341,8 @@ export const SystemPage = () => {
       const importDate = sceneMetadata[SystemKeys.IMPORT_DATE] as string || null;
       const configuredCurrentHpBid = sceneMetadata[SettingsConstants.HP_CURRENT_BID] as string | undefined;
       const configuredMaxHpBid = sceneMetadata[SettingsConstants.HP_MAX_BID] as string | undefined;
+      const configuredBuffVisualPreset = sceneMetadata[SettingsConstants.BUFF_VISUAL_PRESET];
+      const configuredDebuffVisualPreset = sceneMetadata[SettingsConstants.DEBUFF_VISUAL_PRESET];
 
       const attributes = Array.isArray(attrMeta) ? attrMeta : [];
 
@@ -340,6 +352,8 @@ export const SystemPage = () => {
       setSystemAttributes(attributes);
       setHpCurrentBid(configuredCurrentHpBid || '');
       setHpMaxBid(configuredMaxHpBid || '');
+      setBuffVisualPreset(isBuffVisualPreset(configuredBuffVisualPreset) ? configuredBuffVisualPreset : DEFAULT_BUFF_VISUAL_PRESET);
+      setDebuffVisualPreset(isDebuffVisualPreset(configuredDebuffVisualPreset) ? configuredDebuffVisualPreset : DEFAULT_DEBUFF_VISUAL_PRESET);
 
     } catch (err) {
       LOGGER.error('Error loading system from cache:', err);
@@ -723,7 +737,7 @@ export const SystemPage = () => {
             </SwatchContainer>
 
             <MappingSection theme={theme}>
-              <MappingTitle theme={theme}>Health Attribute Mapping</MappingTitle>
+              <MappingTitle theme={theme}>System Settings</MappingTitle>
               <MappingRow>
                 <MappingLabel theme={theme}>Current HP</MappingLabel>
                 <MappingSelect
@@ -758,6 +772,48 @@ export const SystemPage = () => {
                   {numericAttributes.map((attribute) => (
                     <option key={attribute.attr_bid} value={attribute.attr_bid}>
                       {attribute.attr_abbr} — {attribute.attr_name}
+                    </option>
+                  ))}
+                </MappingSelect>
+              </MappingRow>
+              <MappingRow>
+                <MappingLabel theme={theme}>Buff Visual</MappingLabel>
+                <MappingSelect
+                  theme={theme}
+                  value={buffVisualPreset}
+                  onChange={async (e) => {
+                    const value = e.target.value;
+                    if (!isBuffVisualPreset(value)) {
+                      return;
+                    }
+                    setBuffVisualPreset(value);
+                    await saveHpAttributeMapping(SettingsConstants.BUFF_VISUAL_PRESET, value);
+                  }}
+                >
+                  {BUFF_VISUAL_PRESET_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </MappingSelect>
+              </MappingRow>
+              <MappingRow>
+                <MappingLabel theme={theme}>Debuff Visual</MappingLabel>
+                <MappingSelect
+                  theme={theme}
+                  value={debuffVisualPreset}
+                  onChange={async (e) => {
+                    const value = e.target.value;
+                    if (!isDebuffVisualPreset(value)) {
+                      return;
+                    }
+                    setDebuffVisualPreset(value);
+                    await saveHpAttributeMapping(SettingsConstants.DEBUFF_VISUAL_PRESET, value);
+                  }}
+                >
+                  {DEBUFF_VISUAL_PRESET_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </MappingSelect>

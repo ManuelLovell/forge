@@ -17,6 +17,7 @@ export class UnitConstants {
   static FABRICATED = `${EXTENSION_ID}/fabd`;
   static UNIT_NAME = `${EXTENSION_ID}/name`;
   static INITIATIVE = `${EXTENSION_ID}/init`;
+  static BOSS_MODE = `${EXTENSION_ID}/bossmod`;
 }
 
 export class SettingsConstants {

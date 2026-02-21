@@ -483,6 +483,60 @@ const OwnerPickerError = styled.p<{ theme: ForgeTheme }>`
   font-size: 13px;
 `;
 
+const OwnerModalSeparator = styled.div<{ theme: ForgeTheme }>`
+  height: 1px;
+  margin: 12px 0;
+  background: ${props => rgbaFromHex(props.theme.BORDER, 0.7)};
+`;
+
+const BossModeSection = styled.div<{ theme: ForgeTheme }>`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid ${props => props.theme.BORDER};
+  border-radius: 6px;
+  background: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.35)};
+`;
+
+const BossModeLabel = styled.div<{ theme: ForgeTheme }>`
+  color: ${props => props.theme.PRIMARY};
+  font-size: 13px;
+  font-weight: 600;
+`;
+
+const BossModeHint = styled.div<{ theme: ForgeTheme }>`
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.75)};
+  font-size: 11px;
+`;
+
+const BossModeButton = styled.button<{ theme: ForgeTheme; $active?: boolean }>`
+  min-width: 110px;
+  height: 32px;
+  border: 1px solid ${props => props.theme.BORDER};
+  border-radius: 6px;
+  color: ${props => props.theme.PRIMARY};
+  background: ${props => props.$active
+    ? rgbaFromHex(props.theme.OFFSET, 0.55)
+    : rgbaFromHex(props.theme.BACKGROUND, 0.45)};
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+
+  &:hover {
+    background: ${props => props.$active
+    ? rgbaFromHex(props.theme.OFFSET, 0.7)
+    : rgbaFromHex(props.theme.OFFSET, 0.45)};
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+`;
+
 const ListReferenceSection = styled.div`
   display: flex;
   flex-direction: column;
@@ -622,6 +676,7 @@ export const InitiativeList: React.FC = () => {
   const [ownerModalUnitId, setOwnerModalUnitId] = useState<string | null>(null);
   const [ownerModalError, setOwnerModalError] = useState<string | null>(null);
   const [isAssigningOwner, setIsAssigningOwner] = useState(false);
+  const [isUpdatingBossMode, setIsUpdatingBossMode] = useState(false);
   const [initiativeDrafts, setInitiativeDrafts] = useState<Record<string, string>>({});
   const [elevationDrafts, setElevationDrafts] = useState<Record<string, string>>({});
   const [listReferenceModal, setListReferenceModal] = useState<ListReferenceModalState | null>(null);
@@ -1424,6 +1479,65 @@ export const InitiativeList: React.FC = () => {
     }
   };
 
+  const handleToggleBossMode = async () => {
+    if (!ownerModalUnitId) {
+      return;
+    }
+
+    const targetItem = items.find((item) => item.id === ownerModalUnitId);
+    if (!targetItem) {
+      setOwnerModalError('Token not found in scene cache.');
+      return;
+    }
+
+    const isCurrentlyBoss = targetItem.metadata?.[UnitConstants.BOSS_MODE] === true;
+    const nextBossState = !isCurrentlyBoss;
+
+    if (nextBossState) {
+      const existingBossCount = items.filter((item) => {
+        return item.id !== ownerModalUnitId
+          && item.metadata?.[UnitConstants.ON_LIST] === true
+          && item.metadata?.[UnitConstants.BOSS_MODE] === true;
+      }).length;
+
+      if (existingBossCount >= 2) {
+        setOwnerModalError('A maximum of 2 bosses can be enabled at once.');
+        return;
+      }
+    }
+
+    setIsUpdatingBossMode(true);
+    setOwnerModalError(null);
+
+    try {
+      await OBR.scene.items.updateItems([ownerModalUnitId], (itemsToUpdate) => {
+        const targetMetadata = { ...(itemsToUpdate[0].metadata || {}) };
+        targetMetadata[UnitConstants.BOSS_MODE] = nextBossState;
+        itemsToUpdate[0].metadata = targetMetadata;
+      });
+
+      const updatedItems = items.map((item) => {
+        if (item.id !== ownerModalUnitId) {
+          return item;
+        }
+
+        return {
+          ...item,
+          metadata: {
+            ...(item.metadata || {}),
+            [UnitConstants.BOSS_MODE]: nextBossState,
+          },
+        };
+      });
+      setItems(updatedItems);
+    } catch (error) {
+      LOGGER.error('Failed to toggle boss mode', ownerModalUnitId, error);
+      setOwnerModalError('Unable to update boss mode for this token.');
+    } finally {
+      setIsUpdatingBossMode(false);
+    }
+  };
+
   const selectedOwnerUnit = useMemo(
     () => (ownerModalUnitId ? sortedUnits.find((unit) => unit.id === ownerModalUnitId) || null : null),
     [ownerModalUnitId, sortedUnits]
@@ -1433,6 +1547,8 @@ export const InitiativeList: React.FC = () => {
     () => (ownerModalUnitId ? items.find((item) => item.id === ownerModalUnitId) || null : null),
     [ownerModalUnitId, items]
   );
+
+  const selectedOwnerIsBoss = selectedOwnerItem?.metadata?.[UnitConstants.BOSS_MODE] === true;
 
   const selectedListReferenceUnit = useMemo(
     () => (listReferenceModal ? sortedUnits.find((unit) => unit.id === listReferenceModal.unitId) || null : null),
@@ -2090,16 +2206,17 @@ export const InitiativeList: React.FC = () => {
         isOpen={!!ownerModalUnitId}
         title={selectedOwnerUnit ? `Unit: ${selectedOwnerUnit.name}` : 'Unit'}
         onClose={() => {
-          if (isAssigningOwner) return;
+          if (isAssigningOwner || isUpdatingBossMode) return;
           setOwnerModalUnitId(null);
           setOwnerModalError(null);
         }}
-        closeOnOverlayClick={!isAssigningOwner}
+        closeOnOverlayClick={!isAssigningOwner && !isUpdatingBossMode}
         maxWidth="520px"
       >
         <OwnerPickerHint theme={theme}>
           Select a player to become the owner.
         </OwnerPickerHint>
+
         <OwnerPickerList>
           {availablePlayers.map((player) => (
             <OwnerPickerButton
@@ -2107,13 +2224,32 @@ export const InitiativeList: React.FC = () => {
               theme={theme}
               $isCurrent={selectedOwnerItem?.createdUserId === player.id}
               onClick={() => handleAssignOwner(player.id)}
-              disabled={isAssigningOwner}
+              disabled={isAssigningOwner || isUpdatingBossMode}
             >
               {player.name}
               {selectedOwnerItem?.createdUserId === player.id ? ' (current)' : ''}
             </OwnerPickerButton>
           ))}
         </OwnerPickerList>
+
+        <OwnerModalSeparator theme={theme} />
+
+        <BossModeSection theme={theme}>
+          <div>
+            <BossModeLabel theme={theme}>Boss Mode</BossModeLabel>
+            <BossModeHint theme={theme}>Shows a large encounter HP bar in scene (max 2 bosses).</BossModeHint>
+          </div>
+          <BossModeButton
+            theme={theme}
+            $active={selectedOwnerIsBoss}
+            disabled={isAssigningOwner || isUpdatingBossMode}
+            onClick={() => {
+              void handleToggleBossMode();
+            }}
+          >
+            {isUpdatingBossMode ? 'Updating...' : selectedOwnerIsBoss ? 'Enabled' : 'Disabled'}
+          </BossModeButton>
+        </BossModeSection>
         {ownerModalError && <OwnerPickerError theme={theme}>{ownerModalError}</OwnerPickerError>}
       </PopupModal>
 

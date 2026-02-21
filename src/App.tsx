@@ -12,6 +12,7 @@ import { InitiativeList } from './components/InitiativeList';
 import { PartyPage } from './components/PartyPage';
 import { HpBarEffectManager } from './components/HpBarEffectManager';
 import { EffectsTokenVisualManager } from './components/EffectsTokenVisualManager';
+import { BossHpViewportEffectManager } from './components/BossHpViewportEffectManager';
 import { useForgeTheme } from './helpers/ThemeContext';
 import { useAppInitialization } from './helpers/useAppInitialization';
 import GlobalStyles from './styles/GlobalStyles';
@@ -107,6 +108,7 @@ function App() {
         <AppContainer>
           <HpBarEffectManager />
           <EffectsTokenVisualManager />
+          <BossHpViewportEffectManager />
           <ContentArea theme={theme} $backgroundUrl={theme.BACKGROUND_URL}>
             <AnimatePresence mode="wait">
               {renderPage()}

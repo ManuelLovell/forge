@@ -46,16 +46,17 @@ half4 main(float2 coord) {
     // Transparent black background: alpha follows light intensity.
     float light = max(col.r, max(col.g, col.b));
     float alpha = clamp(light * 0.55, 0.0, 0.45);
+    float globalOpacity = 2.5;
 
     // Circular edge trim: fully transparent by 90% radius from center.
     float minDimension = max(min(size.x, size.y), 1.0);
     float radialNormalized = length((coord - size.xy * 0.5) / (minDimension * 0.5));
     float edgeFade = 1.0 - smoothstep(0.72, 0.90, radialNormalized);
-    alpha *= edgeFade * 0.75;
+    alpha *= edgeFade * 0.75 * globalOpacity;
 
     // Avoid harsh white clipping and keep highlights soft.
     float3 softColor = col / (float3(1.0) + col * 1.35);
     softColor *= 0.9;
-    return half4(softColor, alpha);
+    return half4(softColor * alpha, alpha);
 }
 `;

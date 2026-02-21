@@ -94,7 +94,6 @@ export const SettingsPage = () => {
   // Player Controls state
   const [showPlayerView, setShowPlayerView] = useState(false);
   const [showNonPartyUnits, setShowNonPartyUnits] = useState(false);
-  const [showHpColorIndicator, setShowHpColorIndicator] = useState(false);
   const [showOwnerOnlyEdit, setShowOwnerOnlyEdit] = useState(false);
 
   // Game Controls state
@@ -145,9 +144,6 @@ export const SettingsPage = () => {
     }
     if (storageContainer[SettingsConstants.SHOW_NON_PARTY_UNITS] !== undefined) {
       setShowNonPartyUnits(storageContainer[SettingsConstants.SHOW_NON_PARTY_UNITS] as boolean);
-    }
-    if (storageContainer[SettingsConstants.SHOW_HP_COLOR_INDICATOR] !== undefined) {
-      setShowHpColorIndicator(storageContainer[SettingsConstants.SHOW_HP_COLOR_INDICATOR] as boolean);
     }
     if (storageContainer[SettingsConstants.SHOW_HP_BARS] !== undefined) {
       setShowHpBars(storageContainer[SettingsConstants.SHOW_HP_BARS] as boolean);
@@ -380,18 +376,6 @@ export const SettingsPage = () => {
               onChange={async (value) => {
                 setShowNonPartyUnits(value);
                 await saveData(SettingsConstants.SHOW_NON_PARTY_UNITS, value);
-              }}
-            />
-          </ControlRow>
-
-          <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show HP Color Indicator</ControlLabel>
-            <ToggleControl
-              label="Show HP Color Indicator"
-              isOn={showHpColorIndicator}
-              onChange={async (value) => {
-                setShowHpColorIndicator(value);
-                await saveData(SettingsConstants.SHOW_HP_COLOR_INDICATOR, value);
               }}
             />
           </ControlRow>

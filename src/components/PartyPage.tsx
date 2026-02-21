@@ -8,6 +8,7 @@ import { useSystemData } from '../helpers/useSystemData';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { PageContainer, PageTitle } from './SharedStyledComponents';
+import { ToggleControl } from './ToggleControl';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 
 type PartyHudOrientation = 'bottom' | 'left' | 'top' | 'right';
@@ -33,8 +34,24 @@ const PartyControls = styled.div<{ theme: ForgeTheme }>`
 
 const ControlRow = styled.div`
   display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
+`;
+
+const CenteredControlRow = styled(ControlRow)`
+  justify-content: center;
+`;
+
+const ControlLabel = styled.span<{ theme: ForgeTheme }>`
+  display: block;
+  flex-basis: 100%;
+  width: 100%;
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.9)};
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
 `;
 
 const ControlButton = styled.button<{ theme: ForgeTheme }>`
@@ -68,6 +85,18 @@ const ControlHint = styled.p<{ theme: ForgeTheme }>`
   color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.8)};
 `;
 
+const ToggleRow = styled.div<{ $disabled: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: ${props => props.$disabled ? 0.55 : 1};
+`;
+
+const ToggleLabel = styled.span<{ theme: ForgeTheme }>`
+  color: ${props => props.theme.PRIMARY};
+  font-size: 12px;
+`;
+
 const PartyItem = styled.div<{ theme: ForgeTheme }>`
   display: flex;
   align-items: flex-start;
@@ -85,10 +114,10 @@ const TokenImageStack = styled.div`
   min-width: 60px;
 `;
 
-const TokenImage = styled.img<{ theme: ForgeTheme; $overlay?: boolean }>`
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
+const TokenImage = styled.img<{ theme: ForgeTheme; $overlay?: boolean; $full?: boolean }>`
+  width: ${props => props.$full ? '100%' : '40px'};
+  height: ${props => props.$full ? '100%' : '40px'};
+  min-width: ${props => props.$full ? '100%' : '40px'};
   position: absolute;
   left: ${props => props.$overlay ? '20px' : '0'};
   top: ${props => props.$overlay ? '20px' : '0'};
@@ -179,6 +208,9 @@ export const PartyPage = () => {
     : 'bottom';
   const extraAttrOne = (storageContainer[SettingsConstants.PARTY_HUD_ATTR_ONE] as string | undefined) || '';
   const extraAttrTwo = (storageContainer[SettingsConstants.PARTY_HUD_ATTR_TWO] as string | undefined) || '';
+  const showPartyHudHpBars = storageContainer[SettingsConstants.PARTY_HUD_SHOW_HP_BARS] === true;
+  const showPartyHudHpNumbers = storageContainer[SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS] === true
+    && !showPartyHudHpBars;
 
   const partyItems = items.filter((item) => item.metadata[UnitConstants.IN_PARTY] === true);
 
@@ -277,15 +309,44 @@ export const PartyPage = () => {
         <PageTitle theme={theme}>Party</PageTitle>
         <PartyControls theme={theme}>
           <ControlRow>
+            <ControlButton theme={theme} onClick={() => void handleCycleOrientation()} disabled={!isCurrentUserGm}>
+              Display: {hudOrientation.toUpperCase()}
+            </ControlButton>
             <ControlButton theme={theme} onClick={() => void handleToggleHudOpen()} disabled={!isCurrentUserGm}>
               {hudOpen ? 'Close Party HUD' : 'Open Party HUD'}
             </ControlButton>
-            <ControlButton theme={theme} onClick={() => void handleCycleOrientation()} disabled={!isCurrentUserGm}>
-              Orientation: {hudOrientation.toUpperCase()}
-            </ControlButton>
           </ControlRow>
 
-          <ControlRow>
+          <CenteredControlRow>
+            <ControlLabel theme={theme}>Show in HUD:</ControlLabel>
+            <ToggleRow $disabled={!isCurrentUserGm}>
+              <ToggleLabel theme={theme}>Show HP Bars</ToggleLabel>
+              <ToggleControl
+                label="Party HUD Show HP Bars"
+                isOn={showPartyHudHpBars}
+                onChange={(next) => {
+                  if (!isCurrentUserGm) return;
+                  void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_BARS, next);
+                  if (next) {
+                    void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS, false);
+                  }
+                }}
+              />
+            </ToggleRow>
+            <ToggleRow $disabled={!isCurrentUserGm}>
+              <ToggleLabel theme={theme}>Show HP Numbers</ToggleLabel>
+              <ToggleControl
+                label="Party HUD Show HP Numbers"
+                isOn={showPartyHudHpNumbers}
+                onChange={(next) => {
+                  if (!isCurrentUserGm) return;
+                  void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS, next);
+                  if (next) {
+                    void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_BARS, false);
+                  }
+                }}
+              />
+            </ToggleRow>
             <ControlSelect
               theme={theme}
               disabled={!isCurrentUserGm}
@@ -325,11 +386,15 @@ export const PartyPage = () => {
                 </option>
               ))}
             </ControlSelect>
-          </ControlRow>
+          </CenteredControlRow>
 
           <ControlHint theme={theme}>
             {isCurrentUserGm
-              ? 'Configure Party HUD and portraits. LIST attributes are excluded.'
+              ? <>
+                Configure Party HUD and portraits.
+                <br />
+                LIST attributes are excluded.
+              </>
               : 'Only the GM can configure Party HUD settings.'}
           </ControlHint>
         </PartyControls>
@@ -355,6 +420,7 @@ export const PartyPage = () => {
                       theme={theme}
                       src={basePortrait}
                       alt={unitName}
+                      $full={!hasPortraitOverride}
                     />
                     {hasPortraitOverride && (
                       <TokenImage

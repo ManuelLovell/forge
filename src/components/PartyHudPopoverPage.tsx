@@ -110,10 +110,10 @@ const MemberCard = styled.div<{ $theme: ThemeData; $orientation: PartyHudOrienta
   border-radius: 10px;
   background: ${props => rgbaFromHex(props.$theme.background, 0.58)};
   display: flex;
-  gap: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '6px' : '8px'};
+  gap: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '6px' : '0'};
   align-items: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? 'flex-start' : 'center'};
   flex-direction: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? 'column' : 'row'};
-  padding: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '6px' : '8px'};
+  padding: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '6px' : '0'};
   box-sizing: border-box;
   backdrop-filter: blur(8px);
   width: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? `${HUD_COLUMN_CARD_WIDTH_PX}px` : `${HUD_ROW_CARD_WIDTH_PX}px`};
@@ -123,24 +123,32 @@ const MemberCard = styled.div<{ $theme: ThemeData; $orientation: PartyHudOrienta
   overflow: hidden;
 `;
 
-const PortraitStack = styled.div`
+const PortraitStack = styled.div<{ $orientation: PartyHudOrientation }>`
   position: relative;
-  width: 68px;
-  height: 68px;
-  min-width: 68px;
+  width: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '68px' : '50%'};
+  height: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '68px' : '100%'};
+  min-width: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '68px' : '50%'};
+  min-height: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '68px' : '100%'};
+  overflow: hidden;
 `;
 
-const Portrait = styled.img<{ $theme: ThemeData; $overlay?: boolean; $full?: boolean }>`
-  width: ${props => props.$full ? '100%' : props.$overlay ? '56px' : '48px'};
-  height: ${props => props.$full ? '100%' : props.$overlay ? '56px' : '48px'};
-  min-width: ${props => props.$full ? '100%' : props.$overlay ? '56px' : '48px'};
+const Portrait = styled.img<{ $theme: ThemeData; $orientation: PartyHudOrientation }>`
+  width: 100%;
+  height: 100%;
+  min-width: 100%;
   position: absolute;
-  left: ${props => props.$overlay ? '12px' : '0'};
-  top: ${props => props.$overlay ? '12px' : '0'};
-  border-radius: 6px;
+  left: 0;
+  top: 0;
+  border-radius: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '6px' : '0'};
   object-fit: cover;
-  border: 2px solid ${props => props.$theme.border};
+  border: none;
   background: ${props => rgbaFromHex(props.$theme.background, 0.7)};
+  -webkit-mask-image: ${props => (props.$orientation === 'left' || props.$orientation === 'right')
+    ? 'none'
+    : 'linear-gradient(to right, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 72%, rgba(0, 0, 0, 0) 100%)'};
+  mask-image: ${props => (props.$orientation === 'left' || props.$orientation === 'right')
+    ? 'none'
+    : 'linear-gradient(to right, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 72%, rgba(0, 0, 0, 0) 100%)'};
 `;
 
 const MemberContent = styled.div<{ $orientation: PartyHudOrientation }>`
@@ -149,7 +157,9 @@ const MemberContent = styled.div<{ $orientation: PartyHudOrientation }>`
   gap: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '4px' : '3px'};
   min-width: 0;
   flex: 1;
-  width: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '100%' : 'auto'};
+  width: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '100%' : '50%'};
+  padding: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '0' : '8px'};
+  box-sizing: border-box;
   overflow: hidden;
 `;
 
@@ -175,8 +185,20 @@ const HpTrack = styled.div<{ $theme: ThemeData }>`
 const HpFill = styled.div<{ $percent: number }>`
   width: ${props => `${props.$percent}%`};
   height: 100%;
-  background: linear-gradient(90deg, #8d1717 0%, #e55328 60%, #f0cb58 100%);
-  transition: width 0.2s ease;
+  background: ${props => {
+    const hue = Math.max(0, Math.min(120, props.$percent * 1.2));
+    return `linear-gradient(90deg, hsl(${hue} 78% 35%) 0%, hsl(${hue} 82% 50%) 100%)`;
+  }};
+  transition: width 0.2s ease, background 0.2s ease;
+`;
+
+const HpNumbers = styled.div<{ $theme: ThemeData }>`
+  font-size: 10px;
+  color: ${props => rgbaFromHex(props.$theme.primary, 0.9)};
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const StatsRow = styled.div`
@@ -370,6 +392,15 @@ const PartyHudPopoverPage = () => {
   const extraAttrOne = (storage[SettingsConstants.PARTY_HUD_ATTR_ONE] as string | undefined) || '';
   const extraAttrTwo = (storage[SettingsConstants.PARTY_HUD_ATTR_TWO] as string | undefined) || '';
 
+  const hasPartyHudHpBarsSetting = storage[SettingsConstants.PARTY_HUD_SHOW_HP_BARS] !== undefined;
+  const hasPartyHudHpNumbersSetting = storage[SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS] !== undefined;
+  const partyHudHpBarsEnabled = storage[SettingsConstants.PARTY_HUD_SHOW_HP_BARS] === true;
+  const partyHudHpNumbersEnabledRaw = storage[SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS] === true;
+  const partyHudHpNumbersEnabled = partyHudHpNumbersEnabledRaw && !partyHudHpBarsEnabled;
+  const shouldUsePartyHudHpDefault = !hasPartyHudHpBarsSetting && !hasPartyHudHpNumbersSetting;
+  const showPartyHudHpBars = shouldUsePartyHudHpDefault ? true : partyHudHpBarsEnabled;
+  const showPartyHudHpNumbers = shouldUsePartyHudHpDefault ? false : partyHudHpNumbersEnabled;
+
   const extraAttributes = useMemo(() => {
     const bids = [extraAttrOne, extraAttrTwo].filter((bid, index, list) => bid && list.indexOf(bid) === index);
     return bids
@@ -457,8 +488,7 @@ const PartyHudPopoverPage = () => {
                   const portraitOverride = (item.metadata?.[UnitConstants.PORTRAIT_URL] as string | undefined) || '';
                   const tokenUrl = isImage(item) ? item.image.url : undefined;
                   const basePortrait = tokenUrl || '/logo.png';
-                  const hasPortraitOverride = Boolean(portraitOverride);
-                  const overlayPortrait = hasPortraitOverride ? portraitOverride : '';
+                  const portrait = portraitOverride || basePortrait;
 
                   const hpCurrentRaw = item.metadata?.[`${EXTENSION_ID}/${currentHpBid}`];
                   const hpMaxRaw = item.metadata?.[`${EXTENSION_ID}/${maxHpBid}`];
@@ -470,18 +500,23 @@ const PartyHudPopoverPage = () => {
 
                   return (
                     <MemberCard key={item.id} $theme={theme} $orientation={orientation}>
-                      <PortraitStack>
-                        <Portrait src={basePortrait} alt={unitName} $theme={theme} $full={!hasPortraitOverride} />
-                        {hasPortraitOverride && (
-                          <Portrait src={overlayPortrait} alt={`${unitName} override`} $theme={theme} $overlay />
-                        )}
+                      <PortraitStack $orientation={orientation}>
+                        <Portrait src={portrait} alt={unitName} $theme={theme} $orientation={orientation} />
                       </PortraitStack>
                       <MemberContent $orientation={orientation}>
                         <MemberName $theme={theme} title={unitName}>{unitName}</MemberName>
 
-                        <HpTrack $theme={theme}>
-                          <HpFill $percent={hpPercent} />
-                        </HpTrack>
+                        {showPartyHudHpBars && (
+                          <HpTrack $theme={theme}>
+                            <HpFill $percent={hpPercent} />
+                          </HpTrack>
+                        )}
+
+                        {showPartyHudHpNumbers && (
+                          <HpNumbers $theme={theme}>
+                            HP: {hpCurrent !== null ? Math.trunc(hpCurrent) : '-'} / {hpMax !== null ? Math.trunc(hpMax) : '-'}
+                          </HpNumbers>
+                        )}
 
                         {extraAttributes.length > 0 && (
                           <StatsRow>

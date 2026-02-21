@@ -36,7 +36,6 @@ export class SettingsConstants {
   // Player Controls
   static SHOW_PLAYER_VIEW = `${EXTENSION_ID}/playview`;
   static SHOW_NON_PARTY_UNITS = `${EXTENSION_ID}/npcview`;
-  static SHOW_HP_COLOR_INDICATOR = `${EXTENSION_ID}/hpcolors`;
   static SHOW_OWNER_ONLY_EDIT = `${EXTENSION_ID}/ownedit`;
 
   // Game Controls
@@ -54,6 +53,8 @@ export class SettingsConstants {
   static PARTY_HUD_ORIENTATION = `${EXTENSION_ID}/phudori`;
   static PARTY_HUD_ATTR_ONE = `${EXTENSION_ID}/phudat1`;
   static PARTY_HUD_ATTR_TWO = `${EXTENSION_ID}/phudat2`;
+  static PARTY_HUD_SHOW_HP_BARS = `${EXTENSION_ID}/phudhpb`;
+  static PARTY_HUD_SHOW_HP_NUMBERS = `${EXTENSION_ID}/phudhpn`;
 
   // Dice Controls
   static ENABLE_RUMBLE = `${EXTENSION_ID}/enabrumb`;

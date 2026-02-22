@@ -568,19 +568,18 @@ export const SettingsPage = () => {
               }}
             />
           </ControlRow>
-          {enableObrNotification && (
-            <SubControlRow theme={theme}>
-              <ControlLabel theme={theme} style={{ minWidth: 'auto' }}>Show Notification to All</ControlLabel>
-              <ToggleControl
-                label="Show Notification to All"
-                isOn={showNotificationToAll}
-                onChange={async (value) => {
-                  setShowNotificationToAll(value);
-                  await saveData(SettingsConstants.SHOW_NOTIFICATION_TO_ALL, value);
-                }}
-              />
-            </SubControlRow>
-          )}
+
+          <ControlRow theme={theme}>
+            <ControlLabel theme={theme}>Show Results to All</ControlLabel>
+            <ToggleControl
+              label="Show Results to All"
+              isOn={showNotificationToAll}
+              onChange={async (value) => {
+                setShowNotificationToAll(value);
+                await saveData(SettingsConstants.SHOW_NOTIFICATION_TO_ALL, value);
+              }}
+            />
+          </ControlRow>
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>Enable Discord Logging</ControlLabel>

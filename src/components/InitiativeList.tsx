@@ -20,6 +20,7 @@ import { PopupModal } from './PopupModal';
 import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 import { EffectsManagerModal, useEffectsManager } from './EffectsManager';
 import { ElevationSpecialCell, EffectsSpecialCell } from './InitiativeSpecialCells';
+import { requestBonesBroadcastRoll } from '../helpers/DiceRollIntegration';
 
 const ELEVATION_BADGE_FLAG = `${EXTENSION_ID}/elevation-badge`;
 const ELEVATION_BADGE_OWNER = `${EXTENSION_ID}/elevation-badge-owner`;
@@ -155,9 +156,17 @@ const ControlWrapper = styled.div<{ theme: ForgeTheme }>`
   align-items: center;
   justify-content: center;
   gap: 16px;
+  position: relative;
   padding: 8px;
   background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.5)};
   border-top: 2px solid ${props => props.theme.BORDER};
+`;
+
+const ControlCenter = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
 `;
 
 const ControlButton = styled.button<{ theme: ForgeTheme; disabled?: boolean }>`
@@ -181,6 +190,11 @@ const ControlButton = styled.button<{ theme: ForgeTheme; disabled?: boolean }>`
   &:active {
     transform: ${props => props.disabled ? 'none' : 'scale(0.95)'};
   }
+`;
+
+const ResetButton = styled(ControlButton)`
+  position: absolute;
+  right: 8px;
 `;
 
 const RoundDisplay = styled.div<{ theme: ForgeTheme }>`
@@ -679,6 +693,8 @@ export const InitiativeList: React.FC = () => {
   const [elevationDrafts, setElevationDrafts] = useState<Record<string, string>>({});
   const [listReferenceModal, setListReferenceModal] = useState<ListReferenceModalState | null>(null);
   const [rollableEditMode, setRollableEditMode] = useState<Record<string, boolean>>({});
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const longPressTimersRef = useRef<Record<string, number>>({});
   const suppressNextClickRef = useRef<Record<string, boolean>>({});
   const tableRef = useRef<HTMLTableElement>(null);
@@ -692,9 +708,42 @@ export const InitiativeList: React.FC = () => {
   const popcornInitiative = storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean || false;
   const showRollerColumn = storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] as boolean || false;
   const showCardColumn = storageContainer[SettingsConstants.SHOW_CARD_ACCESS] as boolean || false;
+  const enableBones = storageContainer[SettingsConstants.ENABLE_BONES] as boolean || false;
   const diceRange = (storageContainer[SettingsConstants.DICE_RANGE] as string | undefined) || '';
   const showOwnerOnlyEdit = storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] as boolean || false;
   const isCurrentUserGm = String((playerData as RoleLike | null | undefined)?.role || '').toUpperCase() === 'GM';
+
+  const sendNotationRoll = async ({
+    notation,
+    actionName,
+    tokenName,
+    senderId,
+    senderColor,
+  }: {
+    notation: string;
+    actionName: string;
+    tokenName: string;
+    senderId: string;
+    senderColor: string;
+  }) => {
+    if (!enableBones) {
+      LOGGER.log(notation);
+      return;
+    }
+
+    try {
+      await requestBonesBroadcastRoll({
+        notation,
+        actionName,
+        senderName: tokenName,
+        senderId,
+        senderColor,
+      });
+    } catch (error) {
+      LOGGER.error('Failed to send Bones roll from InitiativeList', notation, error);
+      LOGGER.log(notation);
+    }
+  };
 
   const parseListReferenceEntries = (raw: unknown): ListReferenceEntry[] => {
     let source: unknown = raw;
@@ -1178,7 +1227,7 @@ export const InitiativeList: React.FC = () => {
     return map;
   };
 
-  const handleNotationClick = (unit: Unit, bid: string) => {
+  const handleNotationClick = async (unit: Unit, bid: string) => {
     const attribute = resolveAttributeForBid(bid);
     const formula = attribute?.attr_func;
     if (typeof formula !== 'string' || formula.trim().length === 0) {
@@ -1199,7 +1248,15 @@ export const InitiativeList: React.FC = () => {
       return;
     }
 
-    console.log(conversion.notation);
+    const actionName = resolveAttributeForBid(bid)?.attr_name || bid;
+    const owner = partyData.find((player) => player.id === unit.createdUserId);
+    await sendNotationRoll({
+      notation: conversion.notation,
+      actionName,
+      tokenName: unit.name,
+      senderId: unit.createdUserId || playerData?.id || 'unknown',
+      senderColor: owner?.color || playerData?.color || '#ffffff',
+    });
   };
 
   useEffect(() => {
@@ -1399,6 +1456,59 @@ export const InitiativeList: React.FC = () => {
       [SettingsConstants.CURRENT_TURN]: null,
       [SettingsConstants.CURRENT_ROUND]: newRound
     });
+  };
+
+  const handleResetEncounter = async (clearList: boolean) => {
+    setIsResetting(true);
+
+    try {
+      if (clearList) {
+        const onListIds = items
+          .filter((item) => item.metadata?.[UnitConstants.ON_LIST] === true)
+          .map((item) => item.id);
+
+        if (onListIds.length > 0) {
+          await OBR.scene.items.updateItems(onListIds, (itemsToUpdate) => {
+            itemsToUpdate.forEach((itemToUpdate) => {
+              if (itemToUpdate.metadata && UnitConstants.ON_LIST in itemToUpdate.metadata) {
+                delete itemToUpdate.metadata[UnitConstants.ON_LIST];
+              }
+            });
+          });
+
+          const updatedItems = items.map((item) => {
+            if (item.metadata?.[UnitConstants.ON_LIST] !== true) {
+              return item;
+            }
+
+            const nextMetadata = { ...(item.metadata || {}) };
+            delete nextMetadata[UnitConstants.ON_LIST];
+            return {
+              ...item,
+              metadata: nextMetadata,
+            };
+          });
+
+          setItems(updatedItems);
+        }
+      }
+
+      const defaultTurnId = clearList ? null : (sortedUnits[0]?.id ?? null);
+      setCurrentRound(1);
+      setCurrentTurnId(defaultTurnId);
+      setCompletedUnits(new Set());
+
+      await OBR.scene.setMetadata({
+        [SettingsConstants.CURRENT_TURN]: defaultTurnId,
+        [SettingsConstants.CURRENT_ROUND]: 1,
+      });
+
+      setIsResetModalOpen(false);
+    } catch (error) {
+      LOGGER.error('Failed to reset encounter state', { clearList, error });
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const handleUnitNameDoubleClick = async (unitId: string) => {
@@ -1877,7 +1987,7 @@ export const InitiativeList: React.FC = () => {
                           return;
                         }
 
-                        handleNotationClick(unit, bid);
+                        void handleNotationClick(unit, bid);
                       } : undefined}
                       onContextMenu={isRollableInput ? (event) => {
                         if (!canInteract) {
@@ -1907,7 +2017,7 @@ export const InitiativeList: React.FC = () => {
                         }
                         if (isRollableInput && !isEditingRollableInput && (e.key === 'Enter' || e.key === ' ')) {
                           e.preventDefault();
-                          handleNotationClick(unit, bid);
+                          void handleNotationClick(unit, bid);
                           return;
                         }
 
@@ -2080,41 +2190,51 @@ export const InitiativeList: React.FC = () => {
         </Table>
       </TableWrapper>
       <ControlWrapper theme={theme}>
-        {popcornInitiative ? (
-          // Popcorn Initiative controls
-          <>
-            <ControlButton
-              theme={theme}
-              onClick={handleEndTurn}
-              disabled={!currentTurnId || completedUnits.has(currentTurnId)}
-            >
-              End Turn
-            </ControlButton>
-            <RoundDisplay theme={theme}>
-              Round: {currentRound}
-            </RoundDisplay>
-            <ControlButton
-              theme={theme}
-              onClick={handleNewRound}
-              disabled={completedUnits.size < sortedUnits.length}
-            >
-              Next
-            </ControlButton>
-          </>
-        ) : (
-          // Normal Initiative controls
-          <>
-            <ControlButton theme={theme} onClick={handlePrevious}>
-              Previous
-            </ControlButton>
-            <RoundDisplay theme={theme}>
-              Round: {currentRound}
-            </RoundDisplay>
-            <ControlButton theme={theme} onClick={handleNext}>
-              Next
-            </ControlButton>
-          </>
-        )}
+        <ControlCenter>
+          {popcornInitiative ? (
+            // Popcorn Initiative controls
+            <>
+              <ControlButton
+                theme={theme}
+                onClick={handleEndTurn}
+                disabled={!currentTurnId || completedUnits.has(currentTurnId)}
+              >
+                End Turn
+              </ControlButton>
+              <RoundDisplay theme={theme}>
+                Round: {currentRound}
+              </RoundDisplay>
+              <ControlButton
+                theme={theme}
+                onClick={handleNewRound}
+                disabled={completedUnits.size < sortedUnits.length}
+              >
+                Next
+              </ControlButton>
+            </>
+          ) : (
+            // Normal Initiative controls
+            <>
+              <ControlButton theme={theme} onClick={handlePrevious}>
+                Previous
+              </ControlButton>
+              <RoundDisplay theme={theme}>
+                Round: {currentRound}
+              </RoundDisplay>
+              <ControlButton theme={theme} onClick={handleNext}>
+                Next
+              </ControlButton>
+            </>
+          )}
+        </ControlCenter>
+        <ResetButton
+          theme={theme}
+          onClick={() => setIsResetModalOpen(true)}
+          disabled={isResetting}
+          title="Reset round/turn state"
+        >
+          Reset
+        </ResetButton>
       </ControlWrapper>
       <PopupModal
         isOpen={!!ownerModalUnitId}
@@ -2170,6 +2290,41 @@ export const InitiativeList: React.FC = () => {
       <EffectsManagerModal manager={effectsManager} />
 
       <PopupModal
+        isOpen={isResetModalOpen}
+        title="Reset Encounter"
+        onClose={() => {
+          if (isResetting) return;
+          setIsResetModalOpen(false);
+        }}
+        closeOnOverlayClick={!isResetting}
+        maxWidth="460px"
+      >
+        <OwnerPickerHint theme={theme}>
+          Choose how you want to reset initiative state.
+        </OwnerPickerHint>
+        <OwnerPickerList>
+          <OwnerPickerButton
+            theme={theme}
+            onClick={() => {
+              void handleResetEncounter(false);
+            }}
+            disabled={isResetting}
+          >
+            {isResetting ? 'Resetting...' : 'Reset Round'}
+          </OwnerPickerButton>
+          <OwnerPickerButton
+            theme={theme}
+            onClick={() => {
+              void handleResetEncounter(true);
+            }}
+            disabled={isResetting}
+          >
+            {isResetting ? 'Resetting...' : 'Reset Round and Clear Initiative List'}
+          </OwnerPickerButton>
+        </OwnerPickerList>
+      </PopupModal>
+
+      <PopupModal
         isOpen={!!listReferenceModal}
         title={selectedListReferenceUnit
           ? `${selectedListAttribute?.attr_name || 'List'} for ${selectedListReferenceUnit.name}`
@@ -2213,7 +2368,16 @@ export const InitiativeList: React.FC = () => {
                             type="button"
                             theme={theme}
                             onClick={() => {
-                              LOGGER.log(notation);
+                              const listOwner = selectedListReferenceUnit?.createdUserId
+                                ? partyData.find((player) => player.id === selectedListReferenceUnit.createdUserId)
+                                : null;
+                              void sendNotationRoll({
+                                notation,
+                                actionName: entry.name || selectedListAttribute?.attr_name || 'List Roll',
+                                tokenName: selectedListReferenceUnit?.name || 'Unknown',
+                                senderId: selectedListReferenceUnit?.createdUserId || playerData?.id || 'unknown',
+                                senderColor: listOwner?.color || playerData?.color || '#ffffff',
+                              });
                             }}
                             title={notation}
                           >

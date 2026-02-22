@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { Plus, X } from 'lucide-react';
-import type { Item } from '@owlbear-rodeo/sdk';
-import { OwlbearIds } from '../helpers/Constants';
+import OBR, { type Item } from '@owlbear-rodeo/sdk';
+import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
+import { requestBonesBroadcastRoll } from '../helpers/DiceRollIntegration';
 import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 import LOGGER from '../helpers/Logger';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
 import { deserializeCardLayout } from '../helpers/deserializeCardLayout';
-import { UnitConstants } from '../interfaces/MetadataKeys';
+import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import type { CardLayoutComponent, SystemAttribute } from '../interfaces/SystemResponse';
 
 export interface CardLayoutTheme {
@@ -620,7 +621,37 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     return conversion.notation;
   };
 
-  const handleNotationClick = (attribute: SystemAttribute | null) => {
+  const sendNotationRoll = async (notation: string, actionName: string) => {
+    try {
+      const metadata = DATA_STORED_IN_ROOM
+        ? await OBR.room.getMetadata()
+        : await OBR.scene.getMetadata();
+      const enableBones = metadata[SettingsConstants.ENABLE_BONES] as boolean || false;
+
+      if (!enableBones) {
+        LOGGER.log(notation);
+        return;
+      }
+
+      const players = await OBR.party.getPlayers();
+      const owner = players.find((player) => player.id === unitItem.createdUserId);
+      const fallbackSenderId = await OBR.player.getId();
+      const fallbackSenderColor = await OBR.player.getColor();
+
+      await requestBonesBroadcastRoll({
+        notation,
+        actionName,
+        senderName: unitName,
+        senderId: unitItem.createdUserId || fallbackSenderId || unitItem.id,
+        senderColor: owner?.color || fallbackSenderColor || '#ffffff',
+      });
+    } catch (error) {
+      LOGGER.error('Failed to send Bones roll from CardLayoutRenderer', notation, error);
+      LOGGER.log(notation);
+    }
+  };
+
+  const handleNotationClick = async (attribute: SystemAttribute | null) => {
     if (!attribute) {
       return;
     }
@@ -630,7 +661,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       return;
     }
 
-    LOGGER.log(notation);
+    await sendNotationRoll(notation, attribute.attr_name || attribute.attr_bid || 'Roll');
   };
 
   useEffect(() => {
@@ -914,7 +945,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
               return;
             }
 
-            handleNotationClick(attr);
+            void handleNotationClick(attr);
           } : undefined}
           onContextMenu={isRollableInput ? (event) => {
             event.preventDefault();
@@ -935,7 +966,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
           onKeyDown={(event) => {
             if (isRollableInput && !isEditingRollableInput && (event.key === 'Enter' || event.key === ' ')) {
               event.preventDefault();
-              handleNotationClick(attr);
+              void handleNotationClick(attr);
               return;
             }
 
@@ -1083,7 +1114,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                         return;
                       }
 
-                      handleNotationClick(columnAttr);
+                      void handleNotationClick(columnAttr);
                     } : undefined}
                     onContextMenu={isRollableInput ? (event) => {
                       event.preventDefault();
@@ -1104,7 +1135,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     onKeyDown={(event) => {
                       if (isRollableInput && !isEditingRollableInput && (event.key === 'Enter' || event.key === ' ')) {
                         event.preventDefault();
-                        handleNotationClick(columnAttr);
+                        void handleNotationClick(columnAttr);
                         return;
                       }
 
@@ -1227,7 +1258,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                               type="button"
                               $theme={systemTheme}
                               onClick={() => {
-                                LOGGER.log(token.notation);
+                                void sendNotationRoll(token.notation, entry.name || 'Action');
                               }}
                               title={token.notation}
                             >
@@ -1370,7 +1401,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                               type="button"
                               $theme={systemTheme}
                               onClick={() => {
-                                LOGGER.log(token.notation);
+                                void sendNotationRoll(token.notation, entry.name || 'Item');
                               }}
                               title={token.notation}
                             >

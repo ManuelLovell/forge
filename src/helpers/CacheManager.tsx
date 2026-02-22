@@ -2,9 +2,13 @@ import { useEffect } from 'react';
 import OBR, { type Player } from '@owlbear-rodeo/sdk';
 import { useSceneStore } from '../helpers/BSCache';
 import LOGGER from './Logger';
-import { initializeChatLogListener } from './ChatLogStore';
-import { DATA_STORED_IN_ROOM } from './Constants';
+import { initializeChatLogListener, useChatLogStore } from './ChatLogStore';
+import { DATA_STORED_IN_ROOM, OwlbearIds } from './Constants';
 import { SettingsConstants } from '../interfaces/MetadataKeys';
+import { extractRollTotal, initializeBonesBroadcastResultListener } from './DiceRollIntegration';
+
+const CHATLOG_CHANNEL = `${OwlbearIds.EXTENSIONID}/chatlog`;
+const ROLL_NOTIFICATION_CHANNEL = `${OwlbearIds.EXTENSIONID}/roll-notification`;
 
 export function CacheSync({ children }: { children: React.ReactNode })
 {
@@ -31,6 +35,47 @@ export function CacheSync({ children }: { children: React.ReactNode })
 
         // Initialize System Log listener (only happens once)
         initializeChatLogListener();
+
+        const unsubscribeRollNotification = OBR.broadcast.onMessage(ROLL_NOTIFICATION_CHANNEL, (event) => {
+            const data = event.data as { message?: unknown } | undefined;
+            const message = typeof data?.message === 'string' ? data.message : null;
+            if (!message) {
+                return;
+            }
+
+            void OBR.notification.show(message, 'SUCCESS');
+        });
+
+        initializeBonesBroadcastResultListener((result) => {
+            const total = extractRollTotal(result.rollHtml);
+            const tokenName = result.senderName || 'Unknown';
+            const actionName = result.actionName || 'Action';
+
+            const message = total !== null
+                ? `${tokenName} rolled ${actionName} for ${total}!`
+                : `${tokenName} rolled ${actionName}.`;
+
+            const { sceneMetadata, roomMetadata } = useSceneStore.getState();
+            const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
+            const enableObrNotification = storageContainer[SettingsConstants.ENABLE_OBR_NOTIFICATION] as boolean | undefined;
+            const showNotificationToAll = storageContainer[SettingsConstants.SHOW_NOTIFICATION_TO_ALL] as boolean | undefined;
+
+            if (showNotificationToAll === true) {
+                void OBR.broadcast.sendMessage(CHATLOG_CHANNEL, { message }, { destination: 'ALL' });
+
+                if (enableObrNotification === true) {
+                    void OBR.broadcast.sendMessage(ROLL_NOTIFICATION_CHANNEL, { message }, { destination: 'ALL' });
+                }
+
+                return;
+            }
+
+            useChatLogStore.getState().addMessage(message);
+
+            if (enableObrNotification === true) {
+                void OBR.notification.show(message, 'SUCCESS');
+            }
+        });
         
         let unsubSceneReady: () => void;
         let unsubItems: () => void;
@@ -142,6 +187,7 @@ export function CacheSync({ children }: { children: React.ReactNode })
             unsubGridDpi?.();
             unsubPlayerData?.();
             unsubPartyData?.();
+            unsubscribeRollNotification?.();
         };
     }, [
         setSceneReady,

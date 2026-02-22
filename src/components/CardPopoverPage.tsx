@@ -644,6 +644,15 @@ export const CardPopoverPage = () => {
     return cache.items.find((item) => item.id === selectedUnitId) || null;
   }, [cache.items, selectedUnitId]);
 
+  const getSelectedUnitItemFromScene = async (): Promise<Item | null> => {
+    if (!selectedUnitId) {
+      return null;
+    }
+
+    const sceneItems = await OBR.scene.items.getItems();
+    return sceneItems.find((item) => item.id === selectedUnitId) || null;
+  };
+
   const updateUnitMetadata = async (updates: Record<string, unknown>) => {
     if (!unitItem) {
       return;
@@ -844,7 +853,8 @@ export const CardPopoverPage = () => {
   };
 
   const handleTrayCollectionSaveClick = async () => {
-    if (!unitItem) {
+    const liveUnitItem = await getSelectedUnitItemFromScene();
+    if (!liveUnitItem) {
       await OBR.notification.show('No unit selected to save.', 'ERROR');
       return;
     }
@@ -852,7 +862,7 @@ export const CardPopoverPage = () => {
     try {
       const authorName = (await OBR.player.getName()).trim();
       const status = await upsertUnitFromMetadata(
-        unitItem.metadata as Record<string, unknown>,
+        liveUnitItem.metadata as Record<string, unknown>,
         authorName,
         isFavoriteEnabled,
       );
@@ -864,9 +874,10 @@ export const CardPopoverPage = () => {
     }
   };
 
-  const handleTrayImportClick = () => {
-    if (!unitItem) {
-      OBR.notification.show('No unit selected to import into.', "ERROR");
+  const handleTrayImportClick = async () => {
+    const liveUnitItem = await getSelectedUnitItemFromScene();
+    if (!liveUnitItem) {
+      await OBR.notification.show('No unit selected to import into.', 'ERROR');
       return;
     }
 
@@ -876,13 +887,14 @@ export const CardPopoverPage = () => {
   };
 
   const handleTrayExportClick = async () => {
-    if (!unitItem) {
+    const liveUnitItem = await getSelectedUnitItemFromScene();
+    if (!liveUnitItem) {
       await OBR.notification.show('No unit selected to export.', "ERROR");
       return;
     }
 
     try {
-      const extensionMetadata = filterExtensionMetadata(unitItem.metadata as Record<string, unknown>);
+      const extensionMetadata = filterExtensionMetadata(liveUnitItem.metadata as Record<string, unknown>);
       const unitNameRaw = extensionMetadata[UnitConstants.UNIT_NAME];
       const unitName = typeof unitNameRaw === 'string' ? unitNameRaw.trim() : '';
 
@@ -939,7 +951,8 @@ export const CardPopoverPage = () => {
   };
 
   const handleImportModalApply = async () => {
-    if (!unitItem) {
+    const liveUnitItem = await getSelectedUnitItemFromScene();
+    if (!liveUnitItem) {
       setImportError('No unit selected to import into.');
       return;
     }

@@ -5,13 +5,12 @@ import LOGGER from './Logger';
 import { initializeChatLogListener, useChatLogStore } from './ChatLogStore';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from './Constants';
 import { SettingsConstants } from '../interfaces/MetadataKeys';
-import { extractRollTotal, initializeBonesBroadcastResultListener, initializeRumbleBroadcastResultListener } from './DiceRollIntegration';
+import { extractRollTotal, initializeBonesBroadcastResultListener, initializeRumbleBroadcastResultListener, initializeDicePlusResultListener } from './DiceRollIntegration';
 
 const CHATLOG_CHANNEL = `${OwlbearIds.EXTENSIONID}/chatlog`;
 const ROLL_NOTIFICATION_CHANNEL = `${OwlbearIds.EXTENSIONID}/roll-notification`;
 
-export function CacheSync({ children }: { children: React.ReactNode })
-{
+export function CacheSync({ children }: { children: React.ReactNode }) {
     const setItems = useSceneStore((s) => s.setItems);
     const setLocalItems = useSceneStore((s) => s.setLocalItems);
     const setSceneMetadata = useSceneStore((s) => s.setSceneMetadata);
@@ -23,14 +22,61 @@ export function CacheSync({ children }: { children: React.ReactNode })
     const setSceneReady = useSceneStore((s) => s.setSceneReady);
     const setCacheReady = useSceneStore((s) => s.setCacheReady);
 
-    useEffect(() =>
-    {
+    useEffect(() => {
         const applyConsoleLogSetting = (sceneMeta: Record<string, unknown>, roomMeta: Record<string, unknown>) => {
             const storageContainer = DATA_STORED_IN_ROOM ? roomMeta : sceneMeta;
             const enabled = storageContainer[SettingsConstants.ENABLE_CONSOLE_LOG] as boolean | undefined;
             if (typeof enabled === 'boolean') {
                 LOGGER.setEnabled(enabled);
             }
+        };
+
+        const publishRollMessage = (message: string) => {
+            const { sceneMetadata, roomMetadata } = useSceneStore.getState();
+            const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
+            const enableObrNotification = storageContainer[SettingsConstants.ENABLE_OBR_NOTIFICATION] as boolean | undefined;
+            const showNotificationToAll = storageContainer[SettingsConstants.SHOW_NOTIFICATION_TO_ALL] as boolean | undefined;
+
+            if (showNotificationToAll === true) {
+                void OBR.broadcast.sendMessage(CHATLOG_CHANNEL, { message }, { destination: 'ALL' });
+
+                if (enableObrNotification === true) {
+                    void OBR.broadcast.sendMessage(ROLL_NOTIFICATION_CHANNEL, { message }, { destination: 'ALL' });
+                }
+
+                return;
+            }
+
+            useChatLogStore.getState().addMessage(message);
+
+            if (enableObrNotification === true) {
+                void OBR.notification.show(message, 'SUCCESS');
+            }
+        };
+
+        const formatRollMessage = ({
+            explicitMessage,
+            tokenName,
+            actionName,
+            total,
+        }: {
+            explicitMessage?: string;
+            tokenName?: string;
+            actionName?: string;
+            total?: number | null;
+        }): string => {
+            if (typeof explicitMessage === 'string' && explicitMessage.trim().length > 0) {
+                return explicitMessage;
+            }
+
+            const resolvedTokenName = tokenName || 'Unknown';
+            const resolvedActionName = actionName || 'Action';
+
+            if (typeof total === 'number' && Number.isFinite(total)) {
+                return `${resolvedTokenName} rolled ${resolvedActionName} for ${total}!`;
+            }
+
+            return `${resolvedTokenName} rolled ${resolvedActionName}.`;
         };
 
         // Initialize System Log listener (only happens once)
@@ -48,60 +94,29 @@ export function CacheSync({ children }: { children: React.ReactNode })
 
         initializeBonesBroadcastResultListener((result) => {
             const total = extractRollTotal(result.rollHtml);
-            const tokenName = result.senderName || 'Unknown';
-            const actionName = result.actionName || 'Action';
-
-            const message = total !== null
-                ? `${tokenName} rolled ${actionName} for ${total}!`
-                : `${tokenName} rolled ${actionName}.`;
-
-            const { sceneMetadata, roomMetadata } = useSceneStore.getState();
-            const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
-            const enableObrNotification = storageContainer[SettingsConstants.ENABLE_OBR_NOTIFICATION] as boolean | undefined;
-            const showNotificationToAll = storageContainer[SettingsConstants.SHOW_NOTIFICATION_TO_ALL] as boolean | undefined;
-
-            if (showNotificationToAll === true) {
-                void OBR.broadcast.sendMessage(CHATLOG_CHANNEL, { message }, { destination: 'ALL' });
-
-                if (enableObrNotification === true) {
-                    void OBR.broadcast.sendMessage(ROLL_NOTIFICATION_CHANNEL, { message }, { destination: 'ALL' });
-                }
-
-                return;
-            }
-
-            useChatLogStore.getState().addMessage(message);
-
-            if (enableObrNotification === true) {
-                void OBR.notification.show(message, 'SUCCESS');
-            }
+            const message = formatRollMessage({
+                tokenName: result.senderName,
+                actionName: result.actionName,
+                total,
+            });
+            publishRollMessage(message);
         });
 
         initializeRumbleBroadcastResultListener((result) => {
-            const message = result.message;
-
-            const { sceneMetadata, roomMetadata } = useSceneStore.getState();
-            const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
-            const enableObrNotification = storageContainer[SettingsConstants.ENABLE_OBR_NOTIFICATION] as boolean | undefined;
-            const showNotificationToAll = storageContainer[SettingsConstants.SHOW_NOTIFICATION_TO_ALL] as boolean | undefined;
-
-            if (showNotificationToAll === true) {
-                void OBR.broadcast.sendMessage(CHATLOG_CHANNEL, { message }, { destination: 'ALL' });
-
-                if (enableObrNotification === true) {
-                    void OBR.broadcast.sendMessage(ROLL_NOTIFICATION_CHANNEL, { message }, { destination: 'ALL' });
-                }
-
-                return;
-            }
-
-            useChatLogStore.getState().addMessage(message);
-
-            if (enableObrNotification === true) {
-                void OBR.notification.show(message, 'SUCCESS');
-            }
+            const message = formatRollMessage({ explicitMessage: result.message });
+            publishRollMessage(message);
         });
-        
+
+        // Dice+ result listener
+        initializeDicePlusResultListener((result) => {
+            const message = formatRollMessage({
+                tokenName: result.playerName,
+                actionName: result.result.diceNotation,
+                total: result.result.totalValue,
+            });
+            publishRollMessage(message);
+        });
+
         let unsubSceneReady: () => void;
         let unsubItems: () => void;
         let unsubLocalItems: () => void;
@@ -111,8 +126,7 @@ export function CacheSync({ children }: { children: React.ReactNode })
         let unsubPlayerData: () => void;
         let unsubPartyData: () => void;
 
-        const syncSceneState = async () =>
-        {
+        const syncSceneState = async () => {
             const [
                 items,
                 localItems,
@@ -176,34 +190,28 @@ export function CacheSync({ children }: { children: React.ReactNode })
         };
 
         // Extra onReady to catch late initializations
-        OBR.onReady(async () =>
-        {
+        OBR.onReady(async () => {
             const isReady = await OBR.scene.isReady();
             setSceneReady(isReady);
-            if (isReady)
-            {
+            if (isReady) {
                 LOGGER.log('Scene is ready on initial load, syncing cache...');
                 await syncSceneState();
             }
 
-            unsubSceneReady = OBR.scene.onReadyChange(async (ready) =>
-            {
+            unsubSceneReady = OBR.scene.onReadyChange(async (ready) => {
                 setSceneReady(ready);
 
-                if (ready)
-                {
+                if (ready) {
                     LOGGER.log('Scene became ready, syncing cache...');
                     await syncSceneState();
-                } else
-                {
+                } else {
                     LOGGER.log('Scene is no longer ready, clearing cache...');
                     setCacheReady(false); // Scene closed, invalidate cache
                 }
             });
         });
 
-        return () =>
-        {
+        return () => {
             unsubSceneReady?.();
             unsubItems?.();
             unsubLocalItems?.();

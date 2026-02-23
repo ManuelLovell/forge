@@ -9,6 +9,15 @@ import LOGGER from '../helpers/Logger';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { CardLayoutRenderer, type CardLayoutTheme } from './CardLayoutRenderer';
+// Example central dice roll usage (add where dice rolls are triggered)
+// const metadata = DATA_STORED_IN_ROOM ? await OBR.room.getMetadata() : await OBR.scene.getMetadata();
+// await sendCentralDiceRoll({
+//   notation,
+//   actionName,
+//   senderName,
+//   senderId,
+//   senderColor,
+// }, metadata);
 import {
   deleteUnitCollectionRecord,
   filterExtensionMetadata,

@@ -20,7 +20,7 @@ import { PopupModal } from './PopupModal';
 import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 import { EffectsManagerModal, useEffectsManager } from './EffectsManager';
 import { ElevationSpecialCell, EffectsSpecialCell } from './InitiativeSpecialCells';
-import { requestBonesBroadcastRoll, requestRumbleBroadcastRoll } from '../helpers/DiceRollIntegration';
+import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
 
 const ELEVATION_BADGE_FLAG = `${EXTENSION_ID}/elevation-badge`;
 const ELEVATION_BADGE_OWNER = `${EXTENSION_ID}/elevation-badge-owner`;
@@ -708,8 +708,6 @@ export const InitiativeList: React.FC = () => {
   const popcornInitiative = storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean || false;
   const showRollerColumn = storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] as boolean || false;
   const showCardColumn = storageContainer[SettingsConstants.SHOW_CARD_ACCESS] as boolean || false;
-  const enableRumble = storageContainer[SettingsConstants.ENABLE_RUMBLE] as boolean || false;
-  const enableBones = storageContainer[SettingsConstants.ENABLE_BONES] as boolean || false;
   const diceRange = (storageContainer[SettingsConstants.DICE_RANGE] as string | undefined) || '';
   const showOwnerOnlyEdit = storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] as boolean || false;
   const isCurrentUserGm = String((playerData as RoleLike | null | undefined)?.role || '').toUpperCase() === 'GM';
@@ -727,30 +725,16 @@ export const InitiativeList: React.FC = () => {
     senderId: string;
     senderColor: string;
   }) => {
-    if (!enableRumble && !enableBones) {
-      LOGGER.log(notation);
-      return;
-    }
-
     try {
-      if (enableRumble) {
-        await requestRumbleBroadcastRoll({
-          sender: tokenName,
-          action: actionName,
-          notation,
-        });
-        return;
-      }
-
-      await requestBonesBroadcastRoll({
+      await sendCentralDiceRoll({
         notation,
         actionName,
         senderName: tokenName,
         senderId,
         senderColor,
-      });
+      }, storageContainer);
     } catch (error) {
-      LOGGER.error('Failed to send Bones roll from InitiativeList', notation, error);
+      LOGGER.error('Failed to send dice roll from InitiativeList', notation, error);
       LOGGER.log(notation);
     }
   };

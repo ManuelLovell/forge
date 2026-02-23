@@ -3,12 +3,12 @@ import styled from 'styled-components';
 import { Plus, X } from 'lucide-react';
 import OBR, { type Item } from '@owlbear-rodeo/sdk';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
-import { requestBonesBroadcastRoll, requestRumbleBroadcastRoll } from '../helpers/DiceRollIntegration';
+import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
 import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 import LOGGER from '../helpers/Logger';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
 import { deserializeCardLayout } from '../helpers/deserializeCardLayout';
-import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
+import { UnitConstants } from '../interfaces/MetadataKeys';
 import type { CardLayoutComponent, SystemAttribute } from '../interfaces/SystemResponse';
 
 export interface CardLayoutTheme {
@@ -626,37 +626,19 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       const metadata = DATA_STORED_IN_ROOM
         ? await OBR.room.getMetadata()
         : await OBR.scene.getMetadata();
-      const enableRumble = metadata[SettingsConstants.ENABLE_RUMBLE] as boolean || false;
-      const enableBones = metadata[SettingsConstants.ENABLE_BONES] as boolean || false;
-
-      if (!enableRumble && !enableBones) {
-        LOGGER.log(notation);
-        return;
-      }
-
-      if (enableRumble) {
-        await requestRumbleBroadcastRoll({
-          sender: unitName,
-          action: actionName,
-          notation,
-        });
-        return;
-      }
-
       const players = await OBR.party.getPlayers();
       const owner = players.find((player) => player.id === unitItem.createdUserId);
       const fallbackSenderId = await OBR.player.getId();
       const fallbackSenderColor = await OBR.player.getColor();
-
-      await requestBonesBroadcastRoll({
+      await sendCentralDiceRoll({
         notation,
         actionName,
         senderName: unitName,
         senderId: unitItem.createdUserId || fallbackSenderId || unitItem.id,
         senderColor: owner?.color || fallbackSenderColor || '#ffffff',
-      });
+      }, metadata);
     } catch (error) {
-      LOGGER.error('Failed to send Bones roll from CardLayoutRenderer', notation, error);
+      LOGGER.error('Failed to send dice roll from CardLayoutRenderer', notation, error);
       LOGGER.log(notation);
     }
   };

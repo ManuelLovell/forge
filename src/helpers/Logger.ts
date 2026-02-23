@@ -1,5 +1,6 @@
 import OBR from '@owlbear-rodeo/sdk';
 import { OwlbearIds } from './Constants';
+import { sendDiscordWebhookMessage } from './DiscordWebhook';
 
 /**
  * Central logging utility for console output control
@@ -14,6 +15,7 @@ const CHATLOG_CHANNEL = `${OwlbearIds.EXTENSIONID}/chatlog`;
 const sendToChatLog = (message: string) => {
     if (OBR.isAvailable) {
         OBR.broadcast.sendMessage(CHATLOG_CHANNEL, message, { destination: 'LOCAL' });
+        void sendDiscordWebhookMessage(message);
     }
 };
 

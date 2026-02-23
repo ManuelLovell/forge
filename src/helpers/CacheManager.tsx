@@ -6,6 +6,7 @@ import { initializeChatLogListener, useChatLogStore } from './ChatLogStore';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from './Constants';
 import { SettingsConstants } from '../interfaces/MetadataKeys';
 import { extractRollTotal, initializeBonesBroadcastResultListener, initializeRumbleBroadcastResultListener, initializeDicePlusResultListener } from './DiceRollIntegration';
+import { sendDiscordWebhookMessage } from './DiscordWebhook';
 
 const CHATLOG_CHANNEL = `${OwlbearIds.EXTENSIONID}/chatlog`;
 const ROLL_NOTIFICATION_CHANNEL = `${OwlbearIds.EXTENSIONID}/roll-notification`;
@@ -32,6 +33,8 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
         };
 
         const publishRollMessage = (message: string) => {
+            void sendDiscordWebhookMessage(message);
+
             const { sceneMetadata, roomMetadata } = useSceneStore.getState();
             const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
             const enableObrNotification = storageContainer[SettingsConstants.ENABLE_OBR_NOTIFICATION] as boolean | undefined;

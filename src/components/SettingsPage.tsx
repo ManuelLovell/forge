@@ -12,6 +12,7 @@ import { useForgeTheme } from '../helpers/ThemeContext';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
 import { bulkImportUnitCollection, exportUnitCollection } from '../helpers/unitCollectionDb';
+import { isValidDiscordWebhookUrl } from '../helpers/DiscordWebhook';
 
 // Styled Components
 const SectionTitle = styled.h2<{ theme: ForgeTheme }>`
@@ -323,20 +324,20 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-              <ControlLabel theme={theme}>Initiative Die: </ControlLabel>
-              <SmallInput
-                theme={theme}
-                type="text"
-                value={diceRange}
-                onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
-                  const value = e.target.value;
-                  setDiceRange(value);
-                  await saveData(SettingsConstants.DICE_RANGE, value);
-                  LOGGER.log('Dice Range:', value);
-                }}
-                placeholder="D20"
-                maxLength={3}
-              />
+            <ControlLabel theme={theme}>Initiative Die: </ControlLabel>
+            <SmallInput
+              theme={theme}
+              type="text"
+              value={diceRange}
+              onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
+                const value = e.target.value;
+                setDiceRange(value);
+                await saveData(SettingsConstants.DICE_RANGE, value);
+                LOGGER.log('Dice Range:', value);
+              }}
+              placeholder="D20"
+              maxLength={3}
+            />
           </ControlRow>
 
           <ControlRow theme={theme}>
@@ -526,16 +527,16 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Enable Rumble! Integration"
               isOn={enableRumble}
-                onChange={async (value) => {
-                  setEnableRumble(value);
-                  await saveData(SettingsConstants.ENABLE_RUMBLE, value);
-                  if (value) {
-                    setEnableBones(false);
-                    setEnableDicePlus(false);
-                    await saveData(SettingsConstants.ENABLE_BONES, false);
-                    await saveData(SettingsConstants.ENABLE_DICE_PLUS, false);
-                  }
-                }}
+              onChange={async (value) => {
+                setEnableRumble(value);
+                await saveData(SettingsConstants.ENABLE_RUMBLE, value);
+                if (value) {
+                  setEnableBones(false);
+                  setEnableDicePlus(false);
+                  await saveData(SettingsConstants.ENABLE_BONES, false);
+                  await saveData(SettingsConstants.ENABLE_DICE_PLUS, false);
+                }
+              }}
             />
           </ControlRow>
 
@@ -544,16 +545,16 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Enable Bones! Integration"
               isOn={enableBones}
-                onChange={async (value) => {
-                  setEnableBones(value);
-                  await saveData(SettingsConstants.ENABLE_BONES, value);
-                  if (value) {
-                    setEnableRumble(false);
-                    setEnableDicePlus(false);
-                    await saveData(SettingsConstants.ENABLE_RUMBLE, false);
-                    await saveData(SettingsConstants.ENABLE_DICE_PLUS, false);
-                  }
-                }}
+              onChange={async (value) => {
+                setEnableBones(value);
+                await saveData(SettingsConstants.ENABLE_BONES, value);
+                if (value) {
+                  setEnableRumble(false);
+                  setEnableDicePlus(false);
+                  await saveData(SettingsConstants.ENABLE_RUMBLE, false);
+                  await saveData(SettingsConstants.ENABLE_DICE_PLUS, false);
+                }
+              }}
             />
           </ControlRow>
 
@@ -562,16 +563,16 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Enable Dice+ Integration"
               isOn={enableDicePlus}
-                onChange={async (value) => {
-                  setEnableDicePlus(value);
-                  await saveData(SettingsConstants.ENABLE_DICE_PLUS, value);
-                  if (value) {
-                    setEnableRumble(false);
-                    setEnableBones(false);
-                    await saveData(SettingsConstants.ENABLE_RUMBLE, false);
-                    await saveData(SettingsConstants.ENABLE_BONES, false);
-                  }
-                }}
+              onChange={async (value) => {
+                setEnableDicePlus(value);
+                await saveData(SettingsConstants.ENABLE_DICE_PLUS, value);
+                if (value) {
+                  setEnableRumble(false);
+                  setEnableBones(false);
+                  await saveData(SettingsConstants.ENABLE_RUMBLE, false);
+                  await saveData(SettingsConstants.ENABLE_BONES, false);
+                }
+              }}
             />
           </ControlRow>
 
@@ -605,29 +606,38 @@ export const SettingsPage = () => {
               label="Enable Discord Logging"
               isOn={enableDiscordLogging}
               onChange={async (value) => {
+                if (value) {
+                  const webhookUrl = discordUrl.trim();
+                  if (!isValidDiscordWebhookUrl(webhookUrl)) {
+                    alert('Please enter a valid Discord webhook URL before enabling Discord logging.');
+                    setEnableDiscordLogging(false);
+                    await saveData(SettingsConstants.ENABLE_DISCORD_LOGGING, false);
+                    return;
+                  }
+                }
+
                 setEnableDiscordLogging(value);
                 await saveData(SettingsConstants.ENABLE_DISCORD_LOGGING, value);
               }}
             />
           </ControlRow>
-          {enableDiscordLogging && (
-            <SubControlRow theme={theme}>
-              <SubControlLabel theme={theme}>Discord Url: </SubControlLabel>
-              <SmallInput
-                theme={theme}
-                type="text"
-                value={discordUrl}
-                onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
-                  const value = e.target.value;
-                  setDiscordUrl(value);
-                  await saveData(SettingsConstants.DISCORD_URL, value);
-                  LOGGER.log('Discord URL:', value);
-                }}
-                placeholder="https://discord.com/api/webhooks/..."
-                maxLength={200}
-              />
-            </SubControlRow>
-          )}
+          <ControlRow theme={theme}>
+            <SubControlLabel theme={theme}>Discord Url: </SubControlLabel>
+            <SmallInput
+              theme={theme}
+              type="text"
+              value={discordUrl}
+              onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
+                const value = e.target.value;
+                const trimmedValue = value.trim();
+                setDiscordUrl(value);
+                await saveData(SettingsConstants.DISCORD_URL, trimmedValue);
+                LOGGER.log('Discord URL:', trimmedValue);
+              }}
+              placeholder="https://discord.com/api/webhooks/..."
+              maxLength={200}
+            />
+          </ControlRow>
         </Card>
 
         <Card theme={theme}>

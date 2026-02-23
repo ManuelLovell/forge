@@ -1,0 +1,25 @@
+{
+    "name": "Forge!",
+    "description": "The successor to Clash! Forge is a customizable combat tracker.",
+    "version": "0.1.0",
+    "author": "Battle-System",
+    "icon": "/logo.png",
+    "permissions": [
+        {
+            "name": "clipboard-write",
+            "reason": "Enable Forge! to add creature JSON information to your clipboard"
+        },
+        {
+            "name": "clipboard-read",
+            "reason": "Enable Forge! to read information from your clipboard"
+        }
+    ],
+    "manifest_version": 1,
+    "action": {
+        "title": "Forge!",
+        "icon": "/icon.svg",
+        "popover": "/pages/",
+        "height": 600,
+        "width": 350
+    }
+}

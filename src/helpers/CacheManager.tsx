@@ -5,7 +5,7 @@ import LOGGER from './Logger';
 import { initializeChatLogListener, useChatLogStore } from './ChatLogStore';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from './Constants';
 import { SettingsConstants } from '../interfaces/MetadataKeys';
-import { extractRollTotal, initializeBonesBroadcastResultListener } from './DiceRollIntegration';
+import { extractRollTotal, initializeBonesBroadcastResultListener, initializeRumbleBroadcastResultListener } from './DiceRollIntegration';
 
 const CHATLOG_CHANNEL = `${OwlbearIds.EXTENSIONID}/chatlog`;
 const ROLL_NOTIFICATION_CHANNEL = `${OwlbearIds.EXTENSIONID}/roll-notification`;
@@ -54,6 +54,31 @@ export function CacheSync({ children }: { children: React.ReactNode })
             const message = total !== null
                 ? `${tokenName} rolled ${actionName} for ${total}!`
                 : `${tokenName} rolled ${actionName}.`;
+
+            const { sceneMetadata, roomMetadata } = useSceneStore.getState();
+            const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
+            const enableObrNotification = storageContainer[SettingsConstants.ENABLE_OBR_NOTIFICATION] as boolean | undefined;
+            const showNotificationToAll = storageContainer[SettingsConstants.SHOW_NOTIFICATION_TO_ALL] as boolean | undefined;
+
+            if (showNotificationToAll === true) {
+                void OBR.broadcast.sendMessage(CHATLOG_CHANNEL, { message }, { destination: 'ALL' });
+
+                if (enableObrNotification === true) {
+                    void OBR.broadcast.sendMessage(ROLL_NOTIFICATION_CHANNEL, { message }, { destination: 'ALL' });
+                }
+
+                return;
+            }
+
+            useChatLogStore.getState().addMessage(message);
+
+            if (enableObrNotification === true) {
+                void OBR.notification.show(message, 'SUCCESS');
+            }
+        });
+
+        initializeRumbleBroadcastResultListener((result) => {
+            const message = result.message;
 
             const { sceneMetadata, roomMetadata } = useSceneStore.getState();
             const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;

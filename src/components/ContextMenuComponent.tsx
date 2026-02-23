@@ -308,7 +308,6 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                         label: "[Forge] View Unit",
                         filter: {
                             max: 1,
-                            every: [{ key: ["metadata", UnitConstants.IN_PARTY], operator: "!=", value: true }],
                             some: [
                                 { key: "layer", value: "CHARACTER", coordinator: "||" },
                                 { key: "layer", value: "MOUNT" }],

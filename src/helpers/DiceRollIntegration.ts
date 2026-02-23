@@ -27,8 +27,59 @@ export interface BonesRollBroadcastResult {
 
 export const BONES_BROADCASTLISTENER = 'bones.broadcast.listener';
 export const BONES_BROADCASTSENDER = 'bones.broadcast.sender';
+export const RUMBLE_BROADCAST_LISTENER = 'FORGE_LISTENER';
+export const RUMBLE_BROADCAST_SENDER = 'FORGE_SENDER';
+
+export interface RumbleRollBroadcastPayload {
+    sender: string;
+    action: string;
+    notation: string;
+}
+
+export interface RumbleRollBroadcastResult {
+    message: string;
+}
 
 let responseListenerInitialized = false;
+let rumbleResponseListenerInitialized = false;
+
+export const requestRumbleBroadcastRoll = async (payload: RumbleRollBroadcastPayload): Promise<void> => {
+    LOGGER.log('Rumble roll request sent', {
+        sender: payload.sender,
+        action: payload.action,
+        notation: payload.notation,
+    });
+
+    await OBR.broadcast.sendMessage(RUMBLE_BROADCAST_LISTENER, payload, { destination: 'LOCAL' });
+};
+
+export const initializeRumbleBroadcastResultListener = (
+    onResult: (result: RumbleRollBroadcastResult) => void,
+): void => {
+    if (rumbleResponseListenerInitialized) {
+        return;
+    }
+
+    OBR.broadcast.onMessage(RUMBLE_BROADCAST_SENDER, (event) => {
+        const data = event.data as unknown;
+        if (!data || typeof data !== 'object') {
+            return;
+        }
+
+        const parsed = data as Partial<RumbleRollBroadcastResult>;
+        if (typeof parsed.message !== 'string' || !parsed.message.trim()) {
+            return;
+        }
+
+        LOGGER.log('Rumble roll result received', {
+            message: parsed.message,
+        });
+
+        onResult({ message: parsed.message });
+    });
+
+    rumbleResponseListenerInitialized = true;
+};
 
 export const requestBonesBroadcastRoll = async (payload: BonesRollBroadcastPayload): Promise<void> => {
     LOGGER.log('Bones roll request sent', {

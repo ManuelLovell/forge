@@ -526,10 +526,16 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Enable Rumble! Integration"
               isOn={enableRumble}
-              onChange={async (value) => {
-                setEnableRumble(value);
-                await saveData(SettingsConstants.ENABLE_RUMBLE, value);
-              }}
+                onChange={async (value) => {
+                  setEnableRumble(value);
+                  await saveData(SettingsConstants.ENABLE_RUMBLE, value);
+                  if (value) {
+                    setEnableBones(false);
+                    setEnableDicePlus(false);
+                    await saveData(SettingsConstants.ENABLE_BONES, false);
+                    await saveData(SettingsConstants.ENABLE_DICE_PLUS, false);
+                  }
+                }}
             />
           </ControlRow>
 
@@ -538,10 +544,16 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Enable Bones! Integration"
               isOn={enableBones}
-              onChange={async (value) => {
-                setEnableBones(value);
-                await saveData(SettingsConstants.ENABLE_BONES, value);
-              }}
+                onChange={async (value) => {
+                  setEnableBones(value);
+                  await saveData(SettingsConstants.ENABLE_BONES, value);
+                  if (value) {
+                    setEnableRumble(false);
+                    setEnableDicePlus(false);
+                    await saveData(SettingsConstants.ENABLE_RUMBLE, false);
+                    await saveData(SettingsConstants.ENABLE_DICE_PLUS, false);
+                  }
+                }}
             />
           </ControlRow>
 
@@ -550,10 +562,16 @@ export const SettingsPage = () => {
             <ToggleControl
               label="Enable Dice+ Integration"
               isOn={enableDicePlus}
-              onChange={async (value) => {
-                setEnableDicePlus(value);
-                await saveData(SettingsConstants.ENABLE_DICE_PLUS, value);
-              }}
+                onChange={async (value) => {
+                  setEnableDicePlus(value);
+                  await saveData(SettingsConstants.ENABLE_DICE_PLUS, value);
+                  if (value) {
+                    setEnableRumble(false);
+                    setEnableBones(false);
+                    await saveData(SettingsConstants.ENABLE_RUMBLE, false);
+                    await saveData(SettingsConstants.ENABLE_BONES, false);
+                  }
+                }}
             />
           </ControlRow>
 

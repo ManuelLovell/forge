@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Plus, X } from 'lucide-react';
 import OBR, { type Item } from '@owlbear-rodeo/sdk';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
-import { requestBonesBroadcastRoll } from '../helpers/DiceRollIntegration';
+import { requestBonesBroadcastRoll, requestRumbleBroadcastRoll } from '../helpers/DiceRollIntegration';
 import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 import LOGGER from '../helpers/Logger';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
@@ -626,10 +626,20 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       const metadata = DATA_STORED_IN_ROOM
         ? await OBR.room.getMetadata()
         : await OBR.scene.getMetadata();
+      const enableRumble = metadata[SettingsConstants.ENABLE_RUMBLE] as boolean || false;
       const enableBones = metadata[SettingsConstants.ENABLE_BONES] as boolean || false;
 
-      if (!enableBones) {
+      if (!enableRumble && !enableBones) {
         LOGGER.log(notation);
+        return;
+      }
+
+      if (enableRumble) {
+        await requestRumbleBroadcastRoll({
+          sender: unitName,
+          action: actionName,
+          notation,
+        });
         return;
       }
 

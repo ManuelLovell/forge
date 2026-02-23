@@ -49,11 +49,12 @@ const LoadingText = styled.p`
 `;
 
 function App() {
-  const { sceneReady, cacheReady } = useSceneStore();
+  const { sceneReady, cacheReady, playerData } = useSceneStore();
   const { isInitialized } = useAppInitialization();
   const { theme } = useForgeTheme();
   const [currentPage, setCurrentPage] = useState<PageType>('ForgeMain');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const isCurrentUserGm = String(playerData?.role || '').toUpperCase() === 'GM';
 
   const renderPage = () => {
     switch (currentPage) {
@@ -62,17 +63,17 @@ function App() {
           <InitiativeList key="main" />
         );
       case 'Settings':
-        return (
-          <SettingsPage key="settings" />
-        );
+        return isCurrentUserGm
+          ? <SettingsPage key="settings" />
+          : <InitiativeList key="main" />;
       case 'Party':
         return (
           <PartyPage key="party" />
         );
       case 'System':
-        return (
-          <SystemPage key="system" />
-        );
+        return isCurrentUserGm
+          ? <SystemPage key="system" />
+          : <InitiativeList key="main" />;
       case 'ChatLog':
         return (
           <ChatLogPage key="chatlog" />
@@ -81,6 +82,12 @@ function App() {
   };
 
   const navigateTo = (page: PageType) => {
+    if (!isCurrentUserGm && (page === 'Settings' || page === 'System')) {
+      setCurrentPage('ForgeMain');
+      setIsMenuOpen(false);
+      return;
+    }
+
     setCurrentPage(page);
     setIsMenuOpen(false);
   };

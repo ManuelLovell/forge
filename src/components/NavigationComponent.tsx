@@ -13,6 +13,7 @@ import {
   MenuButtonBuffer
 } from './NavigationStyles';
 import { useForgeTheme } from '../helpers/ThemeContext';
+import { useSceneStore } from '../helpers/BSCache';
 
 export type PageType = 'ForgeMain' | 'Settings' | 'Party' | 'ChatLog' | 'System';
 
@@ -25,6 +26,8 @@ interface NavigationProps {
 
 export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate }: NavigationProps) => {
   const { theme } = useForgeTheme();
+  const playerData = useSceneStore((state) => state.playerData);
+  const isCurrentUserGm = String(playerData?.role || '').toUpperCase() === 'GM';
 
   return (
     <>
@@ -71,20 +74,24 @@ export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate }: Naviga
               >
                 System Log
               </NavButton>
-              <NavButton
-                theme={theme}
-                $isActive={currentPage === 'System'}
-                onClick={() => onNavigate('System')}
-              >
-                System
-              </NavButton>
-              <NavButton
-                theme={theme}
-                $isActive={currentPage === 'Settings'}
-                onClick={() => onNavigate('Settings')}
-              >
-                Settings
-              </NavButton>
+              {isCurrentUserGm && (
+                <NavButton
+                  theme={theme}
+                  $isActive={currentPage === 'System'}
+                  onClick={() => onNavigate('System')}
+                >
+                  System
+                </NavButton>
+              )}
+              {isCurrentUserGm && (
+                <NavButton
+                  theme={theme}
+                  $isActive={currentPage === 'Settings'}
+                  onClick={() => onNavigate('Settings')}
+                >
+                  Settings
+                </NavButton>
+              )}
             </MenuNav>
           </MenuOverlay>
         )}

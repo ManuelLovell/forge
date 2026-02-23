@@ -132,6 +132,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
     const roomMetadata = useSceneStore((state) => state.roomMetadata);
     const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
     const sceneItems = useSceneStore((state) => state.items);
+    const playerData = useSceneStore((state) => state.playerData);
 
     //Control for setting the data to Room or to Scene
     const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
@@ -143,23 +144,49 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                 id: UnitConstants.ON_LIST,
                 icons: [
                     {
-                        icon: "/icon.svg",
-                        label: "[Forge] Enter Combat",
+                        icon: "/icon.svg", // GM Version
+                        label: "Enter Combat",
                         filter: {
-                            every: [{ key: ["metadata", UnitConstants.ON_LIST], operator: "!=", value: true }],
-                            some: [
-                                { key: "layer", value: "CHARACTER", coordinator: "||" },
-                                { key: "layer", value: "MOUNT" }],
+                            every: [
+                                { key: ["metadata", UnitConstants.ON_LIST], operator: "!=", value: true },
+                                { key: "type", operator: "==", value: "IMAGE" }
+                            ],
+                            roles: ["GM"]
                         },
                     },
                     {
-                        icon: "/icon.svg",
-                        label: "[Forge] Exit Combat",
+                        icon: "/icon.svg", // Player Version
+                        label: "Enter Combat",
                         filter: {
-                            every: [{ key: ["metadata", UnitConstants.ON_LIST], operator: "==", value: true }],
-                            some: [
-                                { key: "layer", value: "CHARACTER", coordinator: "||" },
-                                { key: "layer", value: "MOUNT" }],
+                            every: [
+                                { key: ["metadata", UnitConstants.ON_LIST], operator: "!=", value: true },
+                                { key: "type", operator: "==", value: "IMAGE" },
+                                { key: "createdUserId", operator: "==", value: playerData?.id }
+                            ],
+                            roles: ["PLAYER"]
+                        },
+                    },
+                    {
+                        icon: "/icon.svg", // GM Version
+                        label: "Exit Combat",
+                        filter: {
+                            every: [
+                                { key: ["metadata", UnitConstants.ON_LIST], operator: "==", value: true },
+                                { key: "type", operator: "==", value: "IMAGE" }
+                            ],
+                            roles: ["GM"]
+                        },
+                    },
+                    {
+                        icon: "/icon.svg", // Player Version
+                        label: "Exit Combat",
+                        filter: {
+                            every: [
+                                { key: ["metadata", UnitConstants.ON_LIST], operator: "==", value: true },
+                                { key: "type", operator: "==", value: "IMAGE" },
+                                { key: "createdUserId", operator: "==", value: playerData?.id }
+                            ],
+                            roles: ["PLAYER"]
                         },
                     },
                 ],
@@ -256,23 +283,53 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                 id: UnitConstants.IN_PARTY,
                 icons: [
                     {
-                        icon: "/icon.svg",
-                        label: "[Forge] Add to Party",
+                        icon: "/icon.svg", // GM Version
+                        label: "Add to Party",
                         filter: {
                             every: [{ key: ["metadata", UnitConstants.IN_PARTY], operator: "!=", value: true }],
                             some: [
                                 { key: "layer", value: "CHARACTER", coordinator: "||" },
                                 { key: "layer", value: "MOUNT" }],
+                            roles: ["GM"],
                         },
                     },
                     {
-                        icon: "/icon.svg",
-                        label: "[Forge] Remove from Party",
+                        icon: "/icon.svg", // Player Version
+                        label: "Add to Party",
+                        filter: {
+                            every: [
+                                { key: ["metadata", UnitConstants.IN_PARTY], operator: "!=", value: true },
+                                { key: "createdUserId", operator: "==", value: playerData?.id }
+                            ],
+                            some: [
+                                { key: "layer", value: "CHARACTER", coordinator: "||" },
+                                { key: "layer", value: "MOUNT" }],
+                            roles: ["PLAYER"],
+                        },
+                    },
+                    {
+                        icon: "/icon.svg", // GM Version
+                        label: "Remove from Party",
                         filter: {
                             every: [{ key: ["metadata", UnitConstants.IN_PARTY], operator: "==", value: true }],
                             some: [
                                 { key: "layer", value: "CHARACTER", coordinator: "||" },
                                 { key: "layer", value: "MOUNT" }],
+                            roles: ["GM"],
+                        },
+                    },
+                    {
+                        icon: "/icon.svg", // Player Version
+                        label: "Remove from Party",
+                        filter: {
+                            every: [
+                                { key: ["metadata", UnitConstants.IN_PARTY], operator: "==", value: true },
+                                { key: "createdUserId", operator: "==", value: playerData?.id }
+                            ],
+                            some: [
+                                { key: "layer", value: "CHARACTER", coordinator: "||" },
+                                { key: "layer", value: "MOUNT" }],
+                            roles: ["PLAYER"],
                         },
                     },
                 ],
@@ -304,13 +361,26 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                 id: VIEW_UNIT_CONTEXT_MENU_ID,
                 icons: [
                     {
-                        icon: "/icon.svg",
-                        label: "[Forge] View Unit",
+                        icon: "/icon.svg", // GM Version
+                        label: "View Unit",
                         filter: {
                             max: 1,
                             some: [
                                 { key: "layer", value: "CHARACTER", coordinator: "||" },
                                 { key: "layer", value: "MOUNT" }],
+                            roles: ["GM"],
+                        },
+                    },
+                    {
+                        icon: "/icon.svg", // Player Version
+                        label: "View Unit",
+                        filter: {
+                            max: 1,
+                            every: [{ key: "createdUserId", operator: "==", value: playerData?.id }],
+                            some: [
+                                { key: "layer", value: "CHARACTER", coordinator: "||" },
+                                { key: "layer", value: "MOUNT" }],
+                            roles: ["PLAYER"],
                         },
                     }
                 ],

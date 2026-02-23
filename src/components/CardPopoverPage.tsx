@@ -389,8 +389,17 @@ const TrayActionButton = styled.button<{ $theme: ThemeData }>`
   cursor: pointer;
   padding: 0;
 
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
   &:hover {
     background: ${props => rgbaFromHex(props.$theme.offset, 0.5)};
+  }
+
+  &:disabled:hover {
+    background: ${props => rgbaFromHex(props.$theme.background, 0.9)};
   }
 `;
 
@@ -398,6 +407,10 @@ const FavoriteActionButton = styled(TrayActionButton)<{ $active: boolean; $theme
   background: ${props => props.$active
     ? rgbaFromHex(props.$theme.offset, 0.45)
     : rgbaFromHex(props.$theme.background, 0.9)};
+
+  &:disabled {
+    background: ${props => rgbaFromHex(props.$theme.background, 0.9)};
+  }
 `;
 
 const TrayActionIcon = styled.img<{ $active?: boolean }>`
@@ -527,6 +540,8 @@ const isFabricatedTrue = (raw: unknown): boolean => {
 export const CardPopoverPage = () => {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(() => readUnitIdFromQuery());
   const [cache, setCache] = useState<CardCache>({ metadata: {}, items: [] });
+  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
+  const [isCurrentUserGm, setIsCurrentUserGm] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isTrayOpen, setIsTrayOpen] = useState(false);
   const [trayQuery, setTrayQuery] = useState('');
@@ -568,10 +583,12 @@ export const CardPopoverPage = () => {
     let isMounted = true;
 
     const initialize = async () => {
-      const [metadata, items, roomMetadata] = await Promise.all([
+      const [metadata, items, roomMetadata, playerId, playerRole] = await Promise.all([
         OBR.scene.getMetadata(),
         OBR.scene.items.getItems(),
         OBR.room.getMetadata(),
+        OBR.player.getId(),
+        OBR.player.getRole(),
       ]);
 
       if (!isMounted) {
@@ -581,6 +598,8 @@ export const CardPopoverPage = () => {
       syncLoggerEnabled(DATA_STORED_IN_ROOM ? roomMetadata : metadata);
 
       setCache({ metadata, items });
+      setCurrentPlayerId(playerId);
+      setIsCurrentUserGm(String(playerRole || '').toUpperCase() === 'GM');
       setIsReady(true);
     };
 
@@ -637,13 +656,14 @@ export const CardPopoverPage = () => {
   const selectableUnits = useMemo(() => {
     return cache.items
       .filter((item) => isFabricatedTrue(item.metadata?.[UnitConstants.FABRICATED]))
+      .filter((item) => isCurrentUserGm || item.createdUserId === currentPlayerId)
       .filter((item) => item.id !== selectedUnitId)
       .map((item) => ({
         id: item.id,
         name: getUnitDisplayName(item),
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [cache.items, selectedUnitId]);
+  }, [cache.items, selectedUnitId, isCurrentUserGm, currentPlayerId]);
 
   const unitItem = useMemo(() => {
     if (!selectedUnitId) {
@@ -858,10 +878,18 @@ export const CardPopoverPage = () => {
   };
 
   const handleTrayFavoriteClick = () => {
+    if (!isCurrentUserGm) {
+      return;
+    }
+
     setIsFavoriteEnabled((previous) => !previous);
   };
 
   const handleTrayCollectionSaveClick = async () => {
+    if (!isCurrentUserGm) {
+      return;
+    }
+
     const liveUnitItem = await getSelectedUnitItemFromScene();
     if (!liveUnitItem) {
       await OBR.notification.show('No unit selected to save.', 'ERROR');
@@ -1125,6 +1153,7 @@ export const CardPopoverPage = () => {
               $theme={theme}
               $active={isFavoriteEnabled}
               aria-label="Favorite"
+              disabled={!isCurrentUserGm}
               onClick={handleTrayFavoriteClick}
             >
               <TrayActionIcon $active={isFavoriteEnabled} src="/favorite.svg" alt="" aria-hidden="true" />
@@ -1134,6 +1163,7 @@ export const CardPopoverPage = () => {
               type="button"
               $theme={theme}
               aria-label="CollectionSave"
+              disabled={!isCurrentUserGm}
               onClick={handleTrayCollectionSaveClick}
             >
               <TrayActionIcon src="/collection.svg" alt="" aria-hidden="true" />

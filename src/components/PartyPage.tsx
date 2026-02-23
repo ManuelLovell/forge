@@ -231,10 +231,6 @@ export const PartyPage = () => {
   };
 
   const handleToggleHudOpen = async () => {
-    if (!isCurrentUserGm) {
-      return;
-    }
-
     const next = !hudOpen;
     await savePartySetting(SettingsConstants.PARTY_HUD_OPEN, next);
 
@@ -249,10 +245,6 @@ export const PartyPage = () => {
   };
 
   const handleCycleOrientation = async () => {
-    if (!isCurrentUserGm) {
-      return;
-    }
-
     const nextOrientation = getNextOrientation(hudOrientation);
     await savePartySetting(SettingsConstants.PARTY_HUD_ORIENTATION, nextOrientation);
   };
@@ -309,94 +301,96 @@ export const PartyPage = () => {
         <PageTitle theme={theme}>Party</PageTitle>
         <PartyControls theme={theme}>
           <ControlRow>
-            <ControlButton theme={theme} onClick={() => void handleCycleOrientation()} disabled={!isCurrentUserGm}>
+            <ControlButton theme={theme} onClick={() => void handleCycleOrientation()}>
               Display: {hudOrientation.toUpperCase()}
             </ControlButton>
-            <ControlButton theme={theme} onClick={() => void handleToggleHudOpen()} disabled={!isCurrentUserGm}>
+            <ControlButton theme={theme} onClick={() => void handleToggleHudOpen()}>
               {hudOpen ? 'Close Party HUD' : 'Open Party HUD'}
             </ControlButton>
           </ControlRow>
 
-          <CenteredControlRow>
-            <ControlLabel theme={theme}>Show in HUD:</ControlLabel>
-            <ToggleRow $disabled={!isCurrentUserGm}>
-              <ToggleLabel theme={theme}>Show HP Bars</ToggleLabel>
-              <ToggleControl
-                label="Party HUD Show HP Bars"
-                isOn={showPartyHudHpBars}
-                onChange={(next) => {
-                  if (!isCurrentUserGm) return;
-                  void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_BARS, next);
-                  if (next) {
-                    void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS, false);
-                  }
-                }}
-              />
-            </ToggleRow>
-            <ToggleRow $disabled={!isCurrentUserGm}>
-              <ToggleLabel theme={theme}>Show HP Numbers</ToggleLabel>
-              <ToggleControl
-                label="Party HUD Show HP Numbers"
-                isOn={showPartyHudHpNumbers}
-                onChange={(next) => {
-                  if (!isCurrentUserGm) return;
-                  void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS, next);
-                  if (next) {
-                    void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_BARS, false);
-                  }
-                }}
-              />
-            </ToggleRow>
-            <ControlSelect
-              theme={theme}
-              disabled={!isCurrentUserGm}
-              value={extraAttrOne}
-              onChange={(event) => {
-                const value = event.target.value;
-                void savePartySetting(SettingsConstants.PARTY_HUD_ATTR_ONE, value);
-                if (value && value === extraAttrTwo) {
-                  void savePartySetting(SettingsConstants.PARTY_HUD_ATTR_TWO, '');
-                }
-              }}
-            >
-              <option value="">Extra Slot 1 (None)</option>
-              {allowedAttributes.map((attribute) => (
-                <option key={attribute.attr_bid} value={attribute.attr_bid}>
-                  {(attribute.attr_name || attribute.attr_bid)}
-                </option>
-              ))}
-            </ControlSelect>
+          {isCurrentUserGm && (
+            <>
+              <CenteredControlRow>
+                <ControlLabel theme={theme}>Show in HUD:</ControlLabel>
+                <ToggleRow $disabled={!isCurrentUserGm}>
+                  <ToggleLabel theme={theme}>Show HP Bars</ToggleLabel>
+                  <ToggleControl
+                    label="Party HUD Show HP Bars"
+                    isOn={showPartyHudHpBars}
+                    onChange={(next) => {
+                      if (!isCurrentUserGm) return;
+                      void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_BARS, next);
+                      if (next) {
+                        void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS, false);
+                      }
+                    }}
+                  />
+                </ToggleRow>
+                <ToggleRow $disabled={!isCurrentUserGm}>
+                  <ToggleLabel theme={theme}>Show HP Numbers</ToggleLabel>
+                  <ToggleControl
+                    label="Party HUD Show HP Numbers"
+                    isOn={showPartyHudHpNumbers}
+                    onChange={(next) => {
+                      if (!isCurrentUserGm) return;
+                      void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS, next);
+                      if (next) {
+                        void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_BARS, false);
+                      }
+                    }}
+                  />
+                </ToggleRow>
+                <ControlSelect
+                  theme={theme}
+                  disabled={!isCurrentUserGm}
+                  value={extraAttrOne}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    void savePartySetting(SettingsConstants.PARTY_HUD_ATTR_ONE, value);
+                    if (value && value === extraAttrTwo) {
+                      void savePartySetting(SettingsConstants.PARTY_HUD_ATTR_TWO, '');
+                    }
+                  }}
+                >
+                  <option value="">Extra Slot 1 (None)</option>
+                  {allowedAttributes.map((attribute) => (
+                    <option key={attribute.attr_bid} value={attribute.attr_bid}>
+                      {(attribute.attr_name || attribute.attr_bid)}
+                    </option>
+                  ))}
+                </ControlSelect>
 
-            <ControlSelect
-              theme={theme}
-              disabled={!isCurrentUserGm}
-              value={extraAttrTwo}
-              onChange={(event) => {
-                const value = event.target.value;
-                void savePartySetting(SettingsConstants.PARTY_HUD_ATTR_TWO, value);
-                if (value && value === extraAttrOne) {
-                  void savePartySetting(SettingsConstants.PARTY_HUD_ATTR_ONE, '');
-                }
-              }}
-            >
-              <option value="">Extra Slot 2 (None)</option>
-              {allowedAttributes.map((attribute) => (
-                <option key={attribute.attr_bid} value={attribute.attr_bid}>
-                  {(attribute.attr_name || attribute.attr_bid)}
-                </option>
-              ))}
-            </ControlSelect>
-          </CenteredControlRow>
+                <ControlSelect
+                  theme={theme}
+                  disabled={!isCurrentUserGm}
+                  value={extraAttrTwo}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    void savePartySetting(SettingsConstants.PARTY_HUD_ATTR_TWO, value);
+                    if (value && value === extraAttrOne) {
+                      void savePartySetting(SettingsConstants.PARTY_HUD_ATTR_ONE, '');
+                    }
+                  }}
+                >
+                  <option value="">Extra Slot 2 (None)</option>
+                  {allowedAttributes.map((attribute) => (
+                    <option key={attribute.attr_bid} value={attribute.attr_bid}>
+                      {(attribute.attr_name || attribute.attr_bid)}
+                    </option>
+                  ))}
+                </ControlSelect>
+              </CenteredControlRow>
 
-          <ControlHint theme={theme}>
-            {isCurrentUserGm
-              ? <>
-                Configure Party HUD and portraits.
-                <br />
-                LIST attributes are excluded.
-              </>
-              : 'Only the GM can configure Party HUD settings.'}
-          </ControlHint>
+              <ControlHint theme={theme}>
+                <>
+                  Configure Party HUD and portraits.
+                  <br />
+                  LIST attributes are excluded.
+                </>
+              </ControlHint>
+            </>
+          )}
         </PartyControls>
 
         {partyItems.length === 0 ? (
@@ -409,6 +403,8 @@ export const PartyPage = () => {
               const portraitOverride = (item.metadata?.[UnitConstants.PORTRAIT_URL] as string | undefined) || '';
               const tokenUrl = isImage(item) ? item.image.url : undefined;
               const unitName = (item.metadata[UnitConstants.UNIT_NAME] as string) || item.name || 'Unknown';
+              const isOwner = item.createdUserId === playerData?.id;
+              const canEditPortraitOverride = isCurrentUserGm || isOwner;
               const basePortrait = tokenUrl || '/logo.png';
               const hasPortraitOverride = Boolean(portraitOverride);
               const overlayPortrait = hasPortraitOverride ? portraitOverride : '';
@@ -433,15 +429,16 @@ export const PartyPage = () => {
                   </TokenImageStack>
                   <UnitMeta>
                     <UnitName theme={theme} title={unitName}>{unitName}</UnitName>
-                    <PortraitInput
-                      theme={theme}
-                      disabled={!isCurrentUserGm}
-                      defaultValue={portraitOverride}
-                      placeholder="Portrait URL override (optional)"
-                      onBlur={(event) => {
-                        void updatePortraitUrl(item.id, event.target.value);
-                      }}
-                    />
+                    {canEditPortraitOverride && (
+                      <PortraitInput
+                        theme={theme}
+                        defaultValue={portraitOverride}
+                        placeholder="Portrait URL override (optional)"
+                        onBlur={(event) => {
+                          void updatePortraitUrl(item.id, event.target.value);
+                        }}
+                      />
+                    )}
                   </UnitMeta>
                 </PartyItem>
               );

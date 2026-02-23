@@ -10,7 +10,8 @@ import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import {
   Heart, Shield, Sun, Award, Target, Users, Star,
-  Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle, Music, Feather, FileText
+  Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle, Music, Feather, FileText,
+  ArrowLeft, ArrowRight, OctagonX
 } from 'lucide-react';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import LOGGER from '../helpers/Logger';
@@ -169,13 +170,13 @@ const ControlCenter = styled.div`
   gap: 16px;
 `;
 
-const ControlButton = styled.button<{ theme: ForgeTheme; disabled?: boolean }>`
+const ControlButton = styled.button<{ theme: ForgeTheme; disabled?: boolean; $compact?: boolean }>`
   background: ${props => props.disabled ? rgbaFromHex(props.theme.BORDER, 0.3) : rgbaFromHex(props.theme.OFFSET, 0.5)};
   border: 2px solid ${props => props.theme.BORDER};
   border-radius: 6px;
   color: ${props => props.theme.PRIMARY};
   padding: 4px 4px;
-  width: 80px;
+  width: ${props => props.$compact ? '40px' : '80px'};
   font-size: 14px;
   font-weight: 600;
   font-variant: small-caps;
@@ -195,6 +196,17 @@ const ControlButton = styled.button<{ theme: ForgeTheme; disabled?: boolean }>`
 const ResetButton = styled(ControlButton)`
   position: absolute;
   right: 8px;
+  width: 40px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
 `;
 
 const RoundDisplay = styled.div<{ theme: ForgeTheme }>`
@@ -695,10 +707,22 @@ export const InitiativeList: React.FC = () => {
   const [rollableEditMode, setRollableEditMode] = useState<Record<string, boolean>>({});
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isCompactControlLayout, setIsCompactControlLayout] = useState(() => window.innerWidth < 400);
   const longPressTimersRef = useRef<Record<string, number>>({});
   const suppressNextClickRef = useRef<Record<string, boolean>>({});
   const tableRef = useRef<HTMLTableElement>(null);
   const LONG_PRESS_MS = 500;
+
+  useEffect(() => {
+    const onResize = () => {
+      setIsCompactControlLayout(window.innerWidth < 400);
+    };
+
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
 
   // Control for setting the data to Room or to Scene
   const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
@@ -784,9 +808,12 @@ export const InitiativeList: React.FC = () => {
         const initiative = item.metadata?.[UnitConstants.INITIATIVE] as number || 0;
         const name = item.metadata[UnitConstants.UNIT_NAME] as string || item.name || 'Unknown';
         const elevation = item.metadata?.[ELEVATION_METADATA_KEY] as number || 0;
-        const owner = partyData.find((player) => player.id === item.createdUserId);
-        const isGmOwner = String((owner as RoleLike | null | undefined)?.role || '').toUpperCase() === 'GM';
-        const ownerNameOutlineColor = isGmOwner ? undefined : withAlpha(owner?.color, 1.0);
+        const owner = partyData.find((player) => player.id === item.createdUserId)
+          || (playerData?.id === item.createdUserId ? playerData : undefined);
+        const ownerRole = String((owner as RoleLike | null | undefined)?.role || '').toUpperCase();
+        const isGmOwner = ownerRole === 'GM';
+        const resolvedOwnerColor = owner?.color || (playerData?.id === item.createdUserId ? playerData?.color : undefined);
+        const ownerNameOutlineColor = isGmOwner ? undefined : withAlpha(resolvedOwnerColor, 1.0);
 
         // Extract attributes using BIDs
         const attributes: Record<string, unknown> = {};
@@ -810,7 +837,7 @@ export const InitiativeList: React.FC = () => {
       });
 
     setUnits(transformedUnits);
-  }, [items, partyData]);
+  }, [items, partyData, playerData]);
 
   // Sort units by initiative and then alphabetically by name (only in normal mode)
   const sortedUnits = useMemo(() => {
@@ -2209,26 +2236,32 @@ export const InitiativeList: React.FC = () => {
           ) : (
             // Normal Initiative controls
             <>
-              <ControlButton theme={theme} onClick={handlePrevious}>
-                Previous
-              </ControlButton>
+              {isCurrentUserGm && (
+                <ControlButton theme={theme} $compact={isCompactControlLayout} onClick={handlePrevious}>
+                  {isCompactControlLayout ? <ArrowLeft /> : 'Previous'}
+                </ControlButton>
+              )}
               <RoundDisplay theme={theme}>
                 Round: {currentRound}
               </RoundDisplay>
-              <ControlButton theme={theme} onClick={handleNext}>
-                Next
-              </ControlButton>
+              {isCurrentUserGm && (
+                <ControlButton theme={theme} $compact={isCompactControlLayout} onClick={handleNext}>
+                  {isCompactControlLayout ? <ArrowRight /> : 'Next'}
+                </ControlButton>
+              )}
             </>
           )}
         </ControlCenter>
-        <ResetButton
-          theme={theme}
-          onClick={() => setIsResetModalOpen(true)}
-          disabled={isResetting}
-          title="Reset round/turn state"
-        >
-          Reset
-        </ResetButton>
+        {isCurrentUserGm && (
+          <ResetButton
+            theme={theme}
+            onClick={() => setIsResetModalOpen(true)}
+            disabled={isResetting}
+            title="Reset round/turn state"
+          >
+            <OctagonX />
+          </ResetButton>
+        )}
       </ControlWrapper>
       <PopupModal
         isOpen={!!ownerModalUnitId}

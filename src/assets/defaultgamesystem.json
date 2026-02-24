@@ -113,7 +113,8 @@
                     "Z021",
                     "Z022"
                 ],
-                "fontWeight": "bold"
+                "fontWeight": "bold",
+                "labelMode": "abbr"
             },
             "fullsize": true
         },
@@ -141,7 +142,8 @@
             "type": "text",
             "styles": {
                 "fontSize": "sm",
-                "attributeId": "Z041"
+                "attributeId": "Z041",
+                "textAlign": "center"
             },
             "fullsize": true
         },
@@ -285,9 +287,19 @@
             "fullsize": true
         },
         {
-            "id": "97a54f22-c6e4-4fbb-8327-f07a60833d36",
+            "id": "e89dcbcc-20f0-44a4-8f21-c10571379d97",
             "col": 0,
             "row": 22,
+            "type": "action-list",
+            "styles": {
+                "attributeId": "Z039"
+            },
+            "fullsize": true
+        },
+        {
+            "id": "97a54f22-c6e4-4fbb-8327-f07a60833d36",
+            "col": 0,
+            "row": 23,
             "type": "item-list",
             "styles": {
                 "attributeId": "Z040"
@@ -354,6 +366,30 @@
                 "labelMode": "icon",
                 "labelName": "Actions",
                 "description": "This is the actions for the unit."
+            }
+        },
+        {
+            "id": "28280571-c792-4574-9fb1-891f9d18dd67",
+            "col": 4,
+            "type": "special-column",
+            "styles": {
+                "labelIcon": "music",
+                "labelMode": "icon",
+                "labelName": "Effects",
+                "description": "This is the effects column.",
+                "specialType": "effects"
+            }
+        },
+        {
+            "id": "25395899-8152-4347-8e53-cbd9b0f2ce31",
+            "col": 5,
+            "type": "special-column",
+            "styles": {
+                "labelIcon": "feather",
+                "labelMode": "icon",
+                "labelName": "Elevation",
+                "description": "This is the elevation column.",
+                "specialType": "elevation"
             }
         }
     ],

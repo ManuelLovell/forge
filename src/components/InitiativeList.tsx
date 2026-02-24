@@ -37,6 +37,7 @@ interface ListColumn {
   description?: string;
   styles?: {
     bidList?: string[];
+    inputType?: 'checkbox' | 'slider';
     dividers?: string[];
     labelIcon?: string;
     labelMode?: 'blank' | 'name' | 'abbr' | 'icon';
@@ -432,43 +433,164 @@ const ActionButton = styled.button<{ theme: ForgeTheme; $active?: boolean }>`
 `;
 
 const CheckboxInput = styled.input`
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #6b7280;
   cursor: pointer;
   margin: 0 4px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  appearance: none;
+  display: inline-block;
+
+  &:checked {
+    background-color: #f56565;
+    border-color: #f56565;
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(245, 101, 101, 0.6);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.75;
+  }
 `;
 
-const DividerCell = styled(DataCell) <{ $style?: string; theme: ForgeTheme }>`
+const SliderToggleInput = styled.button<{ theme: ForgeTheme; $active: boolean }>`
   width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  max-width: 24px;
+  max-height: 24px;
+  flex: 0 0 24px;
+  border-radius: 6px;
+  background: ${props => props.theme.BACKGROUND};
+  border: 1px solid ${props => props.theme.BORDER};
+  box-sizing: border-box;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.75;
+  }
+`;
+
+const SliderToggleBar = styled.div<{ theme: ForgeTheme; $active: boolean }>`
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 16px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  background: ${props => props.theme.PRIMARY};
+  border: 1px solid ${props => props.theme.BORDER};
+  top: 0;
+  transform: translateY(${props => props.$active ? '-1px' : '6px'});
+  transition: transform 200ms;
+`;
+
+const DividerCell = styled(DataCell)<{ theme: ForgeTheme }>`
+  width: 24px;
+  min-width: 24px;
+  max-width: 24px;
   padding: 0;
   position: relative;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 2px;
-    background: ${props => {
+`;
+
+const DividerPreview = styled.div`
+  position: absolute;
+  inset: 0;
+  min-height: 40px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0 10px;
+`;
+
+const DividerLine = styled.div<{ theme: ForgeTheme; $style?: string }>`
+  flex: 1;
+  height: 100%;
+
+  ${props => {
     switch (props.$style) {
-      case 'dashed': return `repeating-linear-gradient(to bottom, ${props.theme.BORDER} 0, ${props.theme.BORDER} 5px, transparent 5px, transparent 10px)`;
-      case 'shadow': return 'none';
-      case 'zigzag': return 'none';
-      case 'ridge': return 'none';
-      case 'pulse': return props.theme.OFFSET;
-      default: return props.theme.BORDER;
+      case 'dash':
+      case 'dashed':
+        return `
+          width: 0;
+          border-left: 2px dashed ${props.theme.BORDER};
+        `;
+      case 'shadow':
+        return `
+          width: 6px;
+          background: linear-gradient(
+            to right,
+            transparent,
+            ${rgbaFromHex(props.theme.BORDER, 0.2)},
+            transparent
+          );
+        `;
+      case 'ridge':
+        return `
+          width: 2px;
+          background: ${props.theme.BORDER};
+          box-shadow: inset 1px 0 0 ${props.theme.BORDER}, -1px 0 0 #000;
+        `;
+      case 'pulse':
+        return `
+          width: 3px;
+          background: ${props.theme.BORDER};
+          animation: divider-flicker 1.2s infinite alternate;
+
+          @keyframes divider-flicker {
+            from { opacity: 0.3; }
+            to { opacity: 1; }
+          }
+        `;
+      default:
+        return `
+          width: 2px;
+          background: linear-gradient(
+            to right,
+            transparent,
+            ${props.theme.BORDER},
+            transparent
+          );
+        `;
     }
+  }}
+`;
+
+const ZigzagDividerWrap = styled.div`
+  flex: 1;
+  height: 100%;
+  padding: 0 8px;
+  margin: 0 -10px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+`;
+
+const ZigzagDividerLine = styled.div<{ theme: ForgeTheme }>`
+  width: 6px;
+  flex: 1;
+  height: 100%;
+  background-repeat: repeat-y;
+  background-position: center;
+  background-size: 6px 16px;
+  background-image: ${props => {
+    const strokeColor = encodeURIComponent(props.theme.BORDER);
+    return `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='16' viewBox='0 0 6 16' preserveAspectRatio='none'%3E%3Cpolyline points='3,0 0,4 6,8 0,12 3,16' fill='none' stroke='${strokeColor}' stroke-width='1.2'/%3E%3C/svg%3E")`;
   }};
-    ${props => props.$style === 'shadow' && `box-shadow: 0 0 10px ${props.theme.OFFSET};`}
-    ${props => props.$style === 'pulse' && `animation: pulse 2s ease-in-out infinite;`}
-  }
-  
-  @keyframes pulse {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 1; }
-  }
 `;
 
 const OwnerPickerList = styled.div`
@@ -596,8 +718,12 @@ const ListReferenceTitleRow = styled.div`
 `;
 
 const ListReferenceUseCheckbox = styled.input`
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #4b5563;
+  background: rgba(0, 0, 0, 0.2);
+  accent-color: #ffffff;
   margin: 0;
   pointer-events: none;
 `;
@@ -2086,52 +2212,72 @@ export const InitiativeList: React.FC = () => {
         return (
           <DataCell theme={theme}>
             <ValueContainer>
-              {col.styles?.bidList?.map(bid => (
-                <CheckboxInput
-                  key={bid}
-                  type="checkbox"
-                  checked={!!unit.attributes[`${EXTENSION_ID}/${bid}`]}
-                  disabled={!canInteract}
-                  onChange={!canInteract ? undefined : (e) => {
-                    const newValue = e.target.checked;
-
-                    // Update local state
-                    setUnits(prevUnits =>
-                      prevUnits.map(u =>
-                        u.id === unit.id
-                          ? {
-                            ...u,
-                            attributes: {
-                              ...u.attributes,
-                              [`${EXTENSION_ID}/${bid}`]: newValue
-                            }
-                          }
-                          : u
-                      )
-                    );
-
-                    // Update cache
-                    const updatedItems = items.map(item => {
-                      if (item.id === unit.id) {
-                        return {
-                          ...item,
-                          metadata: {
-                            ...item.metadata,
+              {col.styles?.bidList?.map(bid => {
+                const isActive = !!unit.attributes[`${EXTENSION_ID}/${bid}`];
+                const useSlider = col.styles?.inputType === 'slider';
+                const updateBoolValue = (newValue: boolean) => {
+                  setUnits(prevUnits =>
+                    prevUnits.map(u =>
+                      u.id === unit.id
+                        ? {
+                          ...u,
+                          attributes: {
+                            ...u.attributes,
                             [`${EXTENSION_ID}/${bid}`]: newValue
                           }
-                        };
-                      }
-                      return item;
-                    });
-                    setItems(updatedItems);
+                        }
+                        : u
+                    )
+                  );
 
-                    // Update in OBR scene items
-                    OBR.scene.items.updateItems([unit.id], (items) => {
-                      items[0].metadata[`${EXTENSION_ID}/${bid}`] = newValue;
-                    });
-                  }}
-                />
-              ))}
+                  const updatedItems = items.map(item => {
+                    if (item.id === unit.id) {
+                      return {
+                        ...item,
+                        metadata: {
+                          ...item.metadata,
+                          [`${EXTENSION_ID}/${bid}`]: newValue
+                        }
+                      };
+                    }
+                    return item;
+                  });
+                  setItems(updatedItems);
+
+                  OBR.scene.items.updateItems([unit.id], (items) => {
+                    items[0].metadata[`${EXTENSION_ID}/${bid}`] = newValue;
+                  });
+                };
+
+                if (useSlider) {
+                  return (
+                    <SliderToggleInput
+                      key={bid}
+                      type="button"
+                      theme={theme}
+                      $active={isActive}
+                      disabled={!canInteract}
+                      onClick={!canInteract ? undefined : () => {
+                        updateBoolValue(!isActive);
+                      }}
+                    >
+                      <SliderToggleBar theme={theme} $active={isActive} />
+                    </SliderToggleInput>
+                  );
+                }
+
+                return (
+                  <CheckboxInput
+                    key={bid}
+                    type="checkbox"
+                    checked={isActive}
+                    disabled={!canInteract}
+                    onChange={!canInteract ? undefined : (e) => {
+                      updateBoolValue(e.target.checked);
+                    }}
+                  />
+                );
+              })}
             </ValueContainer>
           </DataCell>
         );
@@ -2165,7 +2311,19 @@ export const InitiativeList: React.FC = () => {
         }
 
       case 'divider-column':
-        return <DividerCell theme={theme} $style={col.styles?.styleDesign} />;
+        return (
+          <DividerCell theme={theme}>
+            <DividerPreview>
+              {col.styles?.styleDesign === 'zigzag' ? (
+                <ZigzagDividerWrap>
+                  <ZigzagDividerLine theme={theme} />
+                </ZigzagDividerWrap>
+              ) : (
+                <DividerLine theme={theme} $style={col.styles?.styleDesign} />
+              )}
+            </DividerPreview>
+          </DividerCell>
+        );
 
       default:
         return <DataCell theme={theme}>-</DataCell>;

@@ -10,6 +10,7 @@ import { rgbaFromHex } from '../helpers/ThemeConstants';
 import { deserializeCardLayout } from '../helpers/deserializeCardLayout';
 import { UnitConstants } from '../interfaces/MetadataKeys';
 import type { CardLayoutComponent, SystemAttribute } from '../interfaces/SystemResponse';
+import defaultGameSystem from '../assets/defaultgamesystem.json';
 
 export interface CardLayoutTheme {
   primary: string;
@@ -252,22 +253,6 @@ const ColumnInputTrack = styled.div`
   min-width: 0;
 `;
 
-const CheckboxMock = styled.div<{ $theme: CardLayoutTheme }>`
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  border: 1px solid ${props => props.$theme.border};
-  background: ${props => rgbaFromHex(props.$theme.background, 0.45)};
-`;
-
-const SliderMock = styled.div<{ $theme: CardLayoutTheme }>`
-  flex: 1;
-  height: 8px;
-  border-radius: 999px;
-  border: 1px solid ${props => props.$theme.border};
-  background: ${props => rgbaFromHex(props.$theme.background, 0.45)};
-`;
-
 const Spacer = styled.div<{ $full?: boolean }>`
   width: ${props => (props.$full ? '100%' : '170px')};
   min-height: 18px;
@@ -466,10 +451,108 @@ const ActionNameInputWrap = styled.div`
 `;
 
 const ItemUseCheckbox = styled.input<{ $theme: CardLayoutTheme }>`
-  width: 18px;
-  height: 18px;
-  accent-color: ${props => props.$theme.offset};
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #6b7280;
   cursor: pointer;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  appearance: none;
+  display: inline-block;
+  vertical-align: middle;
+
+  &:checked {
+    background-color: #f56565;
+    border-color: #f56565;
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(245, 101, 101, 0.6);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.75;
+  }
+`;
+
+const TextCheckboxRow = styled.div`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  gap: 8px;
+`;
+
+const TextCheckboxLabel = styled.span<{
+  $theme: CardLayoutTheme;
+  $fontSize: string;
+  $stretch?: boolean;
+  $weight: number;
+  $fontStyle: 'normal' | 'italic';
+}>`
+  color: ${props => props.$theme.offset || defaultGameSystem.theme_offset};
+  font-size: ${props => props.$fontSize};
+  font-weight: ${props => props.$weight};
+  font-style: ${props => props.$fontStyle};
+  letter-spacing: ${props => (props.$stretch ? '0.08em' : 'normal')};
+  white-space: nowrap;
+`;
+
+const TextCheckboxInputs = styled.div<{ $fullWidth: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: space-evenly;
+  width: ${props => (props.$fullWidth ? '100%' : 'auto')};
+`;
+
+const DisabledCheckbox = styled.input`
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #4b5563;
+  background: rgba(0, 0, 0, 0.2);
+  accent-color: #ffffff;
+  pointer-events: none;
+`;
+
+const StyledToggle = styled.button<{ $theme: CardLayoutTheme; $active: boolean }>`
+  width: 26px;
+  height: 24px;
+  min-width: 26px;
+  min-height: 24px;
+  max-width: 26px;
+  max-height: 24px;
+  flex: 0 0 24px;
+  border-radius: 6px;
+  background: ${props => props.$theme.background};
+  border: 1px solid ${props => props.$theme.border};
+  box-sizing: border-box;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  cursor: pointer;
+`;
+
+const StyledToggleBar = styled.div<{ $theme: CardLayoutTheme; $active: boolean }>`
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 16px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  background: ${props => props.$theme.primary};
+  border: 1px solid ${props => props.$theme.border};
+  top: 0;
+  transform: translateY(${props => props.$active ? '-1px' : '6px'});
+  transition: transform 200ms;
 `;
 
 const sizeMapTitle = { sm: '14px', md: '16px', lg: '18px' };
@@ -511,6 +594,13 @@ const validBidList = (attributes: SystemAttribute[], bids?: string[]) => {
   }
 
   return bids.filter((bid) => !!resolveAttribute(attributes, bid));
+};
+
+const boolBidList = (attributes: SystemAttribute[], bids?: string[]) => {
+  return validBidList(attributes, bids).filter((bid) => {
+    const attribute = resolveAttribute(attributes, bid);
+    return String(attribute?.attr_type || '').toLowerCase() === 'bool';
+  });
 };
 
 const resolveListTitle = (attributes: SystemAttribute[], rawId?: string): string => {
@@ -573,6 +663,25 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     }
 
     return '';
+  };
+
+  const getMetadataBoolValue = (bid: string): boolean => {
+    const raw = unitItem.metadata?.[getMetadataKeyForBid(bid)];
+
+    if (typeof raw === 'boolean') {
+      return raw;
+    }
+
+    if (typeof raw === 'number') {
+      return raw !== 0;
+    }
+
+    if (typeof raw === 'string') {
+      const lowered = raw.trim().toLowerCase();
+      return lowered === 'true' || lowered === '1' || lowered === 'yes' || lowered === 'on';
+    }
+
+    return false;
   };
 
   const getDraftOrValue = (draftKey: string, bid: string): string => {
@@ -720,6 +829,12 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
   };
 
   const updateAttributeValue = async (bid: string, value: string) => {
+    await onUpdateMetadata({
+      [getMetadataKeyForBid(bid)]: value,
+    });
+  };
+
+  const updateAttributeBoolValue = async (bid: string, value: boolean) => {
     await onUpdateMetadata({
       [getMetadataKeyForBid(bid)]: value,
     });
@@ -995,24 +1110,59 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
     if (type === 'text-checkbox') {
       const fontSize = sizeMapTextValue[(style.fontSize as keyof typeof sizeMapTextValue) || 'md'];
-      const count = Math.max(1, Number(style.checkboxCount || 1));
-      const label = getLabelFromAttribute(attr, style.labelMode);
+      const maxCount = component.fullsize ? 6 : 3;
+      const count = Math.max(1, Math.min(maxCount, Number(style.checkboxCount || 1)));
+      const normalizedBoolBids = [...boolBidList(attributes, style.bidList)].slice(0, count);
+      while (normalizedBoolBids.length < count) {
+        normalizedBoolBids.push('');
+      }
+      const labelAttribute = resolveAttribute(attributes, normalizedBoolBids[0] || style.attributeId);
+      const label = getLabelFromAttribute(labelAttribute, style.labelMode);
       const isSlider = style.inputType === 'slider';
+      const labelPosition = style.labelPosition === 'right' ? 'right' : 'left';
+      const fontWeight = style.fontWeight === 'bold' ? 700 : 400;
+      const fontStyle = style.fontStyle === 'italic' ? 'italic' : 'normal';
+      const labelElement = label ? (
+        <TextCheckboxLabel
+          $theme={systemTheme}
+          $fontSize={fontSize}
+          $stretch={stretch}
+          $weight={fontWeight}
+          $fontStyle={fontStyle}
+        >
+          {label}
+        </TextCheckboxLabel>
+      ) : null;
 
       return (
         <BaseCell key={component.id} $theme={systemTheme} $full={component.fullsize}>
-          {label ? (
-            <Label $theme={systemTheme} $fontSize={fontSize} $stretch={stretch} $align={textAlign}>
-              {label}
-            </Label>
-          ) : null}
-          <HorizontalGroup>
-            {Array.from({ length: count }).map((_, index) => (
-              isSlider
-                ? <SliderMock key={`slider-${index}`} $theme={systemTheme} />
-                : <CheckboxMock key={`checkbox-${index}`} $theme={systemTheme} />
-            ))}
-          </HorizontalGroup>
+          <TextCheckboxRow>
+            {labelPosition === 'left' ? labelElement : null}
+            <TextCheckboxInputs $fullWidth={!labelElement}>
+            {Array.from({ length: count }).map((_, index) => {
+              const bid = normalizedBoolBids[index] || '';
+              const isActive = bid ? getMetadataBoolValue(bid) : false;
+
+              return isSlider
+                ? (
+                  <StyledToggle
+                    key={`slider-${index}`}
+                    type="button"
+                    $theme={systemTheme}
+                    $active={isActive}
+                    disabled={!bid}
+                    onClick={!bid ? undefined : () => {
+                      void updateAttributeBoolValue(bid, !isActive);
+                    }}
+                  >
+                    <StyledToggleBar $theme={systemTheme} $active={isActive} />
+                  </StyledToggle>
+                )
+                : <DisabledCheckbox key={`checkbox-${index}`} type="checkbox" disabled checked={isActive} readOnly />;
+            })}
+            </TextCheckboxInputs>
+            {labelPosition === 'right' ? labelElement : null}
+          </TextCheckboxRow>
         </BaseCell>
       );
     }

@@ -6,7 +6,7 @@ import defaultGameSystem from '../assets/defaultgamesystem.json';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import { EXTENSION_ID, MOCK_BIDS } from '../helpers/MockData';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
-import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
+import { SettingsConstants, UnitConstants, getPerPlayerSettingKey } from '../interfaces/MetadataKeys';
 import type { SystemAttribute } from '../interfaces/SystemResponse';
 
 type PartyHudOrientation = 'bottom' | 'left' | 'top' | 'right';
@@ -38,7 +38,9 @@ const DEFAULT_THEME: ThemeData = {
   background_url: defaultGameSystem.background_url,
 };
 
-const HUD_VIEWPORT_INSET_PX = 50;
+const HUD_VIEWPORT_INSET_DEFAULT_PX = 50;
+const HUD_VIEWPORT_INSET_ONE_BOSS_PX = 75;
+const HUD_VIEWPORT_INSET_TWO_BOSS_PX = 120;
 const HUD_CARD_GAP_PX = 8;
 const HUD_ROW_CARD_WIDTH_PX = 190;
 const HUD_ROW_CARD_HEIGHT_PX = 90;
@@ -57,25 +59,25 @@ const Root = styled.div<{ $theme: ThemeData }>`
   pointer-events: none;
 `;
 
-const HudPanel = styled.div<{ $orientation: PartyHudOrientation }>`
+const HudPanel = styled.div<{ $orientation: PartyHudOrientation; $inset: number }>`
   position: absolute;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-width: calc(100vw - ${HUD_VIEWPORT_INSET_PX * 2}px);
-  max-height: calc(100vh - ${HUD_VIEWPORT_INSET_PX * 2}px);
+  max-width: ${props => `calc(100vw - ${props.$inset * 2}px)`};
+  max-height: ${props => `calc(100vh - ${props.$inset * 2}px)`};
   ${props => {
     if (props.$orientation === 'top') {
-      return `top: ${HUD_VIEWPORT_INSET_PX}px; left: 50%; transform: translateX(-50%);`;
+      return `top: ${props.$inset}px; left: 50%; transform: translateX(-50%);`;
     }
     if (props.$orientation === 'left') {
-      return `left: ${HUD_VIEWPORT_INSET_PX}px; top: 50%; transform: translateY(-50%);`;
+      return `left: ${props.$inset}px; top: 50%; transform: translateY(-50%);`;
     }
     if (props.$orientation === 'right') {
-      return `right: ${HUD_VIEWPORT_INSET_PX}px; top: 50%; transform: translateY(-50%);`;
+      return `right: ${props.$inset}px; top: 50%; transform: translateY(-50%);`;
     }
-    return `bottom: ${HUD_VIEWPORT_INSET_PX}px; left: 50%; transform: translateX(-50%);`;
+    return `bottom: ${props.$inset}px; left: 50%; transform: translateX(-50%);`;
   }}
 `;
 
@@ -314,15 +316,22 @@ const PartyHudPopoverPage = () => {
     width: typeof window !== 'undefined' ? window.innerWidth : 1920,
     height: typeof window !== 'undefined' ? window.innerHeight : 1080,
   }));
+  const [currentPlayerId, setCurrentPlayerId] = useState<string>('');
+  const [bossTokenCount, setBossTokenCount] = useState(0);
+
+  const countBossTokens = (items: Item[]): number => {
+    return items.filter((item) => item.metadata?.[UnitConstants.BOSS_MODE] === true).length;
+  };
 
   useEffect(() => {
     let mounted = true;
 
     const initialize = async () => {
-      const [sceneMetadata, roomMetadata, items] = await Promise.all([
+      const [sceneMetadata, roomMetadata, items, playerId] = await Promise.all([
         OBR.scene.getMetadata(),
         OBR.room.getMetadata(),
         OBR.scene.items.getItems(),
+        OBR.player.getId(),
       ]);
 
       if (!mounted) {
@@ -330,6 +339,8 @@ const PartyHudPopoverPage = () => {
       }
 
       setCache({ sceneMetadata, roomMetadata, items });
+      setCurrentPlayerId(playerId);
+      setBossTokenCount(countBossTokens(items));
       setReady(true);
     };
 
@@ -348,6 +359,12 @@ const PartyHudPopoverPage = () => {
     const unsubscribeItems = OBR.scene.items.onChange((items) => {
       if (!mounted) return;
       setCache((prev) => ({ ...prev, items }));
+      setBossTokenCount(countBossTokens(items));
+    });
+
+    const unsubscribePlayer = OBR.player.onChange((player) => {
+      if (!mounted) return;
+      setCurrentPlayerId(player.id || '');
     });
 
     return () => {
@@ -355,6 +372,7 @@ const PartyHudPopoverPage = () => {
       unsubscribeSceneMetadata();
       unsubscribeRoomMetadata();
       unsubscribeItems();
+      unsubscribePlayer();
     };
   }, []);
 
@@ -385,9 +403,10 @@ const PartyHudPopoverPage = () => {
   const storage = useMemo(() => getStorageValue(cache), [cache]);
 
   const orientation = useMemo<PartyHudOrientation>(() => {
-    const value = storage[SettingsConstants.PARTY_HUD_ORIENTATION];
+    const orientationKey = getPerPlayerSettingKey(SettingsConstants.PARTY_HUD_ORIENTATION, currentPlayerId);
+    const value = storage[orientationKey] ?? storage[SettingsConstants.PARTY_HUD_ORIENTATION];
     return isOrientation(value) ? value : 'bottom';
-  }, [storage]);
+  }, [storage, currentPlayerId]);
 
   const extraAttrOne = (storage[SettingsConstants.PARTY_HUD_ATTR_ONE] as string | undefined) || '';
   const extraAttrTwo = (storage[SettingsConstants.PARTY_HUD_ATTR_TWO] as string | undefined) || '';
@@ -434,6 +453,22 @@ const PartyHudPopoverPage = () => {
       });
   }, [cache.items]);
 
+  const hudViewportInsetPx = useMemo(() => {
+    if (orientation !== 'top') {
+      return HUD_VIEWPORT_INSET_DEFAULT_PX;
+    }
+
+    if (bossTokenCount >= 2) {
+      return HUD_VIEWPORT_INSET_TWO_BOSS_PX;
+    }
+
+    if (bossTokenCount === 1) {
+      return HUD_VIEWPORT_INSET_ONE_BOSS_PX;
+    }
+
+    return HUD_VIEWPORT_INSET_DEFAULT_PX;
+  }, [bossTokenCount, orientation]);
+
   const hudScaleLayout = useMemo(() => {
     const memberCount = Math.max(1, partyItems.length);
     const isColumnLayout = orientation === 'left' || orientation === 'right';
@@ -447,8 +482,8 @@ const PartyHudPopoverPage = () => {
       ? (memberCount * cardHeight) + ((memberCount - 1) * HUD_CARD_GAP_PX)
       : cardHeight;
 
-    const availableWidth = Math.max(1, viewportSize.width - (HUD_VIEWPORT_INSET_PX * 2));
-    const availableHeight = Math.max(1, viewportSize.height - (HUD_VIEWPORT_INSET_PX * 2));
+    const availableWidth = Math.max(1, viewportSize.width - (hudViewportInsetPx * 2));
+    const availableHeight = Math.max(1, viewportSize.height - (hudViewportInsetPx * 2));
 
     const shouldAutoScale = viewportSize.width >= HUD_DESKTOP_MIN_WIDTH_PX
       && partyItems.length >= HUD_AUTO_SCALE_MEMBER_THRESHOLD;
@@ -464,7 +499,7 @@ const PartyHudPopoverPage = () => {
       scaledWidth: Math.max(1, Math.floor(contentWidth * scale)),
       scaledHeight: Math.max(1, Math.floor(contentHeight * scale)),
     };
-  }, [orientation, partyItems.length, viewportSize.height, viewportSize.width]);
+  }, [orientation, partyItems.length, viewportSize.height, viewportSize.width, hudViewportInsetPx]);
 
   if (!ready) {
     return <Root $theme={theme} />;
@@ -472,7 +507,7 @@ const PartyHudPopoverPage = () => {
 
   return (
     <Root $theme={theme}>
-      <HudPanel $orientation={orientation}>
+      <HudPanel $orientation={orientation} $inset={hudViewportInsetPx}>
         {partyItems.length === 0 ? (
           <EmptyState $theme={theme}>No party units found.</EmptyState>
         ) : (

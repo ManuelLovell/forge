@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 import { ForgeTheme, DEFAULT_THEME, createTheme } from './ThemeConstants';
 
 interface ThemeContextType {
@@ -22,16 +22,27 @@ interface ThemeProviderProps {
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [theme, setTheme] = useState<ForgeTheme>(DEFAULT_THEME);
 
-  const updateThemeFromSystem = (
+  const updateThemeFromSystem = useCallback((
     primary: string,
     offset: string,
     background: string,
     border: string,
     backgroundUrl?: string
   ) => {
-    const newTheme = createTheme(primary, offset, background, border, backgroundUrl);
-    setTheme(newTheme);
-  };
+    setTheme((prevTheme) => {
+      if (
+        prevTheme.PRIMARY === primary
+        && prevTheme.OFFSET === offset
+        && prevTheme.BACKGROUND === background
+        && prevTheme.BORDER === border
+        && prevTheme.BACKGROUND_URL === (backgroundUrl || undefined)
+      ) {
+        return prevTheme;
+      }
+
+      return createTheme(primary, offset, background, border, backgroundUrl);
+    });
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, updateThemeFromSystem }}>

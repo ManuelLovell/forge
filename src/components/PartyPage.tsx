@@ -6,7 +6,7 @@ import { useSceneStore } from '../helpers/BSCache';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSystemData } from '../helpers/useSystemData';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
-import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
+import { SettingsConstants, UnitConstants, getPerPlayerSettingKey } from '../interfaces/MetadataKeys';
 import { PageContainer, PageTitle } from './SharedStyledComponents';
 import { ToggleControl } from './ToggleControl';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
@@ -200,9 +200,13 @@ export const PartyPage = () => {
 
   const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
   const isCurrentUserGm = String(playerData?.role || '').toUpperCase() === 'GM';
+  const currentPlayerId = playerData?.id;
+  const partyHudOpenKey = getPerPlayerSettingKey(SettingsConstants.PARTY_HUD_OPEN, currentPlayerId);
+  const partyHudOrientationKey = getPerPlayerSettingKey(SettingsConstants.PARTY_HUD_ORIENTATION, currentPlayerId);
 
-  const hudOpen = storageContainer[SettingsConstants.PARTY_HUD_OPEN] === true;
-  const storedHudOrientation = storageContainer[SettingsConstants.PARTY_HUD_ORIENTATION];
+  const hudOpenRaw = storageContainer[partyHudOpenKey] ?? storageContainer[SettingsConstants.PARTY_HUD_OPEN];
+  const hudOpen = hudOpenRaw === true;
+  const storedHudOrientation = storageContainer[partyHudOrientationKey] ?? storageContainer[SettingsConstants.PARTY_HUD_ORIENTATION];
   const hudOrientation: PartyHudOrientation = isPartyHudOrientation(storedHudOrientation)
     ? storedHudOrientation
     : 'bottom';
@@ -232,7 +236,7 @@ export const PartyPage = () => {
 
   const handleToggleHudOpen = async () => {
     const next = !hudOpen;
-    await savePartySetting(SettingsConstants.PARTY_HUD_OPEN, next);
+    await savePartySetting(partyHudOpenKey, next);
 
     if (!next) {
       await OBR.modal.close(PARTY_HUD_MODAL_ID);
@@ -246,7 +250,7 @@ export const PartyPage = () => {
 
   const handleCycleOrientation = async () => {
     const nextOrientation = getNextOrientation(hudOrientation);
-    await savePartySetting(SettingsConstants.PARTY_HUD_ORIENTATION, nextOrientation);
+    await savePartySetting(partyHudOrientationKey, nextOrientation);
   };
 
   const updatePortraitUrl = async (unitId: string, value: string) => {

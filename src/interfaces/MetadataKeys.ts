@@ -69,3 +69,12 @@ export class SettingsConstants {
   // Other
   static ENABLE_CONSOLE_LOG = `${EXTENSION_ID}/conlog`;
 }
+
+export const getPerPlayerSettingKey = (baseKey: string, playerId?: string | null): string => {
+  const trimmedPlayerId = (playerId || '').trim();
+  if (!trimmedPlayerId) {
+    return baseKey;
+  }
+
+  return `${baseKey}/${trimmedPlayerId}`;
+};

@@ -52,6 +52,7 @@ interface Unit {
   id: string;
   initiative: number;
   name: string;
+  isBoss?: boolean;
   elevation: number;
   attributes: Record<string, unknown>;
   createdUserId?: string;
@@ -160,7 +161,7 @@ const ControlWrapper = styled.div<{ theme: ForgeTheme }>`
   gap: 16px;
   position: relative;
   padding: 8px;
-  background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.5)};
+  background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.75)};
   border-top: 2px solid ${props => props.theme.BORDER};
 `;
 
@@ -227,7 +228,7 @@ const Table = styled.table<{ theme: ForgeTheme }>`
 `;
 
 const TableHead = styled.thead<{ theme: ForgeTheme }>`
-  background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.35)};
+  background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.75)};
 `;
 
 const HeaderRow = styled.tr``;
@@ -432,27 +433,32 @@ const ActionButton = styled.button<{ theme: ForgeTheme; $active?: boolean }>`
   }
 `;
 
-const CheckboxInput = styled.input`
+const CheckboxInput = styled.input<{ theme: ForgeTheme }>`
   width: 20px;
   height: 20px;
   border-radius: 4px;
-  border: 1px solid #6b7280;
+  border: 1px solid ${props => props.theme.BORDER};
   cursor: pointer;
-  margin: 0 4px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  margin: 0 2px;
+  background: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.55)};
   appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   display: inline-block;
+  background-image: none;
 
   &:checked {
-    background-color: #f56565;
-    border-color: #f56565;
+    background-color: ${props => props.theme.PRIMARY};
+    border-color: ${props => props.theme.BORDER};
+    background-image: none !important;
+    background-size: initial;
+    background-position: initial;
+    background-repeat: no-repeat;
   }
 
   &:focus {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(245, 101, 101, 0.6);
+    box-shadow: ${props => `0 0 0 2px ${rgbaFromHex(props.theme.PRIMARY, 0.6)}`};
   }
 
   &:disabled {
@@ -933,6 +939,7 @@ export const InitiativeList: React.FC = () => {
       .map(item => {
         const initiative = item.metadata?.[UnitConstants.INITIATIVE] as number || 0;
         const name = item.metadata[UnitConstants.UNIT_NAME] as string || item.name || 'Unknown';
+        const isBoss = item.metadata?.[UnitConstants.BOSS_MODE] === true;
         const elevation = item.metadata?.[ELEVATION_METADATA_KEY] as number || 0;
         const owner = partyData.find((player) => player.id === item.createdUserId)
           || (playerData?.id === item.createdUserId ? playerData : undefined);
@@ -955,6 +962,7 @@ export const InitiativeList: React.FC = () => {
           id: item.id,
           initiative,
           name,
+          isBoss,
           elevation,
           attributes,
           createdUserId: item.createdUserId,
@@ -2032,7 +2040,7 @@ export const InitiativeList: React.FC = () => {
             onDoubleClick={() => handleUnitNameDoubleClick(unit.id)}
             onContextMenu={canInteract ? (event) => handleUnitContextMenu(event, unit.id) : undefined}
           >
-            {unit.name}
+            {unit.isBoss ? `💀 ${unit.name}` : unit.name}
           </NameCell>
         );
 
@@ -2269,6 +2277,7 @@ export const InitiativeList: React.FC = () => {
                 return (
                   <CheckboxInput
                     key={bid}
+                    theme={theme}
                     type="checkbox"
                     checked={isActive}
                     disabled={!canInteract}

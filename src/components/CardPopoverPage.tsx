@@ -91,16 +91,29 @@ const Root = styled.div<{ $theme: ThemeData }>`
 const ContentViewport = styled.div`
   height: 100%;
   overflow: hidden;
-  padding: 4px;
+  padding: 40px 4px 4px;
   box-sizing: border-box;
   display: flex;
   justify-content: center;
+  position: relative;
 `;
 
 const Message = styled.p<{ $theme: ThemeData }>`
   margin: 0;
   color: ${props => props.$theme.primary};
   text-align: center;
+  align-content: center;
+  font-weight: 600;
+  font-size: 24px;
+`;
+
+const FloatingCardControls = styled.div`
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 16px), 350px);
+  z-index: 10;
 `;
 
 const CardControls = styled.div`
@@ -1087,6 +1100,39 @@ export const CardPopoverPage = () => {
   return (
     <Root $theme={theme}>
       <ContentViewport>
+        <FloatingCardControls>
+          <CardControls>
+            <UnitSelect
+              $theme={theme}
+              aria-label="Choose Unit"
+              value=""
+              onChange={(event) => {
+                const nextUnitId = event.target.value;
+                if (!nextUnitId) {
+                  return;
+                }
+
+                setSelectedUnitId(nextUnitId);
+              }}
+            >
+              <option value="">Choose Unit</option>
+              {selectableUnits.map((unit) => (
+                <option key={unit.id} value={unit.id}>{unit.name}</option>
+              ))}
+            </UnitSelect>
+            <CloseButton
+              type="button"
+              $theme={theme}
+              aria-label="Close Card"
+              onClick={async () => {
+                await OBR.popover.close(OwlbearIds.CARDSID);
+              }}
+            >
+              <CloseIcon src="/close.svg" alt="" aria-hidden="true" />
+            </CloseButton>
+          </CardControls>
+        </FloatingCardControls>
+
         {!isReady ? (
           <Message $theme={theme}>Loading card…</Message>
         ) : !selectedUnitId ? (
@@ -1101,38 +1147,6 @@ export const CardPopoverPage = () => {
             attributes={attributes}
             unitItem={unitItem}
             onUpdateMetadata={updateUnitMetadata}
-            controlContent={(
-              <CardControls>
-                <UnitSelect
-                  $theme={theme}
-                  aria-label="Choose Unit"
-                  value=""
-                  onChange={(event) => {
-                    const nextUnitId = event.target.value;
-                    if (!nextUnitId) {
-                      return;
-                    }
-
-                    setSelectedUnitId(nextUnitId);
-                  }}
-                >
-                  <option value="">Choose Unit</option>
-                  {selectableUnits.map((unit) => (
-                    <option key={unit.id} value={unit.id}>{unit.name}</option>
-                  ))}
-                </UnitSelect>
-                <CloseButton
-                  type="button"
-                  $theme={theme}
-                  aria-label="Close Card"
-                  onClick={async () => {
-                    await OBR.popover.close(OwlbearIds.CARDSID);
-                  }}
-                >
-                  <CloseIcon src="/close.svg" alt="" aria-hidden="true" />
-                </CloseButton>
-              </CardControls>
-            )}
           />
         )}
       </ContentViewport>

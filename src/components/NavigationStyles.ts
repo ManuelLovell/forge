@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 
 export const AppContainer = tw.div`
-  flex flex-col h-screen relative
+  flex flex-col h-screen relative bg-transparent
 `;
 
 export const ContentArea = styled.div<{ theme: ForgeTheme; $backgroundUrl?: string }>`

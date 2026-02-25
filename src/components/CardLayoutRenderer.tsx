@@ -26,7 +26,6 @@ interface RendererProps {
   attributes: SystemAttribute[];
   unitItem: Item;
   onUpdateMetadata: (updates: Record<string, unknown>) => Promise<void>;
-  controlContent?: React.ReactNode;
 }
 
 type ActionListEntry = {
@@ -54,7 +53,7 @@ const CardShell = styled.div<{ $theme: CardLayoutTheme; $backgroundUrl?: string 
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   padding: 0 2px 40px;
-  max-height: calc(100vh - 16px);
+  max-height: calc(100vh - 50px);
   overflow-y: auto;
   overflow-x: hidden;
   box-sizing: border-box;
@@ -89,6 +88,7 @@ const UnitNameCell = styled(BaseCell)`
   display: flex;
   align-items: center;
   overflow: hidden;
+  width: 100% !important;
 `;
 
 const UnitNameText = styled.span`
@@ -99,15 +99,6 @@ const UnitNameText = styled.span`
   -webkit-box-orient: vertical;
   line-clamp: 2;
   overflow: hidden;
-`;
-
-const ReservedCell = styled(BaseCell)`
-  font-size: 11px;
-  font-style: italic;
-  color: #ff6b6b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 `;
 
 const Label = styled.div<{
@@ -454,23 +445,30 @@ const ItemUseCheckbox = styled.input<{ $theme: CardLayoutTheme }>`
   width: 20px;
   height: 20px;
   border-radius: 4px;
-  border: 1px solid #6b7280;
+  border: 1px solid ${props => props.$theme.border};
   cursor: pointer;
-  background: rgba(0, 0, 0, 0.5);
+  background: ${props => rgbaFromHex(props.$theme.background, 0.55)};
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   display: inline-block;
   vertical-align: middle;
+  background-image: none;
 
   &:checked {
-    background-color: #f56565;
-    border-color: #f56565;
+    background-color: ${props => props.$theme.primary};
+    border-color: ${props => props.$theme.border};
+    background-image: none !important;
+    background-size: initial;
+    background-position: initial;
+    background-repeat: no-repeat;
   }
 
   &:focus {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(245, 101, 101, 0.6);
+    box-shadow: ${props => `0 0 0 2px ${rgbaFromHex(props.$theme.primary, 0.6)}`};
   }
 
   &:disabled {
@@ -512,14 +510,37 @@ const TextCheckboxInputs = styled.div<{ $fullWidth: boolean }>`
   width: ${props => (props.$fullWidth ? '100%' : 'auto')};
 `;
 
-const DisabledCheckbox = styled.input`
+const CheckboxInput = styled.input<{ $theme: CardLayoutTheme }>`
   width: 20px;
   height: 20px;
   border-radius: 4px;
-  border: 1px solid #4b5563;
-  background: rgba(0, 0, 0, 0.2);
-  accent-color: #ffffff;
-  pointer-events: none;
+  border: 1px solid ${props => props.$theme.border};
+  background: ${props => rgbaFromHex(props.$theme.background, 0.55)};
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  display: inline-block;
+  cursor: pointer;
+  background-image: none;
+
+  &:checked {
+    background-color: ${props => props.$theme.primary};
+    border-color: ${props => props.$theme.border};
+    background-image: none !important;
+    background-size: initial;
+    background-position: initial;
+    background-repeat: no-repeat;
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: ${props => `0 0 0 2px ${rgbaFromHex(props.$theme.primary, 0.6)}`};
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.75;
+  }
 `;
 
 const StyledToggle = styled.button<{ $theme: CardLayoutTheme; $active: boolean }>`
@@ -619,7 +640,6 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
   attributes,
   unitItem,
   onUpdateMetadata,
-  controlContent,
 }) => {
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [rollableEditMode, setRollableEditMode] = useState<Record<string, boolean>>({});
@@ -1158,7 +1178,18 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     <StyledToggleBar $theme={systemTheme} $active={isActive} />
                   </StyledToggle>
                 )
-                : <DisabledCheckbox key={`checkbox-${index}`} type="checkbox" disabled checked={isActive} readOnly />;
+                : (
+                  <CheckboxInput
+                    key={`checkbox-${index}`}
+                    $theme={systemTheme}
+                    type="checkbox"
+                    disabled={!bid}
+                    checked={isActive}
+                    onChange={!bid ? undefined : (event) => {
+                      void updateAttributeBoolValue(bid, event.target.checked);
+                    }}
+                  />
+                );
             })}
             </TextCheckboxInputs>
             {labelPosition === 'right' ? labelElement : null}
@@ -1570,7 +1601,6 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       <Layer>
         <Row>
           <UnitNameCell $theme={systemTheme}><UnitNameText>{unitName}</UnitNameText></UnitNameCell>
-          <ReservedCell $theme={systemTheme}>{controlContent || 'Control-Reserved'}</ReservedCell>
         </Row>
 
         {rows.map((row) => (

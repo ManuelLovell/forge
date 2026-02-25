@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import OBR from '@owlbear-rodeo/sdk';
 import { SystemAttribute, CardLayoutComponent, ListLayoutComponent } from '../interfaces/SystemResponse';
 import { SystemKeys } from '../components/SystemPage';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
@@ -39,109 +38,63 @@ export const useSystemData = (): SystemData => {
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
 
   useEffect(() => {
-    let mounted = true;
+    try {
+      const theme = sceneMetadata[SystemKeys.CURRENT_THEME] as SystemData['theme'] | undefined;
+      const cardLayout = sceneMetadata[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
+      const listLayout = sceneMetadata[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;
+      const attributes = sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
 
-    const loadSystemData = async () => {
-      try {
-
-        const theme = sceneMetadata[SystemKeys.CURRENT_THEME] as SystemData['theme'] | undefined;
-        const cardLayout = sceneMetadata[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
-        const listLayout = sceneMetadata[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;
-        const attributes = sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
-
-        // Check if any required data is missing or invalid
-        if (!theme || !Array.isArray(cardLayout) || !Array.isArray(listLayout) || !Array.isArray(attributes)) {
-          LOGGER.log('System data missing, using defaults');
-          
-          if (mounted) {
-            setSystemData({
-              theme: {
-                primary: defaultGameSystem.theme_primary,
-                offset: defaultGameSystem.theme_offset,
-                background: defaultGameSystem.theme_background,
-                border: defaultGameSystem.theme_border,
-                background_url: defaultGameSystem.background_url,
-              },
-              cardLayout: defaultGameSystem.card_layout as CardLayoutComponent[],
-              listLayout: defaultGameSystem.list_layout as ListLayoutComponent[],
-              attributes: defaultGameSystem.attributes as SystemAttribute[],
-              systemName: defaultGameSystem.name,
-              importDate: null,
-              isLoading: false,
-            });
-          }
-          return;
-        }
-
-        // Load stored system data
-        const systemName = sceneMetadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
-        const importDate = sceneMetadata[SystemKeys.IMPORT_DATE] as string || null;
-
-        if (mounted) {
-          setSystemData({
-            theme,
-            cardLayout,
-            listLayout,
-            attributes,
-            systemName,
-            importDate,
-            isLoading: false,
-          });
-        }
-
-      } catch (error) {
-        LOGGER.error('Error loading system data:', error);
-        
-        // Fall back to defaults on error
-        if (mounted) {
-          setSystemData({
-            theme: {
-              primary: defaultGameSystem.theme_primary,
-              offset: defaultGameSystem.theme_offset,
-              background: defaultGameSystem.theme_background,
-              border: defaultGameSystem.theme_border,
-              background_url: defaultGameSystem.background_url,
-            },
-            cardLayout: defaultGameSystem.card_layout as CardLayoutComponent[],
-            listLayout: defaultGameSystem.list_layout as ListLayoutComponent[],
-            attributes: defaultGameSystem.attributes as SystemAttribute[],
-            systemName: defaultGameSystem.name,
-            importDate: null,
-            isLoading: false,
-          });
-        }
-      }
-    };
-
-    loadSystemData();
-
-    // Subscribe to metadata changes
-    const unsubscribe = OBR.scene.onMetadataChange((metadata) => {
-      const theme = metadata[SystemKeys.CURRENT_THEME] as SystemData['theme'] | undefined;
-      const cardLayout = metadata[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
-      const listLayout = metadata[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;
-      const attributes = metadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
-      const systemName = metadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
-      const importDate = metadata[SystemKeys.IMPORT_DATE] as string || null;
-
-      if (theme && Array.isArray(cardLayout) && Array.isArray(listLayout) && Array.isArray(attributes) && mounted) {
+      if (!theme || !Array.isArray(cardLayout) || !Array.isArray(listLayout) || !Array.isArray(attributes)) {
+        LOGGER.log('System data missing, using defaults');
         setSystemData({
-          theme,
-          cardLayout,
-          listLayout,
-          attributes,
-          systemName,
-          importDate,
+          theme: {
+            primary: defaultGameSystem.theme_primary,
+            offset: defaultGameSystem.theme_offset,
+            background: defaultGameSystem.theme_background,
+            border: defaultGameSystem.theme_border,
+            background_url: defaultGameSystem.background_url,
+          },
+          cardLayout: defaultGameSystem.card_layout as CardLayoutComponent[],
+          listLayout: defaultGameSystem.list_layout as ListLayoutComponent[],
+          attributes: defaultGameSystem.attributes as SystemAttribute[],
+          systemName: defaultGameSystem.name,
+          importDate: null,
           isLoading: false,
         });
+        return;
       }
-    });
 
-    return () => {
-      mounted = false;
-      unsubscribe();
-    };
-  }, []);
+      const systemName = sceneMetadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
+      const importDate = sceneMetadata[SystemKeys.IMPORT_DATE] as string || null;
+
+      setSystemData({
+        theme,
+        cardLayout,
+        listLayout,
+        attributes,
+        systemName,
+        importDate,
+        isLoading: false,
+      });
+    } catch (error) {
+      LOGGER.error('Error loading system data:', error);
+      setSystemData({
+        theme: {
+          primary: defaultGameSystem.theme_primary,
+          offset: defaultGameSystem.theme_offset,
+          background: defaultGameSystem.theme_background,
+          border: defaultGameSystem.theme_border,
+          background_url: defaultGameSystem.background_url,
+        },
+        cardLayout: defaultGameSystem.card_layout as CardLayoutComponent[],
+        listLayout: defaultGameSystem.list_layout as ListLayoutComponent[],
+        attributes: defaultGameSystem.attributes as SystemAttribute[],
+        systemName: defaultGameSystem.name,
+        importDate: null,
+        isLoading: false,
+      });
+    }
+  }, [sceneMetadata]);
 
   return systemData;
 };

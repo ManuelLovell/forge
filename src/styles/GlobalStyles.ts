@@ -18,7 +18,7 @@ const GlobalStyles = createGlobalStyle<GlobalStylesProps>`
 
   /* Base styling for the entire app */
   body {
-    background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.1)};
+    background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.5)};
     color: ${props => props.theme.PRIMARY};
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
       'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',

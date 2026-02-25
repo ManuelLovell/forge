@@ -31,6 +31,33 @@ export const useAppInitialization = () => {
   const cacheReady = useSceneStore((state) => state.cacheReady);
 
   useEffect(() => {
+    if (!cacheReady) {
+      return;
+    }
+
+    const themeMeta = sceneMetadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
+
+    if (!themeMeta?.primary || !themeMeta?.offset || !themeMeta?.background || !themeMeta?.border) {
+      updateThemeFromSystem(
+        defaultGameSystem.theme_primary,
+        defaultGameSystem.theme_offset,
+        defaultGameSystem.theme_background,
+        defaultGameSystem.theme_border,
+        defaultGameSystem.background_url
+      );
+      return;
+    }
+
+    updateThemeFromSystem(
+      themeMeta.primary,
+      themeMeta.offset,
+      themeMeta.background,
+      themeMeta.border,
+      themeMeta.background_url
+    );
+  }, [cacheReady, sceneMetadata, updateThemeFromSystem]);
+
+  useEffect(() => {
     // Early return if already initialized
     if (isInitialized) {
       return;

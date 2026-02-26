@@ -11,6 +11,7 @@ import { SystemPage } from './components/SystemPage';
 import { InitiativeList } from './components/InitiativeList';
 import { PartyPage } from './components/PartyPage';
 import { HpBarEffectManager } from './components/HpBarEffectManager';
+import { DeathEffectManager } from './components/DeathEffectManager';
 import { EffectsTokenVisualManager } from './components/EffectsTokenVisualManager';
 import { BossHpViewportEffectManager } from './components/BossHpViewportEffectManager';
 import { TurnEffectManager } from './components/TurnEffectManager';
@@ -115,6 +116,7 @@ function App() {
       ) : (
         <AppContainer>
           <HpBarEffectManager />
+          <DeathEffectManager />
           <EffectsTokenVisualManager />
           <BossHpViewportEffectManager />
           <TurnEffectManager />

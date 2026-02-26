@@ -41,6 +41,7 @@ export class SettingsConstants {
 
   // Game Controls
   static SHOW_HP_BARS = `${EXTENSION_ID}/showhpbar`;
+  static SHOW_DEATH_EFFECT = `${EXTENSION_ID}/showdead`;
   static HP_BAR_ORIENTATION = `${EXTENSION_ID}/hporient`;
   static HP_CURRENT_BID = `${EXTENSION_ID}/hpcurrbid`;
   static HP_MAX_BID = `${EXTENSION_ID}/hpmaxbid`;

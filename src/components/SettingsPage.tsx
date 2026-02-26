@@ -101,6 +101,7 @@ export const SettingsPage = () => {
   const [showHpBars, setShowHpBars] = useState(false);
   const [hpBarOrientation, setHpBarOrientation] = useState<'top' | 'bottom' | 'left' | 'right'>('bottom');
   const [showHpNumbers, setShowHpNumbers] = useState(false);
+  const [showDeathEffect, setShowDeathEffect] = useState(false);
   const [showNames, setShowNames] = useState(false);
   const [showTurnEffect, setshowTurnEffect] = useState(false);
   const [useDescriptiveDuplicates, setUseDescriptiveDuplicates] = useState(false);
@@ -154,6 +155,9 @@ export const SettingsPage = () => {
     }
     if (storageContainer[SettingsConstants.SHOW_HP_NUMBERS] !== undefined) {
       setShowHpNumbers(storageContainer[SettingsConstants.SHOW_HP_NUMBERS] as boolean);
+    }
+    if (storageContainer[SettingsConstants.SHOW_DEATH_EFFECT] !== undefined) {
+      setShowDeathEffect(storageContainer[SettingsConstants.SHOW_DEATH_EFFECT] as boolean);
     }
     if (storageContainer[SettingsConstants.SHOW_NAMES] !== undefined) {
       setShowNames(storageContainer[SettingsConstants.SHOW_NAMES] as boolean);
@@ -453,6 +457,18 @@ export const SettingsPage = () => {
                   setHpBarOrientation('bottom');
                   await saveData(SettingsConstants.HP_BAR_ORIENTATION, 'bottom');
                 }
+              }}
+            />
+          </ControlRow>
+
+          <ControlRow theme={theme}>
+            <ControlLabel theme={theme}>Show Death Effect</ControlLabel>
+            <ToggleControl
+              label="Show Death Effect"
+              isOn={showDeathEffect}
+              onChange={async (value) => {
+                setShowDeathEffect(value);
+                await saveData(SettingsConstants.SHOW_DEATH_EFFECT, value);
               }}
             />
           </ControlRow>

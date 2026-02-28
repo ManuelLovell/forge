@@ -19,6 +19,13 @@ export interface CardLayoutTheme {
   border: string;
 }
 
+const getRollableInputTextShadow = (theme: CardLayoutTheme): string => {
+  return `
+    0 1px 1px ${rgbaFromHex(theme.background, 0.95)},
+    0 0 2px ${rgbaFromHex(theme.background, 0.85)}
+  `;
+};
+
 interface RendererProps {
   systemTheme: CardLayoutTheme;
   backgroundUrl?: string;
@@ -145,10 +152,22 @@ const DisabledInput = styled.input<{ $theme: CardLayoutTheme; $fontSize: string;
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   color: ${props => rgbaFromHex(props.$theme.primary, 0.9)};
+  text-shadow: ${props => props.$isRollable ? getRollableInputTextShadow(props.$theme) : 'none'};
+  box-shadow: ${props => props.$isRollable
+    ? `inset 0 0 0 1px ${rgbaFromHex(props.$theme.background, 0.28)}, 0 0 0 1px ${rgbaFromHex(props.$theme.offset, 0.18)}`
+    : 'none'};
   box-sizing: border-box;
   font-size: ${props => props.$fontSize};
   text-align: ${props => props.$align || 'left'};
   cursor: ${props => props.$isRollable ? 'pointer' : 'text'};
+
+  &:focus {
+    outline: none;
+    border-color: ${props => props.$theme.offset};
+    box-shadow: ${props => props.$isRollable
+    ? `0 0 0 2px ${rgbaFromHex(props.$theme.offset, 0.35)}, inset 0 0 0 1px ${rgbaFromHex(props.$theme.background, 0.35)}`
+    : 'none'};
+  }
 
   &::placeholder {
     color: ${props => rgbaFromHex(props.$theme.primary, 0.65)};
@@ -209,6 +228,10 @@ const TextValueInput = styled.input<{
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   color: ${props => rgbaFromHex(props.$theme.primary, 0.9)};
+  text-shadow: ${props => props.$isRollable ? getRollableInputTextShadow(props.$theme) : 'none'};
+  box-shadow: ${props => props.$isRollable
+    ? `inset 0 0 0 1px ${rgbaFromHex(props.$theme.background, 0.28)}, 0 0 0 1px ${rgbaFromHex(props.$theme.offset, 0.18)}`
+    : 'none'};
   padding: 0 8px;
   box-sizing: border-box;
   font-size: ${props => props.$fontSize};
@@ -219,6 +242,14 @@ const TextValueInput = styled.input<{
   line-height: 1;
   align-self: center;
   cursor: ${props => props.$isRollable ? 'pointer' : 'text'};
+
+  &:focus {
+    outline: none;
+    border-color: ${props => props.$theme.offset};
+    box-shadow: ${props => props.$isRollable
+    ? `0 0 0 2px ${rgbaFromHex(props.$theme.offset, 0.35)}, inset 0 0 0 1px ${rgbaFromHex(props.$theme.background, 0.35)}`
+    : 'none'};
+  }
 
   &::placeholder {
     color: ${props => rgbaFromHex(props.$theme.primary, 0.65)};

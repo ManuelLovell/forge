@@ -116,6 +116,13 @@ const withAlpha = (color: string | undefined, alpha: number): string | undefined
   return color;
 };
 
+const getRollableInputTextShadow = (theme: ForgeTheme): string => {
+  return `
+    0 1px 1px ${rgbaFromHex(theme.BACKGROUND, 0.95)},
+    0 0 2px ${rgbaFromHex(theme.BACKGROUND, 0.85)}
+  `;
+};
+
 // Icon mapping
 const iconMap: Record<string, React.ComponentType> = {
   heart: Heart,
@@ -178,6 +185,7 @@ const ControlButton = styled.button<{ theme: ForgeTheme; disabled?: boolean; $co
   border: 2px solid ${props => props.theme.BORDER};
   border-radius: 6px;
   color: ${props => props.theme.PRIMARY};
+  text-shadow: ${props => getRollableInputTextShadow(props.theme)};
   padding: 4px 4px;
   width: ${props => props.$compact ? '40px' : '80px'};
   font-size: 14px;
@@ -194,6 +202,11 @@ const ControlButton = styled.button<{ theme: ForgeTheme; disabled?: boolean; $co
   &:active {
     transform: ${props => props.disabled ? 'none' : 'scale(0.95)'};
   }
+
+  svg {
+    filter: drop-shadow(0 1px 1px ${props => rgbaFromHex(props.theme.BACKGROUND, 0.95)})
+      drop-shadow(0 0 2px ${props => rgbaFromHex(props.theme.BACKGROUND, 0.75)});
+  }
 `;
 
 const ResetButton = styled(ControlButton)`
@@ -209,6 +222,8 @@ const ResetButton = styled(ControlButton)`
   svg {
     width: 18px;
     height: 18px;
+    filter: drop-shadow(0 1px 1px ${props => rgbaFromHex(props.theme.BACKGROUND, 0.95)})
+      drop-shadow(0 0 3px ${props => rgbaFromHex(props.theme.BACKGROUND, 0.8)});
   }
 `;
 
@@ -328,6 +343,10 @@ const InitiativeInput = styled.input<{ theme: ForgeTheme; $isRollable?: boolean 
   border: 1px solid ${props => props.$isRollable ? rgbaFromHex(props.theme.OFFSET, 0.8) : props.theme.BORDER};
   border-radius: 4px;
   color: ${props => props.theme.PRIMARY};
+  text-shadow: ${props => props.$isRollable ? getRollableInputTextShadow(props.theme) : 'none'};
+  box-shadow: ${props => props.$isRollable
+    ? `inset 0 0 0 1px ${rgbaFromHex(props.theme.BACKGROUND, 0.28)}, 0 0 0 1px ${rgbaFromHex(props.theme.OFFSET, 0.18)}`
+    : 'none'};
   padding: 2px 4px;
   font-size: 18px;
   font-weight: 700;
@@ -347,6 +366,9 @@ const InitiativeInput = styled.input<{ theme: ForgeTheme; $isRollable?: boolean 
   &:focus {
     outline: none;
     border-color: ${props => props.theme.OFFSET};
+    box-shadow: ${props => props.$isRollable
+    ? `0 0 0 2px ${rgbaFromHex(props.theme.OFFSET, 0.35)}, inset 0 0 0 1px ${rgbaFromHex(props.theme.BACKGROUND, 0.35)}`
+    : 'none'};
   }
 `;
 
@@ -377,6 +399,10 @@ const ValueInput = styled.input<{ $small?: boolean; $isRollable?: boolean; theme
   border: 1px solid ${props => props.$isRollable ? rgbaFromHex(props.theme.OFFSET, 0.8) : props.theme.BORDER};
   border-radius: 4px;
   color: ${props => props.theme.PRIMARY};
+  text-shadow: ${props => props.$isRollable ? getRollableInputTextShadow(props.theme) : 'none'};
+  box-shadow: ${props => props.$isRollable
+    ? `inset 0 0 0 1px ${rgbaFromHex(props.theme.BACKGROUND, 0.28)}, 0 0 0 1px ${rgbaFromHex(props.theme.OFFSET, 0.18)}`
+    : 'none'};
   padding: 2px 4px;
   font-size: ${props => props.$small ? '12px' : '14px'};
   width: ${props => props.$small ? '40px' : '60px'};
@@ -395,6 +421,9 @@ const ValueInput = styled.input<{ $small?: boolean; $isRollable?: boolean; theme
   &:focus {
     outline: none;
     border-color: ${props => props.theme.OFFSET};
+    box-shadow: ${props => props.$isRollable
+    ? `0 0 0 2px ${rgbaFromHex(props.theme.OFFSET, 0.35)}, inset 0 0 0 1px ${rgbaFromHex(props.theme.BACKGROUND, 0.35)}`
+    : 'none'};
   }
 `;
 
@@ -665,18 +694,38 @@ const BossModeHint = styled.div<{ theme: ForgeTheme }>`
   font-size: 11px;
 `;
 
-const BossModeButton = styled.button<{ theme: ForgeTheme; $active?: boolean }>`
-  min-width: 110px;
-  height: 32px;
+const BossModeToggleWrap = styled.div`
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+`;
+
+const BossModeToggle = styled.button<{ theme: ForgeTheme; $active?: boolean }>`
+  width: 50px;
+  height: 28px;
+  padding: 0;
+  position: relative;
   border: 1px solid ${props => props.theme.BORDER};
-  border-radius: 6px;
-  color: ${props => props.theme.PRIMARY};
+  border-radius: 999px;
   background: ${props => props.$active
     ? rgbaFromHex(props.theme.OFFSET, 0.55)
     : rgbaFromHex(props.theme.BACKGROUND, 0.45)};
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
+  transition: all 0.2s ease;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: ${props => props.$active ? '25px' : '3px'};
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid ${props => props.theme.BORDER};
+    background: ${props => props.theme.PRIMARY};
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    transition: left 0.2s ease;
+  }
 
   &:hover {
     background: ${props => props.$active
@@ -832,6 +881,7 @@ export const InitiativeList: React.FC = () => {
   const [ownerModalError, setOwnerModalError] = useState<string | null>(null);
   const [isAssigningOwner, setIsAssigningOwner] = useState(false);
   const [isUpdatingBossMode, setIsUpdatingBossMode] = useState(false);
+  const [isRemovingUnit, setIsRemovingUnit] = useState(false);
   const [initiativeDrafts, setInitiativeDrafts] = useState<Record<string, string>>({});
   const [elevationDrafts, setElevationDrafts] = useState<Record<string, string>>({});
   const [listReferenceModal, setListReferenceModal] = useState<ListReferenceModalState | null>(null);
@@ -1611,11 +1661,11 @@ export const InitiativeList: React.FC = () => {
     });
   };
 
-  const handleResetEncounter = async (clearList: boolean) => {
+  const handleResetEncounter = async (mode: 'round' | 'clear-list' | 'reset-initiative') => {
     setIsResetting(true);
 
     try {
-      if (clearList) {
+      if (mode === 'clear-list') {
         const onListIds = items
           .filter((item) => item.metadata?.[UnitConstants.ON_LIST] === true)
           .map((item) => item.id);
@@ -1646,7 +1696,50 @@ export const InitiativeList: React.FC = () => {
         }
       }
 
-      const defaultTurnId = clearList ? null : (sortedUnits[0]?.id ?? null);
+      if (mode === 'reset-initiative') {
+        const onListIds = items
+          .filter((item) => item.metadata?.[UnitConstants.ON_LIST] === true)
+          .map((item) => item.id);
+
+        if (onListIds.length > 0) {
+          await OBR.scene.items.updateItems(onListIds, (itemsToUpdate) => {
+            itemsToUpdate.forEach((itemToUpdate) => {
+              itemToUpdate.metadata[UnitConstants.INITIATIVE] = 0;
+            });
+          });
+
+          const updatedItems = items.map((item) => {
+            if (item.metadata?.[UnitConstants.ON_LIST] !== true) {
+              return item;
+            }
+
+            return {
+              ...item,
+              metadata: {
+                ...(item.metadata || {}),
+                [UnitConstants.INITIATIVE]: 0,
+              },
+            };
+          });
+
+          setItems(updatedItems);
+          setUnits((prevUnits) =>
+            prevUnits.map((unit) => {
+              const isOnList = items.some(
+                (item) => item.id === unit.id && item.metadata?.[UnitConstants.ON_LIST] === true
+              );
+              return isOnList ? { ...unit, initiative: 0 } : unit;
+            })
+          );
+          setInitiativeDrafts({});
+        }
+      }
+
+      const defaultTurnId = mode === 'clear-list'
+        ? null
+        : mode === 'reset-initiative'
+          ? ([...sortedUnits].sort((a, b) => a.name.localeCompare(b.name))[0]?.id ?? null)
+          : (sortedUnits[0]?.id ?? null);
       setCurrentRound(1);
       setCurrentTurnId(defaultTurnId);
       setCompletedUnits(new Set());
@@ -1658,7 +1751,7 @@ export const InitiativeList: React.FC = () => {
 
       setIsResetModalOpen(false);
     } catch (error) {
-      LOGGER.error('Failed to reset encounter state', { clearList, error });
+      LOGGER.error('Failed to reset encounter state', { mode, error });
     } finally {
       setIsResetting(false);
     }
@@ -1795,6 +1888,53 @@ export const InitiativeList: React.FC = () => {
       setOwnerModalError('Unable to update boss mode for this token.');
     } finally {
       setIsUpdatingBossMode(false);
+    }
+  };
+
+  const handleRemoveUnitFromList = async () => {
+    if (!ownerModalUnitId) {
+      return;
+    }
+
+    const targetItem = items.find((item) => item.id === ownerModalUnitId);
+    if (!targetItem) {
+      setOwnerModalError('Token not found in scene cache.');
+      return;
+    }
+
+    setIsRemovingUnit(true);
+    setOwnerModalError(null);
+
+    try {
+      await OBR.scene.items.updateItems([ownerModalUnitId], (itemsToUpdate) => {
+        const targetMetadata = { ...(itemsToUpdate[0].metadata || {}) };
+        if (UnitConstants.ON_LIST in targetMetadata) {
+          delete targetMetadata[UnitConstants.ON_LIST];
+        }
+        itemsToUpdate[0].metadata = targetMetadata;
+      });
+
+      const updatedItems = items.map((item) => {
+        if (item.id !== ownerModalUnitId) {
+          return item;
+        }
+
+        const targetMetadata = { ...(item.metadata || {}) };
+        delete targetMetadata[UnitConstants.ON_LIST];
+
+        return {
+          ...item,
+          metadata: targetMetadata,
+        };
+      });
+
+      setItems(updatedItems);
+      setOwnerModalUnitId(null);
+    } catch (error) {
+      LOGGER.error('Failed to remove token from initiative list', ownerModalUnitId, error);
+      setOwnerModalError('Unable to remove token from initiative list.');
+    } finally {
+      setIsRemovingUnit(false);
     }
   };
 
@@ -2434,11 +2574,11 @@ export const InitiativeList: React.FC = () => {
         isOpen={!!ownerModalUnitId}
         title={selectedOwnerUnit ? `Unit: ${selectedOwnerUnit.name}` : 'Unit'}
         onClose={() => {
-          if (isAssigningOwner || isUpdatingBossMode) return;
+          if (isAssigningOwner || isUpdatingBossMode || isRemovingUnit) return;
           setOwnerModalUnitId(null);
           setOwnerModalError(null);
         }}
-        closeOnOverlayClick={!isAssigningOwner && !isUpdatingBossMode}
+        closeOnOverlayClick={!isAssigningOwner && !isUpdatingBossMode && !isRemovingUnit}
         maxWidth="520px"
       >
         <OwnerPickerHint theme={theme}>
@@ -2452,12 +2592,21 @@ export const InitiativeList: React.FC = () => {
               theme={theme}
               $isCurrent={selectedOwnerItem?.createdUserId === player.id}
               onClick={() => handleAssignOwner(player.id)}
-              disabled={isAssigningOwner || isUpdatingBossMode}
+              disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit}
             >
               {player.name}
               {selectedOwnerItem?.createdUserId === player.id ? ' (current)' : ''}
             </OwnerPickerButton>
           ))}
+        <OwnerPickerButton
+          theme={theme}
+          onClick={() => {
+            void handleRemoveUnitFromList();
+          }}
+          disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit}
+        >
+          {isRemovingUnit ? 'Removing...' : 'Remove Unit from Listc'}
+        </OwnerPickerButton>
         </OwnerPickerList>
 
         <OwnerModalSeparator theme={theme} />
@@ -2467,16 +2616,19 @@ export const InitiativeList: React.FC = () => {
             <BossModeLabel theme={theme}>Boss Mode</BossModeLabel>
             <BossModeHint theme={theme}>Shows a large encounter HP bar in scene (max 2 bosses).</BossModeHint>
           </div>
-          <BossModeButton
-            theme={theme}
-            $active={selectedOwnerIsBoss}
-            disabled={isAssigningOwner || isUpdatingBossMode}
-            onClick={() => {
-              void handleToggleBossMode();
-            }}
-          >
-            {isUpdatingBossMode ? 'Updating...' : selectedOwnerIsBoss ? 'Enabled' : 'Disabled'}
-          </BossModeButton>
+          <BossModeToggleWrap>
+            <BossModeToggle
+              type="button"
+              theme={theme}
+              $active={selectedOwnerIsBoss}
+              disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit}
+              aria-label="Toggle boss mode"
+              aria-pressed={selectedOwnerIsBoss}
+              onClick={() => {
+                void handleToggleBossMode();
+              }}
+            />
+          </BossModeToggleWrap>
         </BossModeSection>
         {ownerModalError && <OwnerPickerError theme={theme}>{ownerModalError}</OwnerPickerError>}
       </PopupModal>
@@ -2500,7 +2652,7 @@ export const InitiativeList: React.FC = () => {
           <OwnerPickerButton
             theme={theme}
             onClick={() => {
-              void handleResetEncounter(false);
+              void handleResetEncounter('round');
             }}
             disabled={isResetting}
           >
@@ -2509,11 +2661,20 @@ export const InitiativeList: React.FC = () => {
           <OwnerPickerButton
             theme={theme}
             onClick={() => {
-              void handleResetEncounter(true);
+              void handleResetEncounter('reset-initiative');
             }}
             disabled={isResetting}
           >
-            {isResetting ? 'Resetting...' : 'Reset Round and Clear Initiative List'}
+            {isResetting ? 'Resetting...' : 'Reset Round & Initiative'}
+          </OwnerPickerButton>
+          <OwnerPickerButton
+            theme={theme}
+            onClick={() => {
+              void handleResetEncounter('clear-list');
+            }}
+            disabled={isResetting}
+          >
+            {isResetting ? 'Resetting...' : 'Reset Round & Clear List'}
           </OwnerPickerButton>
         </OwnerPickerList>
       </PopupModal>

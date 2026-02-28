@@ -211,6 +211,20 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                         const collectionNamesToCheck: string[] = [];
                         // Metadata updates is the batch to apply at the end
                         const metadataUpdates: { id: string, metadata: Metadata }[] = [];
+                        const contextItemIds = new Set(context.items.map((item) => item.id));
+                        const useDescriptiveDuplicates = storageContainer[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] !== undefined;
+                        const usedUnitNames = new Set(
+                            sceneItems
+                                .filter((sceneItem) => {
+                                    if (contextItemIds.has(sceneItem.id)) {
+                                        return false;
+                                    }
+
+                                    const existingName = sceneItem.metadata[UnitConstants.UNIT_NAME];
+                                    return typeof existingName === 'string' && existingName.trim().length > 0;
+                                })
+                                .map((sceneItem) => normalizeLookupName(String(sceneItem.metadata[UnitConstants.UNIT_NAME])))
+                        );
 
                         for (let item of context.items) {
                             if (item.metadata[UnitConstants.FABRICATED] === true) {
@@ -243,15 +257,25 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                     update[UnitConstants.UNIT_NAME] = item.name;
                                 }
                                 update[UnitConstants.FABRICATED] = true;
-                                // Check descriptive name setting
-                                if (storageContainer[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] !== undefined) {
-                                    // We want to check the 'itemName'
-                                    const currentNamesInScene = sceneItems
-                                        .filter((x) => x.metadata[UnitConstants.UNIT_NAME] != null && x.id !== item.id)
-                                        .map((x) => x.metadata[UnitConstants.UNIT_NAME]);
-                                    if (currentNamesInScene.includes(itemName)) {
-                                        update[UnitConstants.UNIT_NAME] = AddOrReplaceAdjective(itemName);
+                                if (useDescriptiveDuplicates) {
+                                    const baseUnitName = String(update[UnitConstants.UNIT_NAME] || itemName || item.name).trim();
+                                    let resolvedUnitName = baseUnitName;
+                                    let normalizedResolvedName = normalizeLookupName(resolvedUnitName);
+
+                                    if (normalizedResolvedName) {
+                                        let guard = 0;
+                                        while (usedUnitNames.has(normalizedResolvedName) && guard < 20) {
+                                            resolvedUnitName = AddOrReplaceAdjective(resolvedUnitName);
+                                            normalizedResolvedName = normalizeLookupName(resolvedUnitName);
+                                            guard += 1;
+                                        }
+
+                                        if (normalizedResolvedName) {
+                                            usedUnitNames.add(normalizedResolvedName);
+                                        }
                                     }
+
+                                    update[UnitConstants.UNIT_NAME] = resolvedUnitName;
                                 }
                             }
 

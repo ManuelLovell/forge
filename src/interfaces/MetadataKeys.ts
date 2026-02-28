@@ -29,6 +29,7 @@ export class SettingsConstants {
   static POPCORN_INITIATIVE = `${EXTENSION_ID}/popinit`;
   static DICE_RANGE = `${EXTENSION_ID}/dicernge`;
   static SHOW_CARD_ACCESS = `${EXTENSION_ID}/cardshow`;
+  static INITIATIVE_LIST_COMPACT = `${EXTENSION_ID}/ilistcmp`;
 
   // Initiative Tracking
   static CURRENT_TURN = `${EXTENSION_ID}/currturn`;

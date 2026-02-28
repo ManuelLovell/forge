@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import styled from 'styled-components';
 import OBR, { buildText, isImage } from '@owlbear-rodeo/sdk';
 import { useSystemData } from '../helpers/useSystemData';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSceneStore } from '../helpers/BSCache';
 import { EXTENSION_ID } from '../helpers/MockData';
-import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
+import { SettingsConstants, UnitConstants, getPerPlayerSettingKey } from '../interfaces/MetadataKeys';
 import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import {
   Heart, Shield, Sun, Award, Target, Users, Star,
   Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle, Music, Feather, FileText,
-  ArrowLeft, ArrowRight, OctagonX
+  ArrowLeft, ArrowRight, OctagonX, Minimize2, Maximize2
 } from 'lucide-react';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import LOGGER from '../helpers/Logger';
@@ -22,7 +22,6 @@ import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 import { EffectsManagerModal, useEffectsManager } from './EffectsManager';
 import { ElevationSpecialCell, EffectsSpecialCell } from './InitiativeSpecialCells';
 import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
-import Tippy from '@tippyjs/react';
 
 const ELEVATION_BADGE_FLAG = `${EXTENSION_ID}/elevation-badge`;
 const ELEVATION_BADGE_OWNER = `${EXTENSION_ID}/elevation-badge-owner`;
@@ -160,24 +159,24 @@ const TableWrapper = styled.div`
   overflow-y: auto;
 `;
 
-const ControlWrapper = styled.div<{ theme: ForgeTheme }>`
+const ControlWrapper = styled.div<{ theme: ForgeTheme; $compactMode?: boolean }>`
   width: 100%;
-  height: 54px;
+  height: 55px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
+  justify-content: ${props => props.$compactMode ? 'end' : 'center'};
+  gap: ${props => props.$compactMode ? '8px' : '16px'};
   position: relative;
-  padding: 8px;
+  padding: ${props => props.$compactMode ? '4px 8px' : '8px'};
   background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.75)};
   border-top: 2px solid ${props => props.theme.BORDER};
 `;
 
-const ControlCenter = styled.div`
+const ControlCenter = styled.div<{ $compactMode?: boolean }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: ${props => props.$compactMode ? '8px' : '16px'};
 `;
 
 const ControlButton = styled.button<{ theme: ForgeTheme; disabled?: boolean; $compact?: boolean }>`
@@ -227,16 +226,47 @@ const ResetButton = styled(ControlButton)`
   }
 `;
 
-const RoundDisplay = styled.div<{ theme: ForgeTheme }>`
+const CompactResizeButton = styled(ControlButton)`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 36px;
+  padding: 0;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+`;
+
+const FullResizeButton = styled(ControlButton)<{ $hasReset: boolean }>`
+  position: absolute;
+  right: ${props => props.$hasReset ? '52px' : '8px'};
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 36px;
+  padding: 0;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+`;
+
+const RoundDisplay = styled.div<{ theme: ForgeTheme; $compactMode?: boolean }>`
   color: ${props => props.theme.PRIMARY};
-  font-size: 16px;
+  font-size: ${props => props.$compactMode ? '14px' : '16px'};
   font-weight: 600;
-  min-width: 80px;
+  min-width: ${props => props.$compactMode ? '44px' : '80px'};
   text-align: center;
 `;
 
-const Table = styled.table<{ theme: ForgeTheme }>`
-  width: 100%;
+const Table = styled.table<{ theme: ForgeTheme; $compact?: boolean }>`
+  width: ${props => props.$compact ? 'max-content' : '100%'};
+  min-width: ${props => props.$compact ? '0' : '100%'};
   border-collapse: separate;
   border-spacing: 0;
   border-radius: 8px;
@@ -262,6 +292,42 @@ const HeaderCell = styled.th<{ theme: ForgeTheme }>`
     width: 20px;
     height: 20px;
     display: inline-block;
+  }
+`;
+
+const HeaderTooltipBubble = styled.div<{ theme: ForgeTheme; $left: number; $y: number; $placement: 'top' | 'bottom'; $arrowX: number }>`
+  position: fixed;
+  left: ${props => `${props.$left}px`};
+  top: ${props => `${props.$y}px`};
+  transform: ${props => props.$placement === 'top'
+    ? 'translateY(calc(-100% - 10px))'
+    : 'translateY(10px)'};
+  pointer-events: none;
+  z-index: 99999;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid ${props => rgbaFromHex(props.theme.BORDER, 0.9)};
+  background: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.96)};
+  color: ${props => props.theme.PRIMARY};
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: left;
+  box-shadow: 0 8px 24px ${props => rgbaFromHex(props.theme.BACKGROUND, 0.65)};
+  backdrop-filter: blur(8px);
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: clamp(12px, ${props => `${props.$arrowX}px`}, calc(100% - 12px));
+    ${props => props.$placement === 'top' ? 'top: 100%;' : 'bottom: 100%;'}
+    transform: translateX(-50%);
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    ${props => props.$placement === 'top'
+    ? `border-top: 6px solid ${rgbaFromHex(props.theme.BACKGROUND, 0.96)};`
+    : `border-bottom: 6px solid ${rgbaFromHex(props.theme.BACKGROUND, 0.96)};`}
   }
 `;
 
@@ -888,7 +954,10 @@ export const InitiativeList: React.FC = () => {
   const [rollableEditMode, setRollableEditMode] = useState<Record<string, boolean>>({});
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isListCompact, setIsListCompact] = useState(false);
   const [isCompactControlLayout, setIsCompactControlLayout] = useState(() => window.innerWidth < 400);
+  const [headerTooltip, setHeaderTooltip] = useState<{ text: string; anchorX: number; left: number; y: number; placement: 'top' | 'bottom'; arrowX: number } | null>(null);
+  const headerTooltipRef = useRef<HTMLDivElement | null>(null);
   const longPressTimersRef = useRef<Record<string, number>>({});
   const suppressNextClickRef = useRef<Record<string, boolean>>({});
   const tableRef = useRef<HTMLTableElement>(null);
@@ -915,6 +984,31 @@ export const InitiativeList: React.FC = () => {
   const diceRange = (storageContainer[SettingsConstants.DICE_RANGE] as string | undefined) || '';
   const showOwnerOnlyEdit = storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] as boolean || false;
   const isCurrentUserGm = String((playerData as RoleLike | null | undefined)?.role || '').toUpperCase() === 'GM';
+  const currentPlayerId = playerData?.id || '';
+  const listCompactSettingKey = getPerPlayerSettingKey(SettingsConstants.INITIATIVE_LIST_COMPACT, currentPlayerId);
+
+  useEffect(() => {
+    const perPlayerValue = sceneMetadata[listCompactSettingKey];
+    const fallbackValue = sceneMetadata[SettingsConstants.INITIATIVE_LIST_COMPACT];
+    const resolved = typeof perPlayerValue === 'boolean'
+      ? perPlayerValue
+      : (typeof fallbackValue === 'boolean' ? fallbackValue : false);
+    setIsListCompact(resolved);
+  }, [sceneMetadata, listCompactSettingKey]);
+
+  const handleToggleListSize = async () => {
+    const nextMode = !isListCompact;
+    setIsListCompact(nextMode);
+
+    try {
+      await OBR.scene.setMetadata({
+        [listCompactSettingKey]: nextMode,
+      });
+    } catch (error) {
+      LOGGER.error('Failed to persist initiative list compact mode', error);
+      setIsListCompact(!nextMode);
+    }
+  };
 
   const sendNotationRoll = async ({
     notation,
@@ -1974,6 +2068,20 @@ export const InitiativeList: React.FC = () => {
     [selectedListReferenceEntries]
   );
 
+  const visibleListColumns = useMemo(() => {
+    if (!isListCompact) {
+      return listColumns;
+    }
+
+    return listColumns.filter((column) => {
+      if (column.type === 'initiative' || column.type === 'name') {
+        return true;
+      }
+
+      return column.type === 'card-column' && showCardColumn;
+    });
+  }, [isListCompact, listColumns, showCardColumn]);
+
   const selectedListBidValueMap = useMemo(() => {
     if (!selectedListReferenceUnit) {
       return {} as Record<string, number>;
@@ -2023,7 +2131,7 @@ export const InitiativeList: React.FC = () => {
   };
   // Adjust window width based on table width
   useEffect(() => {
-    if (tableRef.current && listColumns.length > 0) {
+    if (tableRef.current && visibleListColumns.length > 0) {
       // Wait a bit for the table to fully render
       LOGGER.debug('Adjusting window width based on table size');
       setTimeout(() => {
@@ -2036,13 +2144,85 @@ export const InitiativeList: React.FC = () => {
         }
       }, 100);
     }
-  }, [tableRef.current?.offsetWidth]);
+  }, [isListCompact, visibleListColumns.length]);
 
   const getIcon = (iconName?: string) => {
     if (!iconName) return null;
     const IconComponent = iconMap[iconName.toLowerCase()];
     return IconComponent ? <IconComponent /> : null;
   };
+
+  const getTooltipHorizontalGeometry = (anchorX: number, tooltipWidth: number) => {
+    const viewportPadding = 8;
+    const maxLeft = window.innerWidth - tooltipWidth - viewportPadding;
+    const left = Math.min(
+      Math.max(anchorX - tooltipWidth / 2, viewportPadding),
+      Math.max(viewportPadding, maxLeft)
+    );
+    const arrowX = anchorX - left;
+
+    return {
+      left,
+      arrowX,
+    };
+  };
+
+  const getHeaderTooltipPosition = (event: React.MouseEvent<HTMLElement> | React.FocusEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const pointerX = 'clientX' in event ? event.clientX : rect.left + rect.width / 2;
+    const topClearance = 72;
+    const placement: 'top' | 'bottom' = rect.top > topClearance ? 'top' : 'bottom';
+
+    return {
+      anchorX: pointerX,
+      y: placement === 'top' ? rect.top : rect.bottom,
+      placement,
+    };
+  };
+
+  const showHeaderTooltip = (
+    event: React.MouseEvent<HTMLElement> | React.FocusEvent<HTMLElement>,
+    text: string
+  ) => {
+    const position = getHeaderTooltipPosition(event);
+    const estimatedWidth = Math.min(320, Math.max(140, text.length * 7 + 28));
+    const geometry = getTooltipHorizontalGeometry(position.anchorX, estimatedWidth);
+
+    setHeaderTooltip({
+      text,
+      ...position,
+      ...geometry,
+    });
+  };
+
+  const hideHeaderTooltip = () => {
+    setHeaderTooltip(null);
+  };
+
+  useLayoutEffect(() => {
+    if (!headerTooltip || !headerTooltipRef.current) {
+      return;
+    }
+
+    const measuredWidth = headerTooltipRef.current.getBoundingClientRect().width;
+    const nextGeometry = getTooltipHorizontalGeometry(headerTooltip.anchorX, measuredWidth);
+
+    if (
+      Math.abs(nextGeometry.left - headerTooltip.left) > 0.5
+      || Math.abs(nextGeometry.arrowX - headerTooltip.arrowX) > 0.5
+    ) {
+      setHeaderTooltip((prev) => {
+        if (!prev) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          ...nextGeometry,
+        };
+      });
+    }
+  }, [headerTooltip]);
 
   const renderHeader = (col: ListColumn) => {
     if (col.type === 'initiative') return <Users />;
@@ -2485,19 +2665,31 @@ export const InitiativeList: React.FC = () => {
     );
   }
 
+  const useCompactTurnControls = isListCompact || isCompactControlLayout;
+  const roundLabel = isListCompact ? `R: ${currentRound}` : `Round: ${currentRound}`;
+
   return (
     <ListContainer>
       <TableWrapper>
-        <Table ref={tableRef} theme={theme}>
+        <Table ref={tableRef} theme={theme} $compact={isListCompact}>
           <TableHead theme={theme}>
             <HeaderRow>
-              {listColumns.map(col => (
-                <Tippy content={col.description ?? 'This has no description.'} theme='dynamic'>
-                  <HeaderCell key={col.id} theme={theme}>
-                    {renderHeader(col)}
-                  </HeaderCell>
-                </Tippy>
-              ))}
+              {visibleListColumns.map((col) => {
+                const headerDescription = col.description ?? 'This has no description.';
+                return (
+                <HeaderCell
+                  key={col.id}
+                  theme={theme}
+                  onMouseEnter={(event) => showHeaderTooltip(event, headerDescription)}
+                  onMouseMove={(event) => showHeaderTooltip(event, headerDescription)}
+                  onMouseLeave={hideHeaderTooltip}
+                  onFocus={(event) => showHeaderTooltip(event, headerDescription)}
+                  onBlur={hideHeaderTooltip}
+                >
+                  {renderHeader(col)}
+                </HeaderCell>
+                );
+              })}
             </HeaderRow>
           </TableHead>
           <TableBody>
@@ -2507,7 +2699,7 @@ export const InitiativeList: React.FC = () => {
                 $isCurrentTurn={unit.id === currentTurnId}
                 theme={theme}
               >
-                {listColumns.map(col => (
+                {visibleListColumns.map(col => (
                   <React.Fragment key={col.id}>
                     {renderCell(col, unit)}
                   </React.Fragment>
@@ -2517,9 +2709,22 @@ export const InitiativeList: React.FC = () => {
           </TableBody>
         </Table>
       </TableWrapper>
-      <ControlWrapper theme={theme}>
-        <ControlCenter>
-          {popcornInitiative ? (
+      <ControlWrapper theme={theme} $compactMode={isListCompact}>
+        <ControlCenter $compactMode={isListCompact}>
+          {isListCompact ? (
+            <>
+              {isCurrentUserGm && (
+                <ControlButton theme={theme} $compact={true} onClick={handlePrevious}>
+                  <ArrowLeft />
+                </ControlButton>
+              )}
+              {isCurrentUserGm && (
+                <ControlButton theme={theme} $compact={true} onClick={handleNext}>
+                  <ArrowRight />
+                </ControlButton>
+              )}
+            </>
+          ) : popcornInitiative ? (
             // Popcorn Initiative controls
             <>
               <ControlButton
@@ -2529,37 +2734,61 @@ export const InitiativeList: React.FC = () => {
               >
                 End Turn
               </ControlButton>
-              <RoundDisplay theme={theme}>
-                Round: {currentRound}
+              <RoundDisplay theme={theme} $compactMode={isListCompact}>
+                {roundLabel}
               </RoundDisplay>
               <ControlButton
                 theme={theme}
+                $compact={useCompactTurnControls}
                 onClick={handleNewRound}
                 disabled={completedUnits.size < sortedUnits.length}
               >
-                Next
+                {useCompactTurnControls ? <ArrowRight /> : 'Next'}
               </ControlButton>
             </>
           ) : (
             // Normal Initiative controls
             <>
               {isCurrentUserGm && (
-                <ControlButton theme={theme} $compact={isCompactControlLayout} onClick={handlePrevious}>
-                  {isCompactControlLayout ? <ArrowLeft /> : 'Previous'}
+                <ControlButton theme={theme} $compact={useCompactTurnControls} onClick={handlePrevious}>
+                  {useCompactTurnControls ? <ArrowLeft /> : 'Previous'}
                 </ControlButton>
               )}
-              <RoundDisplay theme={theme}>
-                Round: {currentRound}
+              <RoundDisplay theme={theme} $compactMode={isListCompact}>
+                {roundLabel}
               </RoundDisplay>
               {isCurrentUserGm && (
-                <ControlButton theme={theme} $compact={isCompactControlLayout} onClick={handleNext}>
-                  {isCompactControlLayout ? <ArrowRight /> : 'Next'}
+                <ControlButton theme={theme} $compact={useCompactTurnControls} onClick={handleNext}>
+                  {useCompactTurnControls ? <ArrowRight /> : 'Next'}
                 </ControlButton>
               )}
             </>
           )}
+          {isListCompact && (
+            <CompactResizeButton
+              theme={theme}
+              onClick={() => {
+                void handleToggleListSize();
+              }}
+              title="Switch to Fullsize list"
+            >
+              <Maximize2 />
+            </CompactResizeButton>
+          )}
         </ControlCenter>
-        {isCurrentUserGm && (
+        {!isListCompact && (
+          <FullResizeButton
+            theme={theme}
+            $hasReset={isCurrentUserGm}
+            onClick={() => {
+              void handleToggleListSize();
+            }}
+            title="Switch to Compact list"
+          >
+            <Minimize2 />
+          </FullResizeButton>
+        )}
+        {isCurrentUserGm && !isListCompact && (
           <ResetButton
             theme={theme}
             onClick={() => setIsResetModalOpen(true)}
@@ -2570,6 +2799,19 @@ export const InitiativeList: React.FC = () => {
           </ResetButton>
         )}
       </ControlWrapper>
+      {headerTooltip && (
+        <HeaderTooltipBubble
+          ref={headerTooltipRef}
+          theme={theme}
+          $left={headerTooltip.left}
+          $y={headerTooltip.y}
+          $placement={headerTooltip.placement}
+          $arrowX={headerTooltip.arrowX}
+          role="tooltip"
+        >
+          {headerTooltip.text}
+        </HeaderTooltipBubble>
+      )}
       <PopupModal
         isOpen={!!ownerModalUnitId}
         title={selectedOwnerUnit ? `Unit: ${selectedOwnerUnit.name}` : 'Unit'}
@@ -2605,7 +2847,7 @@ export const InitiativeList: React.FC = () => {
           }}
           disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit}
         >
-          {isRemovingUnit ? 'Removing...' : 'Remove Unit from Listc'}
+          {isRemovingUnit ? 'Removing...' : 'Remove Unit from List'}
         </OwnerPickerButton>
         </OwnerPickerList>
 

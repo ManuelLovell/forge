@@ -306,7 +306,7 @@ import{A as e,C as t,D as n,E as r,M as i,N as a,O as o,S as s,T as c,_ as l,b a
   border-radius: 8px;
   padding: 25px;
   z-index: 10000;
-  min-width: ${e=>e.$minWidth||`300px`};
+  min-width: ${e=>e.$minWidth||`200px`};
   max-width: ${e=>e.$maxWidth||`500px`};
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 `,Fp=y.h3`

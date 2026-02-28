@@ -1,4 +1,5 @@
 import './styles/App.css'
+import 'tippy.js/dist/tippy.css';
 import { useSceneStore } from './helpers/BSCache';
 import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';

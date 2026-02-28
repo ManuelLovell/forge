@@ -22,6 +22,7 @@ import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 import { EffectsManagerModal, useEffectsManager } from './EffectsManager';
 import { ElevationSpecialCell, EffectsSpecialCell } from './InitiativeSpecialCells';
 import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
+import Tippy from '@tippyjs/react';
 
 const ELEVATION_BADGE_FLAG = `${EXTENSION_ID}/elevation-badge`;
 const ELEVATION_BADGE_OWNER = `${EXTENSION_ID}/elevation-badge-owner`;
@@ -780,13 +781,11 @@ const ListReferenceEmpty = styled.p<{ theme: ForgeTheme }>`
 // Deserialization function
 const deserializeListLayout = (
   layout: ListLayoutComponent[],
-  showRollerColumn: boolean,
   showCardColumn: boolean
 ): ListColumn[] => {
   const defaultColumns: ListColumn[] = [
-    { id: crypto.randomUUID(), type: 'initiative' },
-    ...(showRollerColumn ? [{ id: 'roller-column', type: 'roller' }] : []),
-    { id: crypto.randomUUID(), type: 'name' }
+    { id: crypto.randomUUID(), type: 'initiative', description: 'Initiative value used for turn order. Can be edited via Right-Click or rolled with Click.' },
+    { id: crypto.randomUUID(), type: 'name', description: 'Name of the unit or character.' }
   ];
 
   const cardColumn: ListColumn[] = showCardColumn
@@ -862,7 +861,6 @@ export const InitiativeList: React.FC = () => {
   // Get settings
   const reverseInitiative = storageContainer[SettingsConstants.REVERSE_INITIATIVE] as boolean || false;
   const popcornInitiative = storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean || false;
-  const showRollerColumn = storageContainer[SettingsConstants.SHOW_ROLLER_COLUMN] as boolean || false;
   const showCardColumn = storageContainer[SettingsConstants.SHOW_CARD_ACCESS] as boolean || false;
   const diceRange = (storageContainer[SettingsConstants.DICE_RANGE] as string | undefined) || '';
   const showOwnerOnlyEdit = storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] as boolean || false;
@@ -1499,10 +1497,10 @@ export const InitiativeList: React.FC = () => {
   // Deserialize list layout on mount or when listLayout changes
   useEffect(() => {
     if (!isLoading) {
-      const columns = deserializeListLayout(listLayout, showRollerColumn, showCardColumn);
+      const columns = deserializeListLayout(listLayout, showCardColumn);
       setListColumns(columns);
     }
-  }, [listLayout, isLoading, showRollerColumn, showCardColumn]);
+  }, [listLayout, isLoading, showCardColumn]);
 
   // Load current turn and round from metadata
   useEffect(() => {
@@ -2354,9 +2352,11 @@ export const InitiativeList: React.FC = () => {
           <TableHead theme={theme}>
             <HeaderRow>
               {listColumns.map(col => (
-                <HeaderCell key={col.id} theme={theme}>
-                  {renderHeader(col)}
-                </HeaderCell>
+                <Tippy content={col.description ?? 'This has no description.'} theme='dynamic'>
+                  <HeaderCell key={col.id} theme={theme}>
+                    {renderHeader(col)}
+                  </HeaderCell>
+                </Tippy>
               ))}
             </HeaderRow>
           </TableHead>

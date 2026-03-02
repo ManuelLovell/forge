@@ -9,11 +9,13 @@ import { OwlbearIds } from '../helpers/Constants';
 
 const EXTENSION_ID = OwlbearIds.EXTENSIONID;
 export class MenuConstants {
+  static CONTEXT_MENU = `${EXTENSION_ID}/cont-menu`;
 }
 
 export class UnitConstants {
   static ON_LIST = `${EXTENSION_ID}/on-list`;
   static IN_PARTY = `${EXTENSION_ID}/in-party`;
+  static MODIFY_UNIT = `${EXTENSION_ID}/modi-unit`;
   static VIEW_UNIT = `${EXTENSION_ID}/view-unit`;
   static FABRICATED = `${EXTENSION_ID}/fabd`;
   static UNIT_NAME = `${EXTENSION_ID}/name`;
@@ -39,6 +41,7 @@ export class SettingsConstants {
   static SHOW_PLAYER_VIEW = `${EXTENSION_ID}/playview`;
   static SHOW_NON_PARTY_UNITS = `${EXTENSION_ID}/npcview`;
   static SHOW_OWNER_ONLY_EDIT = `${EXTENSION_ID}/ownedit`;
+  static SHOW_MODIFY_UNIT_CONTEXT_MENU = `${EXTENSION_ID}/modictx`;
 
   // Game Controls
   static SHOW_HP_BARS = `${EXTENSION_ID}/showhpbar`;

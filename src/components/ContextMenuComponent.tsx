@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import OBR, { Metadata } from '@owlbear-rodeo/sdk';
 import LOGGER from './../helpers/Logger';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
-import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
+import { MenuConstants, SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { Regex } from '../helpers/Regex';
 import { useSceneStore } from '../helpers/BSCache';
 import { AddOrReplaceAdjective } from '../helpers/Adjectives';
@@ -136,6 +136,10 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
 
     //Control for setting the data to Room or to Scene
     const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
+    const healthAttrbEnabled = storageContainer[SettingsConstants.HP_CURRENT_BID] !== undefined && storageContainer[SettingsConstants.HP_MAX_BID] !== undefined;
+    const showModifyUnitContextMenu = storageContainer[SettingsConstants.SHOW_MODIFY_UNIT_CONTEXT_MENU] === undefined
+        ? true
+        : storageContainer[SettingsConstants.SHOW_MODIFY_UNIT_CONTEXT_MENU] === true;
 
     useEffect(() => {
         // This is ran once, but this is a performative place to ensure this is not tried before the scene is ready
@@ -379,7 +383,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                         });
                     }
                 }
-            })
+            });
 
             OBR.contextMenu.create({
                 id: VIEW_UNIT_CONTEXT_MENU_ID,
@@ -462,9 +466,54 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                     await openCardPopoverForUnit(selectedItem.id);
 
                 }
-            })
+            });
+
+            if (healthAttrbEnabled && showModifyUnitContextMenu) {
+                OBR.contextMenu.create({
+                    id: UnitConstants.MODIFY_UNIT,
+                    icons: [
+                        {
+                            icon: "/icon.svg", // GM Version
+                            label: "Adjust HP",
+                            filter: {
+                                some: [
+                                    { key: "layer", value: "CHARACTER", coordinator: "||" },
+                                    { key: "layer", value: "MOUNT" }],
+                                roles: ["GM"],
+                            },
+                        },
+                        {
+                            icon: "/icon.svg", // Player Version
+                            label: "Adjust HP",
+                            filter: {
+                                every: [
+                                    { key: "createdUserId", operator: "==", value: playerData?.id }
+                                ],
+                                some: [
+                                    { key: "layer", value: "CHARACTER", coordinator: "||" },
+                                    { key: "layer", value: "MOUNT" }],
+                                roles: ["PLAYER"],
+                            },
+                        }
+                    ],
+                    async onClick(context, elementId) {
+                        LOGGER.info(`Adjust HP Clicked: ${context.items[0].name}`);
+                        await OBR.popover.open({
+                            id: MenuConstants.CONTEXT_MENU,
+                            url: `/pages/forgecontext.html`,
+                            height: 50,
+                            width: 180,
+                            anchorElementId: elementId,
+                            hidePaper: true,
+                        });
+                    },
+                    embed: { url: `/pages/forgecontext.html?contextmenu=true`, height: 70 }
+                });
+            } else {
+                OBR.contextMenu.remove(UnitConstants.MODIFY_UNIT).catch(() => { });
+            }
         });
-    }, [storageContainer]);
+    }, [storageContainer, healthAttrbEnabled, showModifyUnitContextMenu]);
 
     return <>{children}</>;
 }

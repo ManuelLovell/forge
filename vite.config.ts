@@ -20,6 +20,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, "pages/index.html"),
         card: path.resolve(__dirname, "pages/forgecard.html"),
+        context: path.resolve(__dirname, "pages/forgecontext.html"),
         party: path.resolve(__dirname, "pages/forgeparty.html"),
       }
     }

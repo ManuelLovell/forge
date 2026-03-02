@@ -26,6 +26,11 @@ import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
 const ELEVATION_BADGE_FLAG = `${EXTENSION_ID}/elevation-badge`;
 const ELEVATION_BADGE_OWNER = `${EXTENSION_ID}/elevation-badge-owner`;
 const ELEVATION_METADATA_KEY = `${EXTENSION_ID}/elevation`;
+const MIN_COMPACT_TABLE_WIDTH_PX = 200;
+const MIN_COLUMN_HEADER_WIDTH_PX = 40;
+const MIN_INITIATIVE_HEADER_WIDTH_PX = 60;
+const MIN_NAME_HEADER_WIDTH_PX = 120;
+const DIVIDER_COLUMN_WIDTH_PX = 24;
 
 // Internal state model
 interface ListColumn {
@@ -186,6 +191,7 @@ const ControlButton = styled.button<{ theme: ForgeTheme; disabled?: boolean; $co
   color: ${props => props.theme.PRIMARY};
   text-shadow: ${props => getRollableInputTextShadow(props.theme)};
   padding: 4px 4px;
+  height: 36px;
   width: ${props => props.$compact ? '40px' : '80px'};
   font-size: 14px;
   font-weight: 600;
@@ -266,7 +272,7 @@ const RoundDisplay = styled.div<{ theme: ForgeTheme; $compactMode?: boolean }>`
 
 const Table = styled.table<{ theme: ForgeTheme; $compact?: boolean }>`
   width: ${props => props.$compact ? 'max-content' : '100%'};
-  min-width: ${props => props.$compact ? '0' : '100%'};
+  min-width: ${props => props.$compact ? `${MIN_COMPACT_TABLE_WIDTH_PX}px` : '100%'};
   border-collapse: separate;
   border-spacing: 0;
   border-radius: 8px;
@@ -279,7 +285,7 @@ const TableHead = styled.thead<{ theme: ForgeTheme }>`
 
 const HeaderRow = styled.tr``;
 
-const HeaderCell = styled.th<{ theme: ForgeTheme }>`
+const HeaderCell = styled.th<{ theme: ForgeTheme; $minWidth?: number; $fixedWidth?: number }>`
   color: ${props => props.theme.OFFSET};
   padding-bottom: 6px;
   text-align: center;
@@ -287,6 +293,9 @@ const HeaderCell = styled.th<{ theme: ForgeTheme }>`
   font-size: 14px;
   font-variant: small-caps;
   border-bottom: 2px solid ${props => props.theme.BORDER};
+  min-width: ${props => props.$fixedWidth ? `${props.$fixedWidth}px` : `${props.$minWidth || 0}px`};
+  width: ${props => props.$fixedWidth ? `${props.$fixedWidth}px` : 'auto'};
+  max-width: ${props => props.$fixedWidth ? `${props.$fixedWidth}px` : 'none'};
   
   svg {
     width: 20px;
@@ -2238,6 +2247,22 @@ export const InitiativeList: React.FC = () => {
     return col.name || col.type;
   };
 
+  const getHeaderSizing = (col: ListColumn): { minWidth?: number; fixedWidth?: number } => {
+    if (col.type === 'divider-column') {
+      return { fixedWidth: DIVIDER_COLUMN_WIDTH_PX };
+    }
+
+    if (col.type === 'initiative') {
+      return { minWidth: MIN_INITIATIVE_HEADER_WIDTH_PX };
+    }
+
+    if (col.type === 'name') {
+      return { minWidth: MIN_NAME_HEADER_WIDTH_PX };
+    }
+
+    return { minWidth: MIN_COLUMN_HEADER_WIDTH_PX };
+  };
+
   const renderCell = (col: ListColumn, unit: Unit) => {
     const canInteract = canInteractWithUnit(unit);
 
@@ -2676,10 +2701,13 @@ export const InitiativeList: React.FC = () => {
             <HeaderRow>
               {visibleListColumns.map((col) => {
                 const headerDescription = col.description ?? 'This has no description.';
+                const headerSizing = getHeaderSizing(col);
                 return (
                 <HeaderCell
                   key={col.id}
                   theme={theme}
+                  $minWidth={headerSizing.minWidth}
+                  $fixedWidth={headerSizing.fixedWidth}
                   onMouseEnter={(event) => showHeaderTooltip(event, headerDescription)}
                   onMouseMove={(event) => showHeaderTooltip(event, headerDescription)}
                   onMouseLeave={hideHeaderTooltip}
@@ -2750,16 +2778,16 @@ export const InitiativeList: React.FC = () => {
             // Normal Initiative controls
             <>
               {isCurrentUserGm && (
-                <ControlButton theme={theme} $compact={useCompactTurnControls} onClick={handlePrevious}>
-                  {useCompactTurnControls ? <ArrowLeft /> : 'Previous'}
+                <ControlButton theme={theme} $compact={true} onClick={handlePrevious}>
+                  <ArrowLeft />
                 </ControlButton>
               )}
               <RoundDisplay theme={theme} $compactMode={isListCompact}>
                 {roundLabel}
               </RoundDisplay>
               {isCurrentUserGm && (
-                <ControlButton theme={theme} $compact={useCompactTurnControls} onClick={handleNext}>
-                  {useCompactTurnControls ? <ArrowRight /> : 'Next'}
+                <ControlButton theme={theme} $compact={true} onClick={handleNext}>
+                  <ArrowRight />
                 </ControlButton>
               )}
             </>

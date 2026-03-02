@@ -96,6 +96,7 @@ export const SettingsPage = () => {
   const [showPlayerView, setShowPlayerView] = useState(false);
   const [showNonPartyUnits, setShowNonPartyUnits] = useState(false);
   const [showOwnerOnlyEdit, setShowOwnerOnlyEdit] = useState(false);
+  const [showModifyUnitContextMenu, setShowModifyUnitContextMenu] = useState(true);
 
   // Game Controls state
   const [showHpBars, setShowHpBars] = useState(false);
@@ -143,6 +144,11 @@ export const SettingsPage = () => {
     }
     if (storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] !== undefined) {
       setShowOwnerOnlyEdit(storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] as boolean);
+    }
+    if (storageContainer[SettingsConstants.SHOW_MODIFY_UNIT_CONTEXT_MENU] !== undefined) {
+      setShowModifyUnitContextMenu(storageContainer[SettingsConstants.SHOW_MODIFY_UNIT_CONTEXT_MENU] as boolean);
+    } else {
+      setShowModifyUnitContextMenu(true);
     }
     if (storageContainer[SettingsConstants.SHOW_NON_PARTY_UNITS] !== undefined) {
       setShowNonPartyUnits(storageContainer[SettingsConstants.SHOW_NON_PARTY_UNITS] as boolean);
@@ -393,6 +399,18 @@ export const SettingsPage = () => {
               onChange={async (value) => {
                 setShowOwnerOnlyEdit(value);
                 await saveData(SettingsConstants.SHOW_OWNER_ONLY_EDIT, value);
+              }}
+            />
+          </ControlRow>
+
+          <ControlRow theme={theme}>
+            <ControlLabel theme={theme}>Show Adjust HP Context Menu</ControlLabel>
+            <ToggleControl
+              label="Show Adjust HP Context Menu"
+              isOn={showModifyUnitContextMenu}
+              onChange={async (value) => {
+                setShowModifyUnitContextMenu(value);
+                await saveData(SettingsConstants.SHOW_MODIFY_UNIT_CONTEXT_MENU, value);
               }}
             />
           </ControlRow>

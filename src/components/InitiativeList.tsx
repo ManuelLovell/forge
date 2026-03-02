@@ -2153,7 +2153,7 @@ export const InitiativeList: React.FC = () => {
         }
       }, 100);
     }
-  }, [isListCompact, visibleListColumns.length]);
+  }, [isListCompact, visibleListColumns.length, sortedUnits.length]);
 
   const getIcon = (iconName?: string) => {
     if (!iconName) return null;

@@ -111,11 +111,12 @@ const MemberCard = styled.div<{ $theme: ThemeData; $orientation: PartyHudOrienta
   border: 2px solid ${props => props.$theme.border};
   border-radius: 10px;
   background: ${props => rgbaFromHex(props.$theme.background, 0.58)};
+  position: relative;
   display: flex;
-  gap: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '6px' : '0'};
-  align-items: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? 'flex-start' : 'center'};
+  gap: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '0' : '0'};
+  align-items: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? 'stretch' : 'center'};
   flex-direction: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? 'column' : 'row'};
-  padding: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '6px' : '0'};
+  padding: 0;
   box-sizing: border-box;
   backdrop-filter: blur(8px);
   width: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? `${HUD_COLUMN_CARD_WIDTH_PX}px` : `${HUD_ROW_CARD_WIDTH_PX}px`};
@@ -125,12 +126,74 @@ const MemberCard = styled.div<{ $theme: ThemeData; $orientation: PartyHudOrienta
   overflow: hidden;
 `;
 
+const CurrentTurnSheenOverlay = styled.div<{ $theme: ThemeData }>`
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 12;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      112deg,
+      transparent 0 45%,
+      ${props => rgbaFromHex(props.$theme.offset, 0.14)} 45% 50%,
+      ${props => rgbaFromHex(props.$theme.offset, 0.38)} 50% 54%,
+      ${props => rgbaFromHex(props.$theme.primary, 0.18)} 54% 58%,
+      ${props => rgbaFromHex(props.$theme.offset, 0.14)} 58% 62%,
+      transparent 62% 100%
+    );
+    background-size: 220% 100%;
+    background-position: 125% 0;
+    animation: currentTurnSheenSweep 2.5s ease-in-out infinite;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow:
+      inset 0 0 0 1px ${props => rgbaFromHex(props.$theme.offset, 0.45)},
+      0 0 10px ${props => rgbaFromHex(props.$theme.offset, 0.28)};
+    animation: currentTurnSheenPulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes currentTurnSheenSweep {
+    0% {
+      background-position: 125% 0;
+    }
+    55% {
+      background-position: -130% 0;
+    }
+    100% {
+      background-position: -130% 0;
+    }
+  }
+
+  @keyframes currentTurnSheenPulse {
+    0%,
+    100% {
+      opacity: 0.7;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+`;
+
 const PortraitStack = styled.div<{ $orientation: PartyHudOrientation }>`
-  position: relative;
-  width: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '68px' : '50%'};
-  height: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '68px' : '100%'};
-  min-width: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '68px' : '50%'};
-  min-height: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '68px' : '100%'};
+  position: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? 'absolute' : 'relative'};
+  inset: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '0' : 'auto'};
+  width: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '100%' : '50%'};
+  height: 100%;
+  min-width: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '100%' : '50%'};
+  min-height: 100%;
+  z-index: 1;
   overflow: hidden;
 `;
 
@@ -139,8 +202,8 @@ const Portrait = styled.img<{ $theme: ThemeData; $orientation: PartyHudOrientati
   height: 100%;
   min-width: 100%;
   position: absolute;
-  left: 0;
-  top: 0;
+  left: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '0' : '-10px'};
+  top: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '-10px' : '0'};
   border-radius: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '6px' : '0'};
   object-fit: cover;
   border: none;
@@ -153,15 +216,25 @@ const Portrait = styled.img<{ $theme: ThemeData; $orientation: PartyHudOrientati
     : 'linear-gradient(to right, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 72%, rgba(0, 0, 0, 0) 100%)'};
 `;
 
-const MemberContent = styled.div<{ $orientation: PartyHudOrientation }>`
+const MemberContent = styled.div<{  $theme: ThemeData; $orientation: PartyHudOrientation }>`
   display: flex;
   flex-direction: column;
   gap: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '4px' : '3px'};
   min-width: 0;
-  flex: 1;
-  width: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '100%' : '50%'};
-  padding: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '0' : '8px'};
+  height: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '50%' : '100%'};
+  min-height: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '50%' : '0'};
+  justify-content: center;
+  align-items: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? 'center' : 'stretch'};
+  text-align: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? 'center' : 'left'};
+  background: ${props => rgbaFromHex(props.$theme.background, 0.8)};
+  border-radius: 6px;
+  width: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '100%' : '75%'};
+  max-width: 100%;
+  margin-left: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? '0' : '-15%'};
+  margin-top: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? 'auto' : '0'};
+  padding: 8px;
   box-sizing: border-box;
+  z-index: 2;
   overflow: hidden;
 `;
 
@@ -170,6 +243,7 @@ const MemberName = styled.div<{ $theme: ThemeData }>`
   font-size: 13px;
   font-weight: 700;
   line-height: 1.1;
+  width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -206,6 +280,8 @@ const HpNumbers = styled.div<{ $theme: ThemeData }>`
 const StatsRow = styled.div`
   display: flex;
   gap: 4px;
+  width: 100%;
+  justify-content: center;
   flex-wrap: nowrap;
   overflow: hidden;
 `;
@@ -453,6 +529,11 @@ const PartyHudPopoverPage = () => {
       });
   }, [cache.items]);
 
+  const currentTurnId = useMemo(() => {
+    const value = cache.sceneMetadata[SettingsConstants.CURRENT_TURN];
+    return typeof value === 'string' && value.trim().length > 0 ? value : null;
+  }, [cache.sceneMetadata]);
+
   const hudViewportInsetPx = useMemo(() => {
     if (orientation !== 'top') {
       return HUD_VIEWPORT_INSET_DEFAULT_PX;
@@ -532,13 +613,17 @@ const PartyHudPopoverPage = () => {
                   const hpPercent = hpCurrent !== null && hpMax !== null && hpMax > 0
                     ? clamp((hpCurrent / hpMax) * 100, 0, 100)
                     : 0;
+                  const isCurrentTurn = item.id === currentTurnId;
 
                   return (
                     <MemberCard key={item.id} $theme={theme} $orientation={orientation}>
                       <PortraitStack $orientation={orientation}>
                         <Portrait src={portrait} alt={unitName} $theme={theme} $orientation={orientation} />
                       </PortraitStack>
-                      <MemberContent $orientation={orientation}>
+                      {isCurrentTurn && (
+                        <CurrentTurnSheenOverlay $theme={theme} />
+                      )}
+                      <MemberContent $theme={theme} $orientation={orientation}>
                         <MemberName $theme={theme} title={unitName}>{unitName}</MemberName>
 
                         {showPartyHudHpBars && (

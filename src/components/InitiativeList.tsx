@@ -62,6 +62,8 @@ interface Unit {
   attributes: Record<string, unknown>;
   createdUserId?: string;
   ownerNameOutlineColor?: string;
+  isInParty: boolean;
+  isVisible: boolean;
 }
 
 interface ListReferenceEntry {
@@ -902,6 +904,14 @@ const ListReferenceEmpty = styled.p<{ theme: ForgeTheme }>`
   font-size: 13px;
 `;
 
+const ObscuredCellMask = styled.div<{ theme: ForgeTheme }>`
+  width: 100%;
+  min-height: 24px;
+  border-radius: 4px;
+  border: 1px solid ${props => rgbaFromHex(props.theme.BORDER, 0.8)};
+  background: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.55)};
+`;
+
 // Deserialization function
 const deserializeListLayout = (
   layout: ListLayoutComponent[],
@@ -990,6 +1000,7 @@ export const InitiativeList: React.FC = () => {
   const reverseInitiative = storageContainer[SettingsConstants.REVERSE_INITIATIVE] as boolean || false;
   const popcornInitiative = storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean || false;
   const showCardColumn = storageContainer[SettingsConstants.SHOW_CARD_ACCESS] as boolean || false;
+  const showNonPartyUnits = storageContainer[SettingsConstants.SHOW_NON_PARTY_UNITS] as boolean || false;
   const diceRange = (storageContainer[SettingsConstants.DICE_RANGE] as string | undefined) || '';
   const showOwnerOnlyEdit = storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] as boolean || false;
   const isCurrentUserGm = String((playerData as RoleLike | null | undefined)?.role || '').toUpperCase() === 'GM';
@@ -1118,6 +1129,8 @@ export const InitiativeList: React.FC = () => {
           attributes,
           createdUserId: item.createdUserId,
           ownerNameOutlineColor,
+          isInParty: item.metadata?.[UnitConstants.IN_PARTY] === true,
+          isVisible: item.visible !== false,
         };
       });
 
@@ -1647,6 +1660,26 @@ export const InitiativeList: React.FC = () => {
     return unit.createdUserId === currentPlayerId;
   };
 
+  const canPlayerSeeUnit = (unit: Unit): boolean => {
+    if (isCurrentUserGm) {
+      return true;
+    }
+
+    return unit.isVisible;
+  };
+
+  const shouldObscureUnitStatsForPlayer = (unit: Unit): boolean => {
+    if (isCurrentUserGm) {
+      return false;
+    }
+
+    if (showNonPartyUnits) {
+      return false;
+    }
+
+    return !unit.isInParty;
+  };
+
   // Deserialize list layout on mount or when listLayout changes
   useEffect(() => {
     if (!isLoading) {
@@ -2091,6 +2124,11 @@ export const InitiativeList: React.FC = () => {
     });
   }, [isListCompact, listColumns, showCardColumn]);
 
+  const displayedUnits = useMemo(
+    () => sortedUnits.filter((unit) => canPlayerSeeUnit(unit)),
+    [sortedUnits, isCurrentUserGm]
+  );
+
   const selectedListBidValueMap = useMemo(() => {
     if (!selectedListReferenceUnit) {
       return {} as Record<string, number>;
@@ -2265,6 +2303,23 @@ export const InitiativeList: React.FC = () => {
 
   const renderCell = (col: ListColumn, unit: Unit) => {
     const canInteract = canInteractWithUnit(unit);
+    const shouldObscureStats = shouldObscureUnitStatsForPlayer(unit);
+
+    if (shouldObscureStats && col.type !== 'initiative' && col.type !== 'name') {
+      if (col.type === 'divider-column') {
+        return (
+          <DividerCell theme={theme}>
+            <ObscuredCellMask theme={theme} />
+          </DividerCell>
+        );
+      }
+
+      return (
+        <DataCell theme={theme}>
+          <ObscuredCellMask theme={theme} />
+        </DataCell>
+      );
+    }
 
     switch (col.type) {
       case 'initiative':
@@ -2721,7 +2776,7 @@ export const InitiativeList: React.FC = () => {
             </HeaderRow>
           </TableHead>
           <TableBody>
-            {sortedUnits.map(unit => (
+            {displayedUnits.map(unit => (
               <DataRow
                 key={unit.id}
                 $isCurrentTurn={unit.id === currentTurnId}

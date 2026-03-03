@@ -9,8 +9,50 @@ import { SettingsConstants, UnitConstants, getPerPlayerSettingKey } from '../int
 import { ListLayoutComponent } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import {
-  Heart, Shield, Sun, Award, Target, Users, Star,
-  Zap, Clock, Eye, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle, Music, Feather, FileText,
+  Anchor,
+  Aperture,
+  Award,
+  BatteryCharging,
+  Book,
+  Calendar,
+  Clock,
+  CloudLightning,
+  Drama,
+  Carrot,
+  Bone,
+  Compass,
+  DollarSign,
+  Feather,
+  Eye,
+  Heart,
+  Moon,
+  Music,
+  Shield,
+  Star,
+  Sun,
+  Target,
+  Users,
+  Wind,
+  Zap,
+  Sword,
+  Swords,
+  Axe,
+  BowArrow,
+  Coins,
+  Wand,
+  Flower,
+  Skull,
+  Castle,
+  Cross,
+  TestTubeDiagonal,
+  Squirrel,
+  Snowflake,
+  Shell,
+  Pickaxe,
+  HeartPlus,
+  HeartCrack,
+  Fan,
+  LucideProps, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle, FileText,
   ArrowLeft, ArrowRight, OctagonX, Minimize2, Maximize2
 } from 'lucide-react';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
@@ -131,20 +173,49 @@ const getRollableInputTextShadow = (theme: ForgeTheme): string => {
 
 // Icon mapping
 const iconMap: Record<string, React.ComponentType> = {
-  heart: Heart,
-  shield: Shield,
-  sun: Sun,
+  anchor: Anchor,
+  aperture: Aperture,
   award: Award,
+  batterycharging: BatteryCharging,
+  book: Book,
+  calendar: Calendar,
+  clock: Clock,
+  cloudlightning: CloudLightning,
+  drama: Drama,
+  carrot: Carrot,
+  bone: Bone,
+  compass: Compass,
+  dollarsign: DollarSign,
+  feather: Feather,
+  eye: Eye,
+  heart: Heart,
+  moon: Moon,
+  music: Music,
+  shield: Shield,
+  star: Star,
+  sun: Sun,
   target: Target,
   users: Users,
-  star: Star,
+  wind: Wind,
   zap: Zap,
-  clock: Clock,
-  eye: Eye,
-  layers: Layers,
-  music: Music,
-  feather: Feather,
-  book: BookOpen,
+  sword: Sword,
+  swords: Swords,
+  axe: Axe,
+  bowarrow: BowArrow,
+  coins: Coins,
+  wand: Wand,
+  flower: Flower,
+  skull: Skull,
+  castle: Castle,
+  cross: Cross,
+  testtubediagonal: TestTubeDiagonal,
+  squirrel: Squirrel,
+  snowflake: Snowflake,
+  shell: Shell,
+  pickaxe: Pickaxe,
+  heartplus: HeartPlus,
+  heartcrack: HeartCrack,
+  fan: Fan,
 };
 
 // Styled components
@@ -248,7 +319,7 @@ const CompactResizeButton = styled(ControlButton)`
   }
 `;
 
-const FullResizeButton = styled(ControlButton)<{ $hasReset: boolean }>`
+const FullResizeButton = styled(ControlButton) <{ $hasReset: boolean }>`
   position: absolute;
   right: ${props => props.$hasReset ? '52px' : '8px'};
   display: inline-flex;
@@ -373,7 +444,7 @@ const InitiativeCell = styled(DataCell) <{ theme: ForgeTheme }>`
   min-width: 60px;
 `;
 
-const RollerCell = styled(DataCell)<{ theme: ForgeTheme }>`
+const RollerCell = styled(DataCell) <{ theme: ForgeTheme }>`
   min-width: 48px;
 `;
 
@@ -612,7 +683,7 @@ const SliderToggleBar = styled.div<{ theme: ForgeTheme; $active: boolean }>`
   transition: transform 200ms;
 `;
 
-const DividerCell = styled(DataCell)<{ theme: ForgeTheme }>`
+const DividerCell = styled(DataCell) <{ theme: ForgeTheme }>`
   width: 24px;
   min-width: 24px;
   max-width: 24px;
@@ -2810,19 +2881,19 @@ export const InitiativeList: React.FC = () => {
                 const headerDescription = col.description ?? 'This has no description.';
                 const headerSizing = getHeaderSizing(col);
                 return (
-                <HeaderCell
-                  key={col.id}
-                  theme={theme}
-                  $minWidth={headerSizing.minWidth}
-                  $fixedWidth={headerSizing.fixedWidth}
-                  onMouseEnter={(event) => showHeaderTooltip(event, headerDescription)}
-                  onMouseMove={(event) => showHeaderTooltip(event, headerDescription)}
-                  onMouseLeave={hideHeaderTooltip}
-                  onFocus={(event) => showHeaderTooltip(event, headerDescription)}
-                  onBlur={hideHeaderTooltip}
-                >
-                  {renderHeader(col)}
-                </HeaderCell>
+                  <HeaderCell
+                    key={col.id}
+                    theme={theme}
+                    $minWidth={headerSizing.minWidth}
+                    $fixedWidth={headerSizing.fixedWidth}
+                    onMouseEnter={(event) => showHeaderTooltip(event, headerDescription)}
+                    onMouseMove={(event) => showHeaderTooltip(event, headerDescription)}
+                    onMouseLeave={hideHeaderTooltip}
+                    onFocus={(event) => showHeaderTooltip(event, headerDescription)}
+                    onBlur={hideHeaderTooltip}
+                  >
+                    {renderHeader(col)}
+                  </HeaderCell>
                 );
               })}
             </HeaderRow>
@@ -2975,15 +3046,15 @@ export const InitiativeList: React.FC = () => {
               {selectedOwnerItem?.createdUserId === player.id ? ' (current)' : ''}
             </OwnerPickerButton>
           ))}
-        <OwnerPickerButton
-          theme={theme}
-          onClick={() => {
-            void handleRemoveUnitFromList();
-          }}
-          disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit}
-        >
-          {isRemovingUnit ? 'Removing...' : 'Remove Unit from List'}
-        </OwnerPickerButton>
+          <OwnerPickerButton
+            theme={theme}
+            onClick={() => {
+              void handleRemoveUnitFromList();
+            }}
+            disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit}
+          >
+            {isRemovingUnit ? 'Removing...' : 'Remove Unit from List'}
+          </OwnerPickerButton>
         </OwnerPickerList>
 
         <OwnerModalSeparator theme={theme} />

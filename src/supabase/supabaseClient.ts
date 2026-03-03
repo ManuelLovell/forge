@@ -3,4 +3,46 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = 'https://vrwtdtmnbyhaehtitrlb.supabase.co';
 const supabaseAnonKey = 'sb_publishable_xE5IYBsNg0HgRbPsmyhF6w_k7O-wj7B';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+let activeAccessToken: string | null = null;
+
+export const setAccessToken = (token: string | null) => {
+	activeAccessToken = token && token.trim().length > 0 ? token.trim() : null;
+};
+
+export const getAccessToken = (): string | null => activeAccessToken;
+
+const authHeaderFetch: typeof fetch = async (input, init) => {
+	const mergedHeaders = new Headers(input instanceof Request ? input.headers : undefined);
+
+	if (init?.headers) {
+		const providedHeaders = new Headers(init.headers);
+		providedHeaders.forEach((value, key) => {
+			mergedHeaders.set(key, value);
+		});
+	}
+
+	if (!mergedHeaders.has('apikey')) {
+		mergedHeaders.set('apikey', supabaseAnonKey);
+	}
+
+	if (activeAccessToken) {
+		mergedHeaders.set('authorization', `Bearer ${activeAccessToken}`);
+	}
+
+	return window.fetch(input, {
+		...init,
+		headers: mergedHeaders,
+	});
+};
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+	auth: {
+		persistSession: false,
+		autoRefreshToken: false,
+		detectSessionInUrl: false,
+	},
+	global: {
+		fetch: authHeaderFetch,
+	},
+});
+

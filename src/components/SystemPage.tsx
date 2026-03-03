@@ -14,6 +14,7 @@ import { Upload, X } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import LOGGER from '../helpers/Logger';
 import { SettingsConstants } from '../interfaces/MetadataKeys';
+import { ensureConnected, isConnected, withSupabaseAuthRetry } from '../auth/authHelpers';
 import {
   BUFF_VISUAL_PRESET_OPTIONS,
   DEBUFF_VISUAL_PRESET_OPTIONS,
@@ -56,6 +57,29 @@ interface SystemBackup {
   list_layout: ListLayoutComponent[];
   attributes: SystemAttribute[];
 }
+
+const getDefaultHpBidKeys = () => {
+  const attributes = defaultGameSystem.attributes as SystemAttribute[];
+
+  const currentHp = attributes.find((attribute) => {
+    const abbr = (attribute.attr_abbr || '').toUpperCase();
+    const name = (attribute.attr_name || '').toLowerCase();
+    return abbr === 'HP' || name === 'hit points';
+  });
+
+  const maxHp = attributes.find((attribute) => {
+    const abbr = (attribute.attr_abbr || '').toUpperCase();
+    const name = (attribute.attr_name || '').toLowerCase();
+    return abbr === 'MHP' || name === 'max hit points';
+  });
+
+  return {
+    currentHpBid: currentHp?.attr_bid || '',
+    maxHpBid: maxHp?.attr_bid || '',
+  };
+};
+
+const DEFAULT_HP_BID_KEYS = getDefaultHpBidKeys();
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (error instanceof Error && error.message) {
@@ -299,6 +323,7 @@ const pageVariants = {
 export const SystemPage = () => {
   const { theme, updateThemeFromSystem } = useForgeTheme();
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isConnected());
 
   const [shareId, setShareId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -323,6 +348,7 @@ export const SystemPage = () => {
 
   // Load current system info from cache and backups on mount
   useEffect(() => {
+    setIsAuthenticated(isConnected());
     loadCurrentSystemFromCache();
     loadBackups();
   }, [sceneMetadata]);
@@ -335,6 +361,26 @@ export const SystemPage = () => {
 
   const loadCurrentSystemFromCache = () => {
     try {
+      if (!isConnected()) {
+        const defaultTheme: ThemeData = {
+          primary: defaultGameSystem.theme_primary,
+          offset: defaultGameSystem.theme_offset,
+          background: defaultGameSystem.theme_background,
+          border: defaultGameSystem.theme_border,
+          background_url: defaultGameSystem.background_url,
+        };
+
+        setCurrentSystemName(defaultGameSystem.name);
+        setCurrentImportDate(null);
+        setCurrentTheme(defaultTheme);
+        setSystemAttributes(defaultGameSystem.attributes as SystemAttribute[]);
+        setHpCurrentBid(DEFAULT_HP_BID_KEYS.currentHpBid);
+        setHpMaxBid(DEFAULT_HP_BID_KEYS.maxHpBid);
+        setBuffVisualPreset(DEFAULT_BUFF_VISUAL_PRESET);
+        setDebuffVisualPreset(DEFAULT_DEBUFF_VISUAL_PRESET);
+        return;
+      }
+
       const themeMeta = sceneMetadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
       const attrMeta = sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
       const systemName = sceneMetadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
@@ -481,16 +527,24 @@ export const SystemPage = () => {
   };
 
   const performSystemImport = async () => {
+    if (!isConnected()) {
+      setError('Please connect your Battle-System account before importing systems.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setSuccess(null);
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from('v_bs_system_with_attributes')
-        .select('*')
-        .eq('share_id', shareId)
-        .maybeSingle();
+      await ensureConnected();
+      const { data, error: fetchError } = await withSupabaseAuthRetry(async () => {
+        return supabase
+          .from('v_bs_system_with_attributes')
+          .select('*')
+          .eq('share_id', shareId)
+          .maybeSingle();
+      });
 
       if (fetchError) throw fetchError;
 
@@ -683,6 +737,9 @@ export const SystemPage = () => {
     });
   };
 
+  const isImportLocked = !isAuthenticated;
+  const isHpMappingLocked = !isAuthenticated;
+
   return (
     <motion.div
       key="system"
@@ -743,7 +800,11 @@ export const SystemPage = () => {
                 <MappingSelect
                   theme={theme}
                   value={hpCurrentBid}
+                  disabled={isHpMappingLocked}
                   onChange={async (e) => {
+                    if (isHpMappingLocked) {
+                      return;
+                    }
                     const value = e.target.value;
                     setHpCurrentBid(value);
                     await saveHpAttributeMapping(SettingsConstants.HP_CURRENT_BID, value);
@@ -762,7 +823,11 @@ export const SystemPage = () => {
                 <MappingSelect
                   theme={theme}
                   value={hpMaxBid}
+                  disabled={isHpMappingLocked}
                   onChange={async (e) => {
+                    if (isHpMappingLocked) {
+                      return;
+                    }
                     const value = e.target.value;
                     setHpMaxBid(value);
                     await saveHpAttributeMapping(SettingsConstants.HP_MAX_BID, value);
@@ -776,6 +841,11 @@ export const SystemPage = () => {
                   ))}
                 </MappingSelect>
               </MappingRow>
+              {isHpMappingLocked && (
+                <ImportDate theme={theme}>
+                  Log in to edit HP mapping.
+                </ImportDate>
+              )}
               <MappingRow>
                 <MappingLabel theme={theme}>Buff Visual</MappingLabel>
                 <MappingSelect
@@ -826,7 +896,9 @@ export const SystemPage = () => {
         <SystemInfo theme={theme}>
           <h3 style={{ color: theme.PRIMARY, marginTop: 0 }}>Import New System</h3>
           <p style={{ color: rgbaFromHex(theme.PRIMARY, 0.8), fontSize: '14px' }}>
-            Enter a share_id to download and activate a new game system configuration.
+            {isImportLocked
+              ? 'Log in to import new/custom systems.'
+              : 'Enter a share_id to download and activate a new game system configuration.'}
           </p>
 
           <InputGroup>
@@ -835,8 +907,8 @@ export const SystemPage = () => {
               type="text"
               value={shareId}
               onChange={(e) => setShareId(e.target.value)}
-              placeholder="Enter Share Id..."
-              disabled={loading}
+              placeholder={isImportLocked ? '' : 'Enter Share Id...'}
+              disabled={loading || isImportLocked}
               onKeyPress={(e) => e.key === 'Enter' && fetchAndSaveSystem()}
             />
           </InputGroup>
@@ -845,7 +917,7 @@ export const SystemPage = () => {
             <Button
               theme={theme}
               onClick={fetchAndSaveSystem}
-              disabled={loading || !shareId.trim()}
+              disabled={loading || isImportLocked || !shareId.trim()}
             >
               {loading ? '....!' : 'Import System'}
             </Button>

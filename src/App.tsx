@@ -62,6 +62,7 @@ function App() {
   const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
   const showPlayerView = storageContainer[SettingsConstants.SHOW_PLAYER_VIEW] as boolean || false;
   const canAccessInitiativeList = isCurrentUserGm || showPlayerView;
+  const isAppReady = sceneReady && cacheReady && isInitialized;
 
   const renderPage = () => {
     switch (currentPage) {
@@ -106,10 +107,14 @@ function App() {
   };
 
   useEffect(() => {
+    if (!isAppReady) {
+      return;
+    }
+
     if (!canAccessInitiativeList && currentPage === 'ForgeMain') {
       setCurrentPage('Party');
     }
-  }, [canAccessInitiativeList, currentPage]);
+  }, [isAppReady, canAccessInitiativeList, currentPage]);
 
   // Reset width when navigating away from ForgeMain
   useEffect(() => {

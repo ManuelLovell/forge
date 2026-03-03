@@ -4,6 +4,7 @@ import { SystemKeys } from '../components/SystemPage';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import LOGGER from './Logger';
 import { useSceneStore } from './BSCache';
+import { isConnected } from '../auth/authHelpers';
 
 interface SystemData {
   theme: {
@@ -39,6 +40,26 @@ export const useSystemData = (): SystemData => {
 
   useEffect(() => {
     try {
+      const connected = isConnected();
+      if (!connected) {
+        setSystemData({
+          theme: {
+            primary: defaultGameSystem.theme_primary,
+            offset: defaultGameSystem.theme_offset,
+            background: defaultGameSystem.theme_background,
+            border: defaultGameSystem.theme_border,
+            background_url: defaultGameSystem.background_url,
+          },
+          cardLayout: defaultGameSystem.card_layout as CardLayoutComponent[],
+          listLayout: defaultGameSystem.list_layout as ListLayoutComponent[],
+          attributes: defaultGameSystem.attributes as SystemAttribute[],
+          systemName: defaultGameSystem.name,
+          importDate: null,
+          isLoading: false,
+        });
+        return;
+      }
+
       const theme = sceneMetadata[SystemKeys.CURRENT_THEME] as SystemData['theme'] | undefined;
       const cardLayout = sceneMetadata[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
       const listLayout = sceneMetadata[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;

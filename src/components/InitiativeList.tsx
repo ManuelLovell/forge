@@ -52,7 +52,7 @@ import {
   HeartPlus,
   HeartCrack,
   Fan,
-  LucideProps, Layers, BookOpen, ArrowRightCircle, CheckCircle, Circle, FileText,
+  BookOpen, ArrowRightCircle, CheckCircle, Circle, FileText,
   ArrowLeft, ArrowRight, OctagonX, Minimize2, Maximize2
 } from 'lucide-react';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
@@ -1084,6 +1084,9 @@ export const InitiativeList: React.FC = () => {
   const showListHpNumbersRaw = storageContainer[SettingsConstants.SHOW_LIST_HP_NUMBERS];
   const showListHpNumbers = typeof showListHpNumbersRaw === 'boolean' ? showListHpNumbersRaw : true;
   const diceRange = (storageContainer[SettingsConstants.DICE_RANGE] as string | undefined) || '';
+  const initiativeModifierBid = (storageContainer[SettingsConstants.INITIATIVE_MODIFIER_BID] as string | undefined) || '';
+  const initiativeModifierExprRaw = (storageContainer[SettingsConstants.INITIATIVE_MODIFIER_EXPR] as string | undefined) || '@STAT';
+  const initiativeModifierExpr = initiativeModifierExprRaw.trim().length > 0 ? initiativeModifierExprRaw : '@STAT';
   const showOwnerOnlyEdit = storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] as boolean || false;
   const isCurrentUserGm = String((playerData as RoleLike | null | undefined)?.role || '').toUpperCase() === 'GM';
   const currentPlayerId = playerData?.id || '';
@@ -1380,7 +1383,36 @@ export const InitiativeList: React.FC = () => {
 
   const handleRollInitiative = (unitId: string) => {
     const sides = getDiceSides(diceRange);
-    const rolledValue = Math.floor(Math.random() * sides) + 1;
+    const baseRoll = Math.floor(Math.random() * sides) + 1;
+
+    let modifierValue = 0;
+    if (initiativeModifierBid) {
+      const targetUnit = units.find((unit) => unit.id === unitId);
+      if (targetUnit) {
+        const rawBidValue = targetUnit.attributes?.[`${EXTENSION_ID}/${initiativeModifierBid}`];
+        const numericBidValue = Number(rawBidValue);
+        const bidValue = Number.isFinite(numericBidValue) ? numericBidValue : 0;
+
+        const modifierFormula = initiativeModifierExpr
+          .replace(/@STAT/gi, `@${initiativeModifierBid}`)
+          .replace(/\bx\b/gi, `@${initiativeModifierBid}`);
+        const resolved = toResolvedDiceNotation(modifierFormula, {
+          bidValueMap: {
+            [initiativeModifierBid]: bidValue,
+          },
+          onMissingBid: 'useZero',
+        });
+
+        if (resolved.valid && resolved.notation) {
+          const parsedModifier = Number(resolved.notation);
+          if (Number.isFinite(parsedModifier)) {
+            modifierValue = Math.trunc(parsedModifier);
+          }
+        }
+      }
+    }
+
+    const rolledValue = baseRoll + modifierValue;
     handleInitiativeChange(unitId, String(rolledValue));
     commitInitiativeChange(unitId, rolledValue);
   };

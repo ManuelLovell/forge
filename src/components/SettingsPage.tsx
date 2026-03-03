@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import tw from 'twin.macro';
 import { PageContainer, PageTitle, Button, Card } from './SharedStyledComponents';
 import { ToggleControl } from './ToggleControl';
+import { PopupModal } from './PopupModal';
 import LOGGER from '../helpers/Logger';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { useSceneStore } from '../helpers/BSCache';
@@ -13,6 +14,10 @@ import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
 import { bulkImportUnitCollection, exportUnitCollection } from '../helpers/unitCollectionDb';
 import { isValidDiscordWebhookUrl } from '../helpers/DiscordWebhook';
+import { connectAccessTokenViaHub } from '../auth/connectAccessTokenViaHub';
+import { isConnected } from '../auth/authHelpers';
+import { useSystemData } from '../helpers/useSystemData';
+import { toResolvedDiceNotation, validateFormula } from '../helpers/FormulaParser';
 
 // Styled Components
 const SectionTitle = styled.h2<{ theme: ForgeTheme }>`
@@ -32,13 +37,19 @@ const ControlLabel = styled.label<{ theme: ForgeTheme }>`
 `;
 
 const SubControlRow = styled.div<{ theme: ForgeTheme }>`
-  ${tw`flex items-center gap-3 ml-4`}
+  ${tw`flex items-center place-content-between gap-3 ml-4`}
   color: ${props => props.theme.PRIMARY};
 `;
 
 const SubControlLabel = styled.label<{ theme: ForgeTheme }>`
   ${tw`text-sm`}
+  text-align: left;
   color: ${props => props.theme.PRIMARY};
+`;
+
+const SubControlHint = styled.p<{ theme: ForgeTheme }>`
+  ${tw`text-xs mt-1`}
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.7)};
 `;
 
 const SmallInput = styled.input<{ theme: ForgeTheme }>`
@@ -75,12 +86,45 @@ const SmallSelect = styled.select<{ theme: ForgeTheme }>`
   }
 `;
 
+const InlineActionButton = styled.button<{ theme: ForgeTheme }>`
+  background-color: ${props => rgbaFromHex(props.theme.OFFSET, 0.45)};
+  color: ${props => props.theme.PRIMARY};
+  border: 2px solid ${props => props.theme.BORDER};
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: ${props => props.theme.OFFSET};
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
 const ButtonGroup = tw.div`
   flex gap-3 mt-2 justify-center
 `;
 
+const AuthStatus = styled.p<{ theme: ForgeTheme; $connected: boolean }>`
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: ${props => props.$connected ? props.theme.PRIMARY : rgbaFromHex(props.theme.PRIMARY, 0.75)};
+`;
+
+const ModalText = styled.p<{ theme: ForgeTheme }>`
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.9)};
+  margin: 0;
+  line-height: 1.5;
+`;
+
 export const SettingsPage = () => {
   const { theme } = useForgeTheme();
+  const { attributes } = useSystemData();
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
   const sceneItems = useSceneStore((state) => state.items);
@@ -91,6 +135,8 @@ export const SettingsPage = () => {
   const [reverseInitiative, setReverseInitiative] = useState(false);
   const [diceRange, setDiceRange] = useState('D20');
   const [showCardAccess, setShowCardAccess] = useState(false);
+  const [initiativeModifierBid, setInitiativeModifierBid] = useState('');
+  const [initiativeModifierExpr, setInitiativeModifierExpr] = useState('@STAT');
 
   // Player Controls state
   const [showPlayerView, setShowPlayerView] = useState(false);
@@ -120,6 +166,9 @@ export const SettingsPage = () => {
   // Other
   const [enableConsoleLog, setEnableConsoleLog] = useState(false);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [authConnected, setAuthConnected] = useState<boolean>(() => isConnected());
+  const [isConnectingAuth, setIsConnectingAuth] = useState(false);
+  const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
 
   //Control for setting the data to Room or to Scene
   const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
@@ -136,6 +185,18 @@ export const SettingsPage = () => {
     }
     if (storageContainer[SettingsConstants.DICE_RANGE] !== undefined) {
       setDiceRange(storageContainer[SettingsConstants.DICE_RANGE] as string);
+    }
+    if (storageContainer[SettingsConstants.INITIATIVE_MODIFIER_BID] !== undefined) {
+      setInitiativeModifierBid((storageContainer[SettingsConstants.INITIATIVE_MODIFIER_BID] as string) || '');
+    } else {
+      setInitiativeModifierBid('');
+    }
+    if (storageContainer[SettingsConstants.INITIATIVE_MODIFIER_EXPR] !== undefined) {
+      const rawExpr = (storageContainer[SettingsConstants.INITIATIVE_MODIFIER_EXPR] as string) || '@STAT';
+      const normalizedLegacyExpr = rawExpr.replace(/\bx\b/gi, '@STAT').trim();
+      setInitiativeModifierExpr(normalizedLegacyExpr.length > 0 ? normalizedLegacyExpr : '@STAT');
+    } else {
+      setInitiativeModifierExpr('@STAT');
     }
     if (storageContainer[SettingsConstants.SHOW_CARD_ACCESS] !== undefined) {
       setShowCardAccess(storageContainer[SettingsConstants.SHOW_CARD_ACCESS] as boolean);
@@ -218,6 +279,126 @@ export const SettingsPage = () => {
     }
   };
 
+  const getDiceSides = (range: string): number => {
+    const trimmed = (range || '').trim();
+    const matched = trimmed.match(/(\d+)/);
+    const parsed = matched ? parseInt(matched[1], 10) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+  };
+
+  const numericAttributes = attributes
+    .filter((attribute) => attribute.attr_type === 'numb')
+    .sort((a, b) => (a.attr_name || '').localeCompare(b.attr_name || ''));
+
+  const validateInitiativeModifierExpr = (expression: string, bid: string): { valid: boolean; error?: string } => {
+    const trimmedExpression = expression.trim();
+    if (!trimmedExpression) {
+      return { valid: false, error: 'Expression is required.' };
+    }
+
+    if (!bid) {
+      return { valid: false, error: 'Select a numeric attribute first.' };
+    }
+
+    const hasVariable = /@STAT/i.test(trimmedExpression);
+    if (!hasVariable) {
+      return { valid: false, error: 'Expression must include @STAT (the selected attribute value).' };
+    }
+
+    if (/\d\s*d\s*\d|\bd\s*\d/i.test(trimmedExpression)) {
+      return { valid: false, error: 'Dice notation is not allowed in initiative modifiers.' };
+    }
+
+    const formulaWithBid = trimmedExpression.replace(/@STAT/gi, `@${bid}`);
+    if (!validateFormula(formulaWithBid)) {
+      return { valid: false, error: 'Invalid expression syntax.' };
+    }
+
+    return { valid: true };
+  };
+
+  const persistInitiativeModifierSettings = async (nextBid: string, nextExpr: string) => {
+    await saveData(SettingsConstants.INITIATIVE_MODIFIER_BID, nextBid);
+    await saveData(SettingsConstants.INITIATIVE_MODIFIER_EXPR, nextExpr);
+  };
+
+  const handleInitiativeModifierBidChange = async (nextBid: string) => {
+    setInitiativeModifierBid(nextBid);
+
+    if (!nextBid) {
+      await persistInitiativeModifierSettings('', initiativeModifierExpr);
+      return;
+    }
+
+    const validation = validateInitiativeModifierExpr(initiativeModifierExpr, nextBid);
+    if (!validation.valid) {
+      await OBR.notification.show(validation.error || 'Invalid initiative modifier settings.', 'WARNING');
+    }
+
+    await persistInitiativeModifierSettings(nextBid, initiativeModifierExpr);
+  };
+
+  const handleInitiativeModifierExprBlur = async () => {
+    const trimmed = initiativeModifierExpr.trim();
+    const normalizedExpr = (trimmed.length > 0 ? trimmed : '@STAT').replace(/\bx\b/gi, '@STAT');
+    setInitiativeModifierExpr(normalizedExpr);
+
+    if (!initiativeModifierBid) {
+      await persistInitiativeModifierSettings('', normalizedExpr);
+      return;
+    }
+
+    const validation = validateInitiativeModifierExpr(normalizedExpr, initiativeModifierBid);
+    if (!validation.valid) {
+      await OBR.notification.show(validation.error || 'Invalid initiative modifier expression.', 'WARNING');
+      return;
+    }
+
+    await persistInitiativeModifierSettings(initiativeModifierBid, normalizedExpr);
+  };
+
+  const handleTestInitiativeModifier = async () => {
+    if (!initiativeModifierBid) {
+      await OBR.notification.show('Select an Initiative Modifier attribute before testing.', 'WARNING');
+      return;
+    }
+
+    const normalizedExpr = initiativeModifierExpr.replace(/\bx\b/gi, '@STAT');
+    const validation = validateInitiativeModifierExpr(normalizedExpr, initiativeModifierBid);
+    if (!validation.valid) {
+      await OBR.notification.show(validation.error || 'Invalid initiative modifier expression.', 'WARNING');
+      return;
+    }
+
+    const TEST_STAT_VALUE = 14;
+    const sides = getDiceSides(diceRange);
+    const baseRoll = Math.floor(Math.random() * sides) + 1;
+    const resolvedModifier = toResolvedDiceNotation(
+      normalizedExpr.replace(/@STAT/gi, `@${initiativeModifierBid}`),
+      {
+        bidValueMap: {
+          [initiativeModifierBid]: TEST_STAT_VALUE,
+        },
+        onMissingBid: 'useZero',
+      }
+    );
+
+    if (!resolvedModifier.valid || !resolvedModifier.notation) {
+      await OBR.notification.show('Could not resolve initiative modifier expression.', 'ERROR');
+      return;
+    }
+
+    const modifierValueRaw = Number(resolvedModifier.notation);
+    const modifierValue = Number.isFinite(modifierValueRaw) ? Math.trunc(modifierValueRaw) : 0;
+    const total = baseRoll + modifierValue;
+    const displayExpr = normalizedExpr.replace(/@STAT/gi, String(TEST_STAT_VALUE));
+
+    await OBR.notification.show(
+      `Mock Initiative: 1d${sides}(${baseRoll}) + ${displayExpr}(${modifierValue}) = ${total}`,
+      'SUCCESS',
+    );
+  };
+
   const handleExportCollection = async () => {
     try {
       const records = await exportUnitCollection();
@@ -229,22 +410,19 @@ export const SettingsPage = () => {
       link.download = `forge-collection-${new Date().toISOString().slice(0, 10)}.txt`;
       link.click();
       URL.revokeObjectURL(url);
-      alert(`Collection export complete. ${records.length} record(s) written.`);
+      await OBR.notification.show(`Collection export complete. ${records.length} record(s) written.`, 'SUCCESS');
     } catch (error) {
       LOGGER.log('Collection export failed', error);
-      alert('Collection export failed. See console log for details.');
+      await OBR.notification.show('Collection export failed. See console log for details.', 'ERROR');
     }
   };
 
   const handleImportClick = () => {
-    const shouldProceed = window.confirm(
-      'Import will overwrite duplicate records that share the same Name and Author. Continue?',
-    );
+    setIsImportConfirmOpen(true);
+  };
 
-    if (!shouldProceed) {
-      return;
-    }
-
+  const handleConfirmImport = () => {
+    setIsImportConfirmOpen(false);
     importFileInputRef.current?.click();
   };
 
@@ -260,19 +438,36 @@ export const SettingsPage = () => {
       const parsed = JSON.parse(text);
 
       if (!Array.isArray(parsed)) {
-        alert('Import file must contain a JSON array of collection records.');
+        await OBR.notification.show('Import file must contain a JSON array of collection records.', 'ERROR');
         return;
       }
 
       const summary = await bulkImportUnitCollection(parsed);
-      alert(
+      await OBR.notification.show(
         `Collection import complete. Created: ${summary.created}, Updated: ${summary.updated}, Skipped: ${summary.skipped}.`,
+        'SUCCESS',
       );
     } catch (error) {
       LOGGER.log('Collection import failed', error);
-      alert('Collection import failed. Ensure the file is valid JSON and try again.');
+      await OBR.notification.show('Collection import failed. Ensure the file is valid JSON and try again.', 'ERROR');
     } finally {
       event.target.value = '';
+    }
+  };
+
+  const handleConnectBattleSystem = async () => {
+    setIsConnectingAuth(true);
+
+    try {
+      await connectAccessTokenViaHub();
+      setAuthConnected(isConnected());
+      await OBR.notification.show('Connected to Battle-System account.', 'SUCCESS');
+    } catch (error) {
+      LOGGER.error('Battle-System auth connection failed', error);
+      await OBR.notification.show('Unable to connect to Battle-System account. Please try again.', 'ERROR');
+      setAuthConnected(isConnected());
+    } finally {
+      setIsConnectingAuth(false);
     }
   };
 
@@ -284,6 +479,24 @@ export const SettingsPage = () => {
     >
       <PageContainer theme={theme}>
         <PageTitle theme={theme}>Settings</PageTitle>
+
+        <Card theme={theme}>
+          <SectionTitle theme={theme}>Battle-System Account</SectionTitle>
+          <ButtonGroup>
+            <Button
+              theme={theme}
+              onClick={() => {
+                void handleConnectBattleSystem();
+              }}
+              disabled={isConnectingAuth}
+            >
+              {isConnectingAuth ? 'Connecting...' : (authConnected ? 'Reconnect to Battle-System' : 'Connect to Battle-System')}
+            </Button>
+          </ButtonGroup>
+          <AuthStatus theme={theme} $connected={authConnected}>
+            {authConnected ? 'Status: Connected' : 'Status: Disconnected'}
+          </AuthStatus>
+        </Card>
 
         {/* Collection Management */}
         <Card theme={theme}>
@@ -355,6 +568,54 @@ export const SettingsPage = () => {
               maxLength={3}
             />
           </ControlRow>
+
+          <SubControlRow theme={theme}>
+            <SubControlLabel theme={theme}>Initiative Modifier:</SubControlLabel>
+            <SmallSelect
+              theme={theme}
+              value={initiativeModifierBid}
+              onChange={async (e) => {
+                await handleInitiativeModifierBidChange(e.target.value);
+              }}
+            >
+              <option value="">None</option>
+              {numericAttributes.map((attribute) => (
+                <option key={attribute.attr_bid} value={attribute.attr_bid}>
+                  {attribute.attr_abbr} — {attribute.attr_name}
+                </option>
+              ))}
+            </SmallSelect>
+          </SubControlRow>
+          <SubControlRow theme={theme}>
+            <SubControlLabel theme={theme}>Math:</SubControlLabel>
+            <SmallInput
+              theme={theme}
+              type="text"
+              value={initiativeModifierExpr}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setInitiativeModifierExpr(e.target.value);
+              }}
+              onBlur={async () => {
+                await handleInitiativeModifierExprBlur();
+              }}
+              placeholder="floor((@STAT-10)/2)"
+              maxLength={120}
+              disabled={!initiativeModifierBid}
+            />
+            <InlineActionButton
+              theme={theme}
+              type="button"
+              onClick={() => {
+                void handleTestInitiativeModifier();
+              }}
+              disabled={!initiativeModifierBid}
+            >
+              Test
+            </InlineActionButton>
+          </SubControlRow>
+          <SubControlHint theme={theme}>
+            Use @STAT as the selected attribute value. Example: floor((@STAT-10)/2)
+          </SubControlHint>
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>Show Card Column</ControlLabel>
@@ -661,7 +922,7 @@ export const SettingsPage = () => {
                 if (value) {
                   const webhookUrl = discordUrl.trim();
                   if (!isValidDiscordWebhookUrl(webhookUrl)) {
-                    alert('Please enter a valid Discord webhook URL before enabling Discord logging.');
+                    await OBR.notification.show('Please enter a valid Discord webhook URL before enabling Discord logging.', 'WARNING');
                     setEnableDiscordLogging(false);
                     await saveData(SettingsConstants.ENABLE_DISCORD_LOGGING, false);
                     return;
@@ -708,6 +969,26 @@ export const SettingsPage = () => {
           </ControlRow>
         </Card>
       </PageContainer>
+
+      <PopupModal
+        isOpen={isImportConfirmOpen}
+        title="Confirm Import"
+        onClose={() => setIsImportConfirmOpen(false)}
+        actions={(
+          <>
+            <Button theme={theme} variant="secondary" onClick={() => setIsImportConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button theme={theme} onClick={handleConfirmImport}>
+              Continue
+            </Button>
+          </>
+        )}
+      >
+        <ModalText theme={theme}>
+          Import will overwrite duplicate records that share the same Name and Author. Continue?
+        </ModalText>
+      </PopupModal>
     </motion.div>
   );
 };

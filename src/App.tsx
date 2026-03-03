@@ -22,6 +22,7 @@ import GlobalStyles from './styles/GlobalStyles';
 import styled from 'styled-components';
 import { DATA_STORED_IN_ROOM } from './helpers/Constants';
 import { SettingsConstants } from './interfaces/MetadataKeys';
+import { initializeAuthOnStartup } from './auth/authHelpers';
 
 const LoadingContainer = styled.div`
   display: flex;
@@ -105,6 +106,14 @@ function App() {
     setCurrentPage(page);
     setIsMenuOpen(false);
   };
+
+  useEffect(() => {
+    if (!isAppReady) {
+      return;
+    }
+
+    void initializeAuthOnStartup();
+  }, [isAppReady]);
 
   useEffect(() => {
     if (!isAppReady) {

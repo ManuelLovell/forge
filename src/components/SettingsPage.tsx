@@ -6,6 +6,8 @@ import tw from 'twin.macro';
 import { PageContainer, PageTitle, Button, Card } from './SharedStyledComponents';
 import { ToggleControl } from './ToggleControl';
 import { PopupModal } from './PopupModal';
+import { SettingsTooltip } from './SettingsTooltip';
+import { SETTINGS_TOOLTIPS } from './SettingsTooltipContent';
 import LOGGER from '../helpers/Logger';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { useSceneStore } from '../helpers/BSCache';
@@ -14,8 +16,7 @@ import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
 import { bulkImportUnitCollection, exportUnitCollection } from '../helpers/unitCollectionDb';
 import { isValidDiscordWebhookUrl } from '../helpers/DiscordWebhook';
-import { connectAccessTokenViaHub } from '../auth/connectAccessTokenViaHub';
-import { isConnected } from '../auth/authHelpers';
+import { connectBattleSystem, isConnected } from '../auth/authHelpers';
 import { useSystemData } from '../helpers/useSystemData';
 import { toResolvedDiceNotation, validateFormula } from '../helpers/FormulaParser';
 
@@ -459,7 +460,7 @@ export const SettingsPage = () => {
     setIsConnectingAuth(true);
 
     try {
-      await connectAccessTokenViaHub();
+      await connectBattleSystem();
       setAuthConnected(isConnected());
       await OBR.notification.show('Connected to Battle-System account.', 'SUCCESS');
     } catch (error) {
@@ -519,7 +520,9 @@ export const SettingsPage = () => {
           <SectionTitle theme={theme}>List Controls</SectionTitle>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Reverse Initiative</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.reverseInitiative}>Reverse Initiative</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Reverse Initiative"
               isOn={reverseInitiative}
@@ -536,7 +539,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Popcorn Initiative</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.popcornInitiative}>Popcorn Initiative</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Popcorn Initiative"
               isOn={popcornInitiative}
@@ -553,7 +558,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Initiative Die: </ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.initiativeDie}>Initiative Die:</SettingsTooltip>
+            </ControlLabel>
             <SmallInput
               theme={theme}
               type="text"
@@ -570,7 +577,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <SubControlRow theme={theme}>
-            <SubControlLabel theme={theme}>Initiative Modifier:</SubControlLabel>
+            <SubControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.initiativeModifierAttr}>Initiative Modifier:</SettingsTooltip>
+            </SubControlLabel>
             <SmallSelect
               theme={theme}
               value={initiativeModifierBid}
@@ -587,7 +596,9 @@ export const SettingsPage = () => {
             </SmallSelect>
           </SubControlRow>
           <SubControlRow theme={theme}>
-            <SubControlLabel theme={theme}>Math:</SubControlLabel>
+            <SubControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.initiativeModifierMath}>Math:</SettingsTooltip>
+            </SubControlLabel>
             <SmallInput
               theme={theme}
               type="text"
@@ -618,7 +629,9 @@ export const SettingsPage = () => {
           </SubControlHint>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show Card Column</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showCardColumn}>Show Card Column</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Show Stat Block Access"
               isOn={showCardAccess}
@@ -635,7 +648,9 @@ export const SettingsPage = () => {
           <SectionTitle theme={theme}>Player Controls</SectionTitle>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show Player View</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showPlayerView}>Show Player View</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Show Player View"
               isOn={showPlayerView}
@@ -647,7 +662,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show Non-Party Units</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showNonPartyUnits}>Show Non-Party Units</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Show Non-Party Units"
               isOn={showNonPartyUnits}
@@ -659,7 +676,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show HP Numbers on List</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showHpNumbersOnList}>Show HP Numbers on List</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Show HP Numbers on List"
               isOn={showListHpNumbers}
@@ -671,7 +690,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>GM/Owner Only Edit</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.ownerOnlyEdit}>GM/Owner Only Edit</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Owner Only Edit"
               isOn={showOwnerOnlyEdit}
@@ -683,7 +704,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show Adjust HP Context Menu</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showAdjustHpContextMenu}>Show Adjust HP Context Menu</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Show Adjust HP Context Menu"
               isOn={showModifyUnitContextMenu}
@@ -700,7 +723,9 @@ export const SettingsPage = () => {
           <SectionTitle theme={theme}>Game Controls</SectionTitle>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show HP Bars on tokens</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showHpBarsOnTokens}>Show HP Bars on tokens</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Show HP Bars on tokens"
               isOn={showHpBars}
@@ -720,7 +745,9 @@ export const SettingsPage = () => {
           </ControlRow>
           {(showHpBars || showHpNumbers) && (
             <SubControlRow theme={theme}>
-              <SubControlLabel theme={theme}>Orientation: </SubControlLabel>
+              <SubControlLabel theme={theme}>
+                <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.hpOrientation}>Orientation:</SettingsTooltip>
+              </SubControlLabel>
               <SmallSelect
                 theme={theme}
                 value={hpBarOrientation}
@@ -739,7 +766,9 @@ export const SettingsPage = () => {
           )}
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show HP Numbers on tokens</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showHpNumbersOnTokens}>Show HP Numbers on tokens</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Show HP Numbers on tokens"
               isOn={showHpNumbers}
@@ -759,7 +788,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show Death Effect</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showDeathEffect}>Show Death Effect</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Show Death Effect"
               isOn={showDeathEffect}
@@ -771,7 +802,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show Names on Tokens</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showNamesOnTokens}>Show Names on Tokens</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Show names on tokens"
               isOn={showNames}
@@ -807,7 +840,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show Turn Effect</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showTurnEffect}>Show Turn Effect</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Show Turn Effect"
               isOn={showTurnEffect}
@@ -819,7 +854,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Use Descriptive Names</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.useDescriptiveNames}>Use Descriptive Names</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Use Descriptive Duplicates Names"
               isOn={useDescriptiveDuplicates}
@@ -836,7 +873,9 @@ export const SettingsPage = () => {
           <SectionTitle theme={theme}>Dice Controls</SectionTitle>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Enable Rumble! Integration</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableRumble}>Enable Rumble! Integration</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Enable Rumble! Integration"
               isOn={enableRumble}
@@ -854,7 +893,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Enable Bones! Integration</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableBones}>Enable Bones! Integration</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Enable Bones! Integration"
               isOn={enableBones}
@@ -872,7 +913,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Enable Dice+ Integration</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableDicePlus}>Enable Dice+ Integration</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Enable Dice+ Integration"
               isOn={enableDicePlus}
@@ -890,7 +933,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Enable OBR Notification</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableObrNotification}>Enable OBR Notification</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Enable OBR Notification"
               isOn={enableObrNotification}
@@ -902,7 +947,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Show Results to All</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showResultsToAll}>Show Results to All</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Show Results to All"
               isOn={showNotificationToAll}
@@ -914,7 +961,9 @@ export const SettingsPage = () => {
           </ControlRow>
 
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Enable Discord Logging</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableDiscordLogging}>Enable Discord Logging</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Enable Discord Logging"
               isOn={enableDiscordLogging}
@@ -935,7 +984,9 @@ export const SettingsPage = () => {
             />
           </ControlRow>
           <ControlRow theme={theme}>
-            <SubControlLabel theme={theme}>Discord Url: </SubControlLabel>
+            <SubControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.discordUrl}>Discord Url:</SettingsTooltip>
+            </SubControlLabel>
             <SmallInput
               theme={theme}
               type="text"
@@ -956,7 +1007,9 @@ export const SettingsPage = () => {
         <Card theme={theme}>
           <SectionTitle theme={theme}>Other</SectionTitle>
           <ControlRow theme={theme}>
-            <ControlLabel theme={theme}>Enable Console Log</ControlLabel>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableConsoleLog}>Enable Console Log</SettingsTooltip>
+            </ControlLabel>
             <ToggleControl
               label="Enable Console Log"
               isOn={enableConsoleLog}

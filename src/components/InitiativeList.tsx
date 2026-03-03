@@ -200,7 +200,7 @@ const iconMap: Record<string, React.ComponentType> = {
   zap: Zap,
   sword: Sword,
   swords: Swords,
-  axe: Axe,
+  axe: Axe, 
   bowarrow: BowArrow,
   coins: Coins,
   wand: Wand,
@@ -2450,15 +2450,7 @@ export const InitiativeList: React.FC = () => {
     const shouldObscureStats = shouldObscureUnitStatsForPlayer(unit);
     const shouldHideHpNumbersForPlayer = !isCurrentUserGm && !showListHpNumbers;
 
-    if (shouldObscureStats && col.type !== 'initiative' && col.type !== 'name') {
-      if (col.type === 'divider-column') {
-        return (
-          <DividerCell theme={theme}>
-            <ObscuredCellMask theme={theme} />
-          </DividerCell>
-        );
-      }
-
+    if (shouldObscureStats && col.type !== 'initiative' && col.type !== 'name' && col.type !== 'divider-column') {
       return (
         <DataCell theme={theme}>
           <ObscuredCellMask theme={theme} />

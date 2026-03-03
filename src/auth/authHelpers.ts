@@ -1,6 +1,12 @@
 import { connectAccessTokenViaHub } from './connectAccessTokenViaHub';
 import { getAccessToken, setAccessToken } from '../supabase/supabaseClient';
 
+const AUTH_STORAGE_PREFIX = 'forge.auth';
+const SESSION_ACCESS_TOKEN_KEY = `${AUTH_STORAGE_PREFIX}.accessToken`;
+const SESSION_EXPIRES_AT_KEY = `${AUTH_STORAGE_PREFIX}.expiresAt`;
+const LOCAL_EVER_CONNECTED_KEY = `${AUTH_STORAGE_PREFIX}.everConnected`;
+const SESSION_AUTO_RETRY_KEY = `${AUTH_STORAGE_PREFIX}.autoRetryAttempted`;
+
 const hasUnauthorizedText = (value: string): boolean => {
   const lower = value.toLowerCase();
   return lower.includes('401')
@@ -44,6 +50,57 @@ const getResponseError = (result: unknown): unknown => {
   return candidate.error ?? null;
 };
 
+const parseExpiresAtMs = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+
+  return numeric > 1_000_000_000_000 ? numeric : numeric * 1000;
+};
+
+const persistConnectionSnapshot = (token: string, expiresAt: number | null) => {
+  sessionStorage.setItem(SESSION_ACCESS_TOKEN_KEY, token);
+  sessionStorage.setItem(SESSION_EXPIRES_AT_KEY, expiresAt === null ? '' : String(expiresAt));
+  localStorage.setItem(LOCAL_EVER_CONNECTED_KEY, '1');
+};
+
+const clearConnectionSnapshot = () => {
+  sessionStorage.removeItem(SESSION_ACCESS_TOKEN_KEY);
+  sessionStorage.removeItem(SESSION_EXPIRES_AT_KEY);
+};
+
+const hasEverConnected = (): boolean => {
+  return localStorage.getItem(LOCAL_EVER_CONNECTED_KEY) === '1';
+};
+
+const restoreTokenFromSessionStorage = (): boolean => {
+  const token = sessionStorage.getItem(SESSION_ACCESS_TOKEN_KEY);
+  if (!token) {
+    return false;
+  }
+
+  const expiresAtRaw = sessionStorage.getItem(SESSION_EXPIRES_AT_KEY);
+  const expiresAtMs = parseExpiresAtMs(expiresAtRaw);
+
+  if (expiresAtMs !== null && expiresAtMs <= Date.now()) {
+    clearConnectionSnapshot();
+    return false;
+  }
+
+  setAccessToken(token);
+  return true;
+};
+
+export const connectBattleSystem = async (): Promise<void> => {
+  const result = await connectAccessTokenViaHub();
+  persistConnectionSnapshot(result.accessToken, result.expiresAt);
+};
+
 export const isConnected = (): boolean => {
   return !!getAccessToken();
 };
@@ -53,11 +110,38 @@ export const ensureConnected = async (): Promise<void> => {
     return;
   }
 
-  await connectAccessTokenViaHub();
+  await connectBattleSystem();
 };
 
 export const clearConnection = () => {
   setAccessToken(null);
+  clearConnectionSnapshot();
+};
+
+export const initializeAuthOnStartup = async (): Promise<void> => {
+  if (isConnected()) {
+    return;
+  }
+
+  const restored = restoreTokenFromSessionStorage();
+  if (restored) {
+    return;
+  }
+
+  if (!hasEverConnected()) {
+    return;
+  }
+
+  if (sessionStorage.getItem(SESSION_AUTO_RETRY_KEY) === '1') {
+    return;
+  }
+
+  sessionStorage.setItem(SESSION_AUTO_RETRY_KEY, '1');
+
+  try {
+    await connectBattleSystem();
+  } catch {
+  }
 };
 
 export const withSupabaseAuthRetry = async <T>(operation: () => Promise<T>): Promise<T> => {

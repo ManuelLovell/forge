@@ -22,9 +22,10 @@ interface NavigationProps {
   currentPage: PageType;
   onToggle: () => void;
   onNavigate: (page: PageType) => void;
+  canAccessInitiativeList?: boolean;
 }
 
-export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate }: NavigationProps) => {
+export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate, canAccessInitiativeList = true }: NavigationProps) => {
   const { theme } = useForgeTheme();
   const playerData = useSceneStore((state) => state.playerData);
   const isCurrentUserGm = String(playerData?.role || '').toUpperCase() === 'GM';
@@ -53,13 +54,15 @@ export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate }: Naviga
 
             {/* Navigation Links - Bottom Section */}
             <MenuNav theme={theme}>
-              <NavButton
-                theme={theme}
-                $isActive={currentPage === 'ForgeMain'}
-                onClick={() => onNavigate('ForgeMain')}
-              >
-                Main
-              </NavButton>
+              {canAccessInitiativeList && (
+                <NavButton
+                  theme={theme}
+                  $isActive={currentPage === 'ForgeMain'}
+                  onClick={() => onNavigate('ForgeMain')}
+                >
+                  Main
+                </NavButton>
+              )}
               <NavButton
                 theme={theme}
                 $isActive={currentPage === 'Party'}

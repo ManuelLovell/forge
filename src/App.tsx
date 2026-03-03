@@ -20,6 +20,8 @@ import { useForgeTheme } from './helpers/ThemeContext';
 import { useAppInitialization } from './helpers/useAppInitialization';
 import GlobalStyles from './styles/GlobalStyles';
 import styled from 'styled-components';
+import { DATA_STORED_IN_ROOM } from './helpers/Constants';
+import { SettingsConstants } from './interfaces/MetadataKeys';
 
 const LoadingContainer = styled.div`
   display: flex;
@@ -51,19 +53,22 @@ const LoadingText = styled.p`
 `;
 
 function App() {
-  const { sceneReady, cacheReady, playerData } = useSceneStore();
+  const { sceneReady, cacheReady, playerData, roomMetadata, sceneMetadata } = useSceneStore();
   const { isInitialized } = useAppInitialization();
   const { theme } = useForgeTheme();
   const [currentPage, setCurrentPage] = useState<PageType>('ForgeMain');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isCurrentUserGm = String(playerData?.role || '').toUpperCase() === 'GM';
+  const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
+  const showPlayerView = storageContainer[SettingsConstants.SHOW_PLAYER_VIEW] as boolean || false;
+  const canAccessInitiativeList = isCurrentUserGm || showPlayerView;
 
   const renderPage = () => {
     switch (currentPage) {
       case 'ForgeMain':
-        return (
-          <InitiativeList key="main" />
-        );
+        return canAccessInitiativeList
+          ? <InitiativeList key="main" />
+          : <PartyPage key="party" />;
       case 'Settings':
         return isCurrentUserGm
           ? <SettingsPage key="settings" />
@@ -84,6 +89,12 @@ function App() {
   };
 
   const navigateTo = (page: PageType) => {
+    if (!canAccessInitiativeList && page === 'ForgeMain') {
+      setCurrentPage('Party');
+      setIsMenuOpen(false);
+      return;
+    }
+
     if (!isCurrentUserGm && (page === 'Settings' || page === 'System')) {
       setCurrentPage('ForgeMain');
       setIsMenuOpen(false);
@@ -93,6 +104,12 @@ function App() {
     setCurrentPage(page);
     setIsMenuOpen(false);
   };
+
+  useEffect(() => {
+    if (!canAccessInitiativeList && currentPage === 'ForgeMain') {
+      setCurrentPage('Party');
+    }
+  }, [canAccessInitiativeList, currentPage]);
 
   // Reset width when navigating away from ForgeMain
   useEffect(() => {
@@ -132,6 +149,7 @@ function App() {
             currentPage={currentPage}
             onToggle={() => setIsMenuOpen(!isMenuOpen)}
             onNavigate={navigateTo}
+            canAccessInitiativeList={canAccessInitiativeList}
           />
         </AppContainer>
       )}

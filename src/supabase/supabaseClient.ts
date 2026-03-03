@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://vrwtdtmnbyhaehtitrlb.supabase.co';
-const supabaseAnonKey = 'sb_publishable_xE5IYBsNg0HgRbPsmyhF6w_k7O-wj7B';
+export const SUPABASE_URL = 'https://vrwtdtmnbyhaehtitrlb.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_xE5IYBsNg0HgRbPsmyhF6w_k7O-wj7B';
 
 let activeAccessToken: string | null = null;
 
@@ -22,7 +22,7 @@ const authHeaderFetch: typeof fetch = async (input, init) => {
 	}
 
 	if (!mergedHeaders.has('apikey')) {
-		mergedHeaders.set('apikey', supabaseAnonKey);
+		mergedHeaders.set('apikey', SUPABASE_ANON_KEY);
 	}
 
 	if (activeAccessToken) {
@@ -35,7 +35,7 @@ const authHeaderFetch: typeof fetch = async (input, init) => {
 	});
 };
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 	auth: {
 		persistSession: false,
 		autoRefreshToken: false,

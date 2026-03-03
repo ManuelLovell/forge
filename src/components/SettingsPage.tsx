@@ -16,7 +16,7 @@ import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
 import { bulkImportUnitCollection, exportUnitCollection } from '../helpers/unitCollectionDb';
 import { isValidDiscordWebhookUrl } from '../helpers/DiscordWebhook';
-import { connectBattleSystem, isConnected } from '../auth/authHelpers';
+import { connectBattleSystem, isConnected, validateCurrentConnection } from '../auth/authHelpers';
 import { useSystemData } from '../helpers/useSystemData';
 import { toResolvedDiceNotation, validateFormula } from '../helpers/FormulaParser';
 
@@ -170,6 +170,23 @@ export const SettingsPage = () => {
   const [authConnected, setAuthConnected] = useState<boolean>(() => isConnected());
   const [isConnectingAuth, setIsConnectingAuth] = useState(false);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const syncAuthStatus = async () => {
+      const valid = await validateCurrentConnection();
+      if (mounted) {
+        setAuthConnected(valid);
+      }
+    };
+
+    void syncAuthStatus();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   //Control for setting the data to Room or to Scene
   const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;

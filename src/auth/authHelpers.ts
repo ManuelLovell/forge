@@ -1,5 +1,6 @@
 import { connectAccessTokenViaHub } from './connectAccessTokenViaHub';
 import { getAccessToken, setAccessToken } from '../supabase/supabaseClient';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../supabase/supabaseClient';
 
 const AUTH_STORAGE_PREFIX = 'forge.auth';
 const SESSION_ACCESS_TOKEN_KEY = `${AUTH_STORAGE_PREFIX}.accessToken`;
@@ -101,6 +102,37 @@ export const connectBattleSystem = async (): Promise<void> => {
   persistConnectionSnapshot(result.accessToken, result.expiresAt);
 };
 
+const isTokenValidWithSupabase = async (token: string): Promise<boolean> => {
+  try {
+    const response = await window.fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'GET',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+
+export const validateCurrentConnection = async (): Promise<boolean> => {
+  const token = getAccessToken();
+  if (!token) {
+    return false;
+  }
+
+  const valid = await isTokenValidWithSupabase(token);
+  if (!valid) {
+    clearConnection();
+    return false;
+  }
+
+  return true;
+};
+
 export const isConnected = (): boolean => {
   return !!getAccessToken();
 };
@@ -120,12 +152,18 @@ export const clearConnection = () => {
 
 export const initializeAuthOnStartup = async (): Promise<void> => {
   if (isConnected()) {
-    return;
+    await validateCurrentConnection();
+    if (isConnected()) {
+      return;
+    }
   }
 
   const restored = restoreTokenFromSessionStorage();
   if (restored) {
-    return;
+    const stillValid = await validateCurrentConnection();
+    if (stillValid) {
+      return;
+    }
   }
 
   if (!hasEverConnected()) {

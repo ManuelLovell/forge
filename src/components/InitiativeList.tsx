@@ -912,6 +912,15 @@ const ObscuredCellMask = styled.div<{ theme: ForgeTheme }>`
   background: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.55)};
 `;
 
+const ObscuredValueInputMask = styled.div<{ theme: ForgeTheme; $small?: boolean }>`
+  width: ${props => props.$small ? '40px' : '60px'};
+  min-width: ${props => props.$small ? '40px' : '60px'};
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid ${props => rgbaFromHex(props.theme.BORDER, 0.8)};
+  background: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.55)};
+`;
+
 // Deserialization function
 const deserializeListLayout = (
   layout: ListLayoutComponent[],
@@ -1001,6 +1010,8 @@ export const InitiativeList: React.FC = () => {
   const popcornInitiative = storageContainer[SettingsConstants.POPCORN_INITIATIVE] as boolean || false;
   const showCardColumn = storageContainer[SettingsConstants.SHOW_CARD_ACCESS] as boolean || false;
   const showNonPartyUnits = storageContainer[SettingsConstants.SHOW_NON_PARTY_UNITS] as boolean || false;
+  const showListHpNumbersRaw = storageContainer[SettingsConstants.SHOW_LIST_HP_NUMBERS];
+  const showListHpNumbers = typeof showListHpNumbersRaw === 'boolean' ? showListHpNumbersRaw : true;
   const diceRange = (storageContainer[SettingsConstants.DICE_RANGE] as string | undefined) || '';
   const showOwnerOnlyEdit = storageContainer[SettingsConstants.SHOW_OWNER_ONLY_EDIT] as boolean || false;
   const isCurrentUserGm = String((playerData as RoleLike | null | undefined)?.role || '').toUpperCase() === 'GM';
@@ -2124,6 +2135,36 @@ export const InitiativeList: React.FC = () => {
     });
   }, [isListCompact, listColumns, showCardColumn]);
 
+  const hpBidKeys = useMemo(() => {
+    const currentHpAttribute = attributes.find((attribute) => {
+      const abbr = (attribute.attr_abbr || '').toUpperCase();
+      const name = (attribute.attr_name || '').toLowerCase();
+      return abbr === 'HP' || name === 'hit points';
+    });
+
+    const maxHpAttribute = attributes.find((attribute) => {
+      const abbr = (attribute.attr_abbr || '').toUpperCase();
+      const name = (attribute.attr_name || '').toLowerCase();
+      return abbr === 'MHP' || name === 'max hit points';
+    });
+
+    const inferredCurrentHpBid = currentHpAttribute?.attr_bid;
+    const inferredMaxHpBid = maxHpAttribute?.attr_bid;
+
+    const configuredCurrent = storageContainer[SettingsConstants.HP_CURRENT_BID] as string | undefined;
+    const configuredMax = storageContainer[SettingsConstants.HP_MAX_BID] as string | undefined;
+    const attributeBids = new Set(attributes.map((attribute) => attribute.attr_bid));
+
+    return {
+      currentHpBid: configuredCurrent && attributeBids.has(configuredCurrent)
+        ? configuredCurrent
+        : inferredCurrentHpBid,
+      maxHpBid: configuredMax && attributeBids.has(configuredMax)
+        ? configuredMax
+        : inferredMaxHpBid,
+    };
+  }, [attributes, storageContainer]);
+
   const displayedUnits = useMemo(
     () => sortedUnits.filter((unit) => canPlayerSeeUnit(unit)),
     [sortedUnits, isCurrentUserGm]
@@ -2304,6 +2345,7 @@ export const InitiativeList: React.FC = () => {
   const renderCell = (col: ListColumn, unit: Unit) => {
     const canInteract = canInteractWithUnit(unit);
     const shouldObscureStats = shouldObscureUnitStatsForPlayer(unit);
+    const shouldHideHpNumbersForPlayer = !isCurrentUserGm && !showListHpNumbers;
 
     if (shouldObscureStats && col.type !== 'initiative' && col.type !== 'name') {
       if (col.type === 'divider-column') {
@@ -2495,91 +2537,101 @@ export const InitiativeList: React.FC = () => {
                 const valueInputValue = rawAttrValue === undefined || rawAttrValue === null || rawAttrValue === ''
                   ? '0'
                   : String(rawAttrValue);
+                const isHpValueBid = bid === hpBidKeys.currentHpBid || bid === hpBidKeys.maxHpBid;
+                const isOwnedByCurrentPlayer = !!currentPlayerId && unit.createdUserId === currentPlayerId;
+                const shouldHideThisValueInput = shouldHideHpNumbersForPlayer && isHpValueBid && !isOwnedByCurrentPlayer;
 
                 return (
                   <React.Fragment key={bid}>
                     {idx > 0 && <Divider theme={theme}>{col.styles?.dividers?.[idx - 1] || '/'}</Divider>}
-                    <ValueInput
-                      theme={theme}
-                      $isRollable={canInteract && isRollableInput}
-                      value={valueInputValue}
-                      $small={col.styles?.bidList && col.styles.bidList.length > 2}
-                      readOnly={!canInteract || (isRollableInput && !isEditingRollableInput)}
-                      onChange={!canInteract || (isRollableInput && !isEditingRollableInput) ? undefined : (e) => {
-                        const newValue = e.target.value;
+                    {shouldHideThisValueInput ? (
+                      <ObscuredValueInputMask
+                        theme={theme}
+                        $small={col.styles?.bidList && col.styles.bidList.length > 2}
+                      />
+                    ) : (
+                      <ValueInput
+                        theme={theme}
+                        $isRollable={canInteract && isRollableInput}
+                        value={valueInputValue}
+                        $small={col.styles?.bidList && col.styles.bidList.length > 2}
+                        readOnly={!canInteract || (isRollableInput && !isEditingRollableInput)}
+                        onChange={!canInteract || (isRollableInput && !isEditingRollableInput) ? undefined : (e) => {
+                          const newValue = e.target.value;
 
-                        setUnits(prevUnits =>
-                          prevUnits.map(u =>
-                            u.id === unit.id
-                              ? {
-                                ...u,
-                                attributes: {
-                                  ...u.attributes,
-                                  [`${EXTENSION_ID}/${bid}`]: newValue
+                          setUnits(prevUnits =>
+                            prevUnits.map(u =>
+                              u.id === unit.id
+                                ? {
+                                  ...u,
+                                  attributes: {
+                                    ...u.attributes,
+                                    [`${EXTENSION_ID}/${bid}`]: newValue
+                                  }
                                 }
-                              }
-                              : u
-                          )
-                        );
-                      }}
-                      onBlur={!canInteract || (isRollableInput && !isEditingRollableInput) ? undefined : (e) => {
-                        commitValueColumnInput(unit.id, bid, e.target.value);
-                        if (isRollableInput) {
-                          disableRollableEditMode(fieldKey);
-                        }
-                      }}
-                      onClick={isRollableInput ? () => {
-                        if (!canInteract) {
-                          return;
-                        }
-                        if (isEditingRollableInput) {
-                          return;
-                        }
+                                : u
+                            )
+                          );
+                        }}
+                        onBlur={!canInteract || (isRollableInput && !isEditingRollableInput) ? undefined : (e) => {
+                          commitValueColumnInput(unit.id, bid, e.target.value);
+                          if (isRollableInput) {
+                            disableRollableEditMode(fieldKey);
+                          }
+                        }}
+                        onClick={isRollableInput ? () => {
+                          if (!canInteract) {
+                            return;
+                          }
+                          if (isEditingRollableInput) {
+                            return;
+                          }
 
-                        if (shouldSuppressRollClick(fieldKey)) {
-                          return;
-                        }
+                          if (shouldSuppressRollClick(fieldKey)) {
+                            return;
+                          }
 
-                        void handleNotationClick(unit, bid);
-                      } : undefined}
-                      onContextMenu={isRollableInput ? (event) => {
-                        if (!canInteract) {
-                          return;
-                        }
-                        event.preventDefault();
-                        enableRollableEditMode(fieldKey, event.currentTarget);
-                      } : undefined}
-                      onTouchStart={isRollableInput ? (event) => {
-                        if (!canInteract) {
-                          return;
-                        }
-                        if (isEditingRollableInput) {
-                          return;
-                        }
-                        startLongPressEditMode(fieldKey, event.currentTarget);
-                      } : undefined}
-                      onTouchEnd={isRollableInput ? () => {
-                        cancelLongPressEditMode(fieldKey);
-                      } : undefined}
-                      onTouchCancel={isRollableInput ? () => {
-                        cancelLongPressEditMode(fieldKey);
-                      } : undefined}
-                      onKeyDown={(e) => {
-                        if (!canInteract) {
-                          return;
-                        }
-                        if (isRollableInput && !isEditingRollableInput && (e.key === 'Enter' || e.key === ' ')) {
-                          e.preventDefault();
                           void handleNotationClick(unit, bid);
-                          return;
-                        }
+                        } : undefined}
+                        onContextMenu={isRollableInput ? (event) => {
+                          if (!canInteract) {
+                            return;
+                          }
+                          event.preventDefault();
+                          enableRollableEditMode(fieldKey, event.currentTarget);
+                        } : undefined}
+                        onTouchStart={isRollableInput ? (event) => {
+                          if (!canInteract) {
+                            return;
+                          }
+                          if (isEditingRollableInput) {
+                            return;
+                          }
+                          startLongPressEditMode(fieldKey, event.currentTarget);
+                        } : undefined}
+                        onTouchEnd={isRollableInput ? () => {
+                          cancelLongPressEditMode(fieldKey);
+                        } : undefined}
+                        onTouchCancel={isRollableInput ? () => {
+                          cancelLongPressEditMode(fieldKey);
+                        } : undefined}
+                        onKeyDown={(e) => {
+                          if (!canInteract) {
+                            return;
+                          }
+                          if (isRollableInput && !isEditingRollableInput && (e.key === 'Enter' || e.key === ' ')) {
+                            e.preventDefault();
+                            void handleNotationClick(unit, bid);
+                            return;
+                          }
 
-                        if ((isEditingRollableInput || !isRollableInput) && e.key === 'Enter') {
-                          e.preventDefault();
-                          e.currentTarget.blur();
-                        }
-                      }}
-                    />
+                          if ((isEditingRollableInput || !isRollableInput) && e.key === 'Enter') {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
+                      />
+                    )}
                   </React.Fragment>
                 );
               })}

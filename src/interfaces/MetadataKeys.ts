@@ -40,6 +40,7 @@ export class SettingsConstants {
   // Player Controls
   static SHOW_PLAYER_VIEW = `${EXTENSION_ID}/playview`;
   static SHOW_NON_PARTY_UNITS = `${EXTENSION_ID}/npcview`;
+  static SHOW_LIST_HP_NUMBERS = `${EXTENSION_ID}/listhpn`;
   static SHOW_OWNER_ONLY_EDIT = `${EXTENSION_ID}/ownedit`;
   static SHOW_MODIFY_UNIT_CONTEXT_MENU = `${EXTENSION_ID}/modictx`;
 

@@ -95,6 +95,7 @@ export const SettingsPage = () => {
   // Player Controls state
   const [showPlayerView, setShowPlayerView] = useState(false);
   const [showNonPartyUnits, setShowNonPartyUnits] = useState(false);
+  const [showListHpNumbers, setShowListHpNumbers] = useState(true);
   const [showOwnerOnlyEdit, setShowOwnerOnlyEdit] = useState(false);
   const [showModifyUnitContextMenu, setShowModifyUnitContextMenu] = useState(true);
 
@@ -152,6 +153,11 @@ export const SettingsPage = () => {
     }
     if (storageContainer[SettingsConstants.SHOW_NON_PARTY_UNITS] !== undefined) {
       setShowNonPartyUnits(storageContainer[SettingsConstants.SHOW_NON_PARTY_UNITS] as boolean);
+    }
+    if (storageContainer[SettingsConstants.SHOW_LIST_HP_NUMBERS] !== undefined) {
+      setShowListHpNumbers(storageContainer[SettingsConstants.SHOW_LIST_HP_NUMBERS] as boolean);
+    } else {
+      setShowListHpNumbers(true);
     }
     if (storageContainer[SettingsConstants.SHOW_HP_BARS] !== undefined) {
       setShowHpBars(storageContainer[SettingsConstants.SHOW_HP_BARS] as boolean);
@@ -387,6 +393,18 @@ export const SettingsPage = () => {
               onChange={async (value) => {
                 setShowNonPartyUnits(value);
                 await saveData(SettingsConstants.SHOW_NON_PARTY_UNITS, value);
+              }}
+            />
+          </ControlRow>
+
+          <ControlRow theme={theme}>
+            <ControlLabel theme={theme}>Show HP Numbers on List</ControlLabel>
+            <ToggleControl
+              label="Show HP Numbers on List"
+              isOn={showListHpNumbers}
+              onChange={async (value) => {
+                setShowListHpNumbers(value);
+                await saveData(SettingsConstants.SHOW_LIST_HP_NUMBERS, value);
               }}
             />
           </ControlRow>

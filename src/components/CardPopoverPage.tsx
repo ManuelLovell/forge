@@ -7,6 +7,8 @@ import defaultGameSystem from '../assets/defaultgamesystem.json';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import LOGGER from '../helpers/Logger';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
+import { SettingsTooltip } from './SettingsTooltip';
+import { createTheme } from '../helpers/ThemeConstants';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { CardLayoutRenderer, type CardLayoutTheme } from './CardLayoutRenderer';
 // Example central dice roll usage (add where dice rolls are triggered)
@@ -614,6 +616,14 @@ export const CardPopoverPage = () => {
 
     return currentTheme;
   }, [cache.metadata]);
+
+  const tooltipTheme = useMemo(() => createTheme(
+    theme.primary,
+    theme.offset,
+    theme.background,
+    theme.border,
+    theme.background_url,
+  ), [theme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1287,7 +1297,9 @@ export const CardPopoverPage = () => {
                 void handleTrayPinClick();
               }}
             >
-              <TrayActionIcon src="/pin.svg" alt="" aria-hidden="true" />
+              <SettingsTooltip theme={tooltipTheme} text="Pin/Unpin card popover">
+                <TrayActionIcon src="/pin.svg" alt="" aria-hidden="true" />
+              </SettingsTooltip>
             </TrayActionButton>
             <FavoriteActionButton
               type="button"
@@ -1297,7 +1309,9 @@ export const CardPopoverPage = () => {
               disabled={!isCurrentUserGm}
               onClick={handleTrayFavoriteClick}
             >
-              <TrayActionIcon $active={isFavoriteEnabled} src="/favorite.svg" alt="" aria-hidden="true" />
+              <SettingsTooltip theme={tooltipTheme} text="Mark next save as favorite">
+                <TrayActionIcon $active={isFavoriteEnabled} src="/favorite.svg" alt="" aria-hidden="true" />
+              </SettingsTooltip>
             </FavoriteActionButton>
 
             <TrayActionButton
@@ -1307,7 +1321,9 @@ export const CardPopoverPage = () => {
               disabled={!isCurrentUserGm}
               onClick={handleTrayCollectionSaveClick}
             >
-              <TrayActionIcon src="/collection.svg" alt="" aria-hidden="true" />
+              <SettingsTooltip theme={tooltipTheme} text="Save current unit to Collection">
+                <TrayActionIcon src="/collection.svg" alt="" aria-hidden="true" />
+              </SettingsTooltip>
             </TrayActionButton>
           </TrayActionGroup>
 
@@ -1318,7 +1334,9 @@ export const CardPopoverPage = () => {
               aria-label="Import"
               onClick={handleTrayImportClick}
             >
-              <TrayActionIcon src="/import.svg" alt="" aria-hidden="true" />
+              <SettingsTooltip theme={tooltipTheme} text="Import unit data from JSON">
+                <TrayActionIcon src="/import.svg" alt="" aria-hidden="true" />
+              </SettingsTooltip>
             </TrayActionButton>
             <TrayActionButton
               type="button"
@@ -1326,22 +1344,26 @@ export const CardPopoverPage = () => {
               aria-label="Export"
               onClick={handleTrayExportClick}
             >
-              <TrayActionIcon src="/export.svg" alt="" aria-hidden="true" />
+              <SettingsTooltip theme={tooltipTheme} text="Export current unit data to clipboard">
+                <TrayActionIcon src="/export.svg" alt="" aria-hidden="true" />
+              </SettingsTooltip>
             </TrayActionButton>
           </TrayActionGroup>
         </TrayPeekActions>
 
         <TrayHandleBuffer $theme={theme}>
-          <TrayHandleButton
-            type="button"
-            $theme={theme}
-            aria-label={isTrayOpen ? 'Close Tray' : 'Open Tray'}
-            onClick={() => {
-              setIsTrayOpen((prev) => !prev);
-            }}
-          >
-            <Menu size={22} />
-          </TrayHandleButton>
+          <SettingsTooltip theme={tooltipTheme} text={isTrayOpen ? 'Close collection tray' : 'Open collection tray'}>
+            <TrayHandleButton
+              type="button"
+              $theme={theme}
+              aria-label={isTrayOpen ? 'Close Tray' : 'Open Tray'}
+              onClick={() => {
+                setIsTrayOpen((prev) => !prev);
+              }}
+            >
+              <Menu size={22} />
+            </TrayHandleButton>
+          </SettingsTooltip>
         </TrayHandleBuffer>
         <TrayBody $theme={theme}>
           {isTrayOpen ? (

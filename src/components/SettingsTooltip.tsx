@@ -8,7 +8,7 @@ const TooltipAnchor = styled.span<{ theme: ForgeTheme }>`
   align-items: center;
 `;
 
-const TooltipBubble = styled.span<{ theme: ForgeTheme; $left: number; $top: number; $arrowX: number }>`
+const TooltipBubble = styled.span<{ theme: ForgeTheme; $left: number; $top: number; $arrowX: number; $placement: 'top' | 'bottom' }>`
   position: fixed;
   left: ${props => `${props.$left}px`};
   top: ${props => `${props.$top}px`};
@@ -31,11 +31,13 @@ const TooltipBubble = styled.span<{ theme: ForgeTheme; $left: number; $top: numb
     content: '';
     position: absolute;
     left: clamp(12px, ${props => `${props.$arrowX}px`}, calc(100% - 12px));
-    bottom: 100%;
+    ${props => props.$placement === 'bottom' ? 'bottom: 100%;' : 'top: 100%;'}
     transform: translateX(-50%);
     border-left: 6px solid transparent;
     border-right: 6px solid transparent;
-    border-bottom: 6px solid ${props => rgbaFromHex(props.theme.BACKGROUND, 0.96)};
+    ${props => props.$placement === 'bottom'
+    ? `border-bottom: 6px solid ${rgbaFromHex(props.theme.BACKGROUND, 0.96)};`
+    : `border-top: 6px solid ${rgbaFromHex(props.theme.BACKGROUND, 0.96)};`}
   }
 `;
 
@@ -54,7 +56,12 @@ export const SettingsTooltip = ({ theme, text, children }: SettingsTooltipProps)
   const triggerRef = useRef<HTMLSpanElement | null>(null);
   const bubbleRef = useRef<HTMLSpanElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [position, setPosition] = useState({ left: 8, top: 8, arrowX: 16 });
+  const [position, setPosition] = useState<{ left: number; top: number; arrowX: number; placement: 'top' | 'bottom' }>({
+    left: 8,
+    top: 8,
+    arrowX: 16,
+    placement: 'bottom',
+  });
 
   const updatePosition = () => {
     const trigger = triggerRef.current;
@@ -64,16 +71,27 @@ export const SettingsTooltip = ({ theme, text, children }: SettingsTooltipProps)
     }
 
     const rect = trigger.getBoundingClientRect();
-    const bubbleWidth = bubble.getBoundingClientRect().width;
+    const bubbleRect = bubble.getBoundingClientRect();
+    const bubbleWidth = bubbleRect.width;
+    const bubbleHeight = bubbleRect.height;
     const viewportPadding = 8;
+    const verticalGap = 8;
     const anchorX = rect.left + (rect.width / 2);
     const unclampedLeft = anchorX - (bubbleWidth / 2);
     const maxLeft = window.innerWidth - bubbleWidth - viewportPadding;
     const left = Math.min(Math.max(unclampedLeft, viewportPadding), Math.max(viewportPadding, maxLeft));
-    const top = rect.bottom + 8;
+
+    const preferredBottomTop = rect.bottom + verticalGap;
+    const preferredTopTop = rect.top - bubbleHeight - verticalGap;
+    const canRenderBottom = preferredBottomTop + bubbleHeight <= (window.innerHeight - viewportPadding);
+    const canRenderTop = preferredTopTop >= viewportPadding;
+    const placement: 'top' | 'bottom' = canRenderBottom || !canRenderTop ? 'bottom' : 'top';
+    const top = placement === 'bottom'
+      ? preferredBottomTop
+      : Math.max(viewportPadding, preferredTopTop);
     const arrowX = anchorX - left;
 
-    setPosition({ left, top, arrowX });
+    setPosition({ left, top, arrowX, placement });
   };
 
   useEffect(() => {
@@ -117,6 +135,7 @@ export const SettingsTooltip = ({ theme, text, children }: SettingsTooltipProps)
             $left={position.left}
             $top={position.top}
             $arrowX={position.arrowX}
+            $placement={position.placement}
           >
             {text}
           </TooltipBubble>,

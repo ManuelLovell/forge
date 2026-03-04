@@ -514,6 +514,29 @@ const readUnitIdFromQuery = (): string | null => {
   return first || null;
 };
 
+const readPinnedFromQuery = (): boolean => {
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get('pinned');
+  if (!raw) {
+    return false;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
+};
+
+const PINNED_CARD_POPOVER_ID = `POP_${OwlbearIds.CARDSID}`;
+
+const buildCardPopoverUrl = (unitId: string, pinned: boolean): string => {
+  const params = new URLSearchParams();
+  params.set('unitid', unitId);
+  if (pinned) {
+    params.set('pinned', 'true');
+  }
+
+  return `/pages/forgecard.html?${params.toString()}`;
+};
+
 const parseSystemArrayField = <T,>(raw: unknown): T[] | null => {
   if (Array.isArray(raw)) {
     return raw as T[];
@@ -550,6 +573,7 @@ const isFabricatedTrue = (raw: unknown): boolean => {
 
 export const CardPopoverPage = () => {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(() => readUnitIdFromQuery());
+  const isPinned = useMemo(() => readPinnedFromQuery(), []);
   const [cache, setCache] = useState<CardCache>({ metadata: {}, items: [] });
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [isCurrentUserGm, setIsCurrentUserGm] = useState(false);
@@ -904,8 +928,67 @@ export const CardPopoverPage = () => {
     ].sort(groupedSort);
   }, [collectionRecords, remoteCollectionRecords, appliedSearchQuery]);
 
-  const handleTrayPinClick = () => {
-    LOGGER.log('Tray action clicked: pin');
+  const handleTrayPinClick = async () => {
+    if (!selectedUnitId) {
+      await OBR.notification.show('No unit selected to pin.', 'ERROR');
+      return;
+    }
+
+    const viewportWidth = await OBR.viewport.getWidth();
+    const viewportHeight = await OBR.viewport.getHeight();
+    const modalBuffer = 100;
+    const viewableHeight = viewportHeight > 800 ? 700 : viewportHeight - modalBuffer;
+
+    if (!isPinned) {
+      await OBR.popover.open({
+        id: PINNED_CARD_POPOVER_ID,
+        url: buildCardPopoverUrl(selectedUnitId, true),
+        height: 400,
+        width: 350,
+        anchorPosition: {
+          top: 50,
+          left: viewportWidth - 70,
+        },
+        anchorReference: 'POSITION',
+        anchorOrigin: {
+          vertical: 'CENTER',
+          horizontal: 'RIGHT',
+        },
+        transformOrigin: {
+          vertical: 'CENTER',
+          horizontal: 'RIGHT',
+        },
+        hidePaper: true,
+        disableClickAway: true,
+      });
+
+      await OBR.popover.close(OwlbearIds.CARDSID);
+      return;
+    }
+
+    await OBR.popover.open({
+      id: OwlbearIds.CARDSID,
+      url: buildCardPopoverUrl(selectedUnitId, false),
+      height: viewableHeight,
+      width: 350,
+      anchorPosition: {
+        left: viewportWidth / 2,
+        top: viewportHeight / 2,
+      },
+      anchorReference: 'POSITION',
+      anchorOrigin: {
+        vertical: 'CENTER',
+        horizontal: 'CENTER',
+      },
+      transformOrigin: {
+        vertical: 'CENTER',
+        horizontal: 'CENTER',
+      },
+      hidePaper: true,
+      disableClickAway: true,
+    });
+
+    await OBR.popover.close(PINNED_CARD_POPOVER_ID);
   };
 
   const handleTrayFavoriteClick = () => {
@@ -1167,7 +1250,7 @@ export const CardPopoverPage = () => {
               $theme={theme}
               aria-label="Close Card"
               onClick={async () => {
-                await OBR.popover.close(OwlbearIds.CARDSID);
+                await OBR.popover.close(isPinned ? PINNED_CARD_POPOVER_ID : OwlbearIds.CARDSID);
               }}
             >
               <CloseIcon src="/close.svg" alt="" aria-hidden="true" />
@@ -1200,7 +1283,9 @@ export const CardPopoverPage = () => {
               type="button"
               $theme={theme}
               aria-label="Pin"
-              onClick={handleTrayPinClick}
+              onClick={() => {
+                void handleTrayPinClick();
+              }}
             >
               <TrayActionIcon src="/pin.svg" alt="" aria-hidden="true" />
             </TrayActionButton>

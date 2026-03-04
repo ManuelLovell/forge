@@ -182,6 +182,19 @@ export const initializeAuthOnStartup = async (): Promise<void> => {
   }
 };
 
+export const hydrateAuthFromSession = async (): Promise<boolean> => {
+  if (isConnected()) {
+    return await validateCurrentConnection();
+  }
+
+  const restored = restoreTokenFromSessionStorage();
+  if (!restored) {
+    return false;
+  }
+
+  return await validateCurrentConnection();
+};
+
 export const withSupabaseAuthRetry = async <T>(operation: () => Promise<T>): Promise<T> => {
   try {
     const firstResult = await operation();

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Item } from '@owlbear-rodeo/sdk';
 import OBR from '@owlbear-rodeo/sdk';
 import styled from 'styled-components';
-import { Cloud, Menu, Search } from 'lucide-react';
+import { Cloudy, HardDrive, Menu, Search, Server } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import LOGGER from '../helpers/Logger';
@@ -25,8 +25,14 @@ import {
   type UnitCollectionRecord,
   upsertUnitFromMetadata,
 } from '../helpers/unitCollectionDb';
-import { supabase } from '../supabase/supabaseClient';
+import { hydrateAuthFromSession, isConnected } from '../auth/authHelpers';
 import type { CardLayoutComponent, SystemAttribute } from '../interfaces/SystemResponse';
+import {
+  deleteRemoteUnitCollectionRecord as deleteRemoteCollectionRecord,
+  searchRemoteUnitCollection as searchConnectedRemoteCollection,
+  searchSharedUnitCollection,
+  upsertRemoteUnitFromMetadata as upsertConnectedRemoteUnit,
+} from '../helpers/unitCollectionRemote';
 
 const SYSTEM_KEYS = {
   CURRENT_THEME: `${OwlbearIds.EXTENSIONID}/CurrentTheme`,
@@ -46,16 +52,7 @@ type UnitMetadataTransferPayload = {
 };
 
 type CollectionSearchRecord = UnitCollectionRecord & {
-  source: 'local' | 'remote';
-};
-
-type SupabaseCreatureRow = {
-  external_id: string;
-  name: string;
-  author: string;
-  favorite: boolean | null;
-  metadata: Record<string, unknown> | null;
-  is_active: boolean | null;
+  source: 'local' | 'remote-user' | 'remote-shared';
 };
 
 type ThemeData = CardLayoutTheme & {
@@ -244,6 +241,7 @@ const SearchWindow = styled.div<{ $theme: ThemeData }>`
 
 const CollectionList = styled.div`
   width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -306,7 +304,7 @@ const SourceTag = styled.span<{ $theme: ThemeData }>`
   align-items: center;
   justify-content: center;
   padding: 0;
-  border-radius: 999px;
+  border-radius: 6px;
   border: 1px solid ${props => rgbaFromHex(props.$theme.border, 0.85)};
   background: ${props => rgbaFromHex(props.$theme.offset, 0.35)};
   color: ${props => props.$theme.primary};
@@ -561,10 +559,11 @@ export const CardPopoverPage = () => {
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [isFavoriteEnabled, setIsFavoriteEnabled] = useState(false);
   const [collectionRecords, setCollectionRecords] = useState<UnitCollectionRecord[]>([]);
-  const [remoteCollectionRecords, setRemoteCollectionRecords] = useState<UnitCollectionRecord[]>([]);
+  const [remoteCollectionRecords, setRemoteCollectionRecords] = useState<CollectionSearchRecord[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
+  const [authHydrated, setAuthHydrated] = useState(false);
 
   const syncLoggerEnabled = (metadata: Record<string, unknown>) => {
     const enabled = metadata[SettingsConstants.ENABLE_CONSOLE_LOG];
@@ -591,6 +590,28 @@ export const CardPopoverPage = () => {
 
     return currentTheme;
   }, [cache.metadata]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateAuth = async () => {
+      try {
+        await hydrateAuthFromSession();
+      } catch (error) {
+        LOGGER.log('Auth hydration failed in card iframe', error);
+      } finally {
+        if (!cancelled) {
+          setAuthHydrated(true);
+        }
+      }
+    };
+
+    void hydrateAuth();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -813,40 +834,37 @@ export const CardPopoverPage = () => {
     return `hsl(${hue}, 70%, 65%)`;
   };
 
-  const searchSupabaseCollection = async (query: string): Promise<UnitCollectionRecord[]> => {
-    const trimmed = query.trim();
-    if (!trimmed) {
-      return [];
-    }
+  const searchSupabaseCollection = async (query: string): Promise<CollectionSearchRecord[]> => {
+    const [shared, user] = await Promise.all([
+      searchSharedUnitCollection(query),
+      isConnected() ? searchConnectedRemoteCollection(query) : Promise.resolve([]),
+    ]);
 
-    const { data, error } = await supabase
-      .from('bs_forge_creatures')
-      .select('external_id,name,author,favorite,metadata,is_active')
-      .eq('is_active', true)
-      .or(`name.ilike.%${trimmed}%,author.ilike.%${trimmed}%`)
-      .limit(250);
-
-    if (error) {
-      throw error;
-    }
-
-    const rows = (data ?? []) as SupabaseCreatureRow[];
-    return rows
-      .filter((row) => row && typeof row.name === 'string' && typeof row.author === 'string')
-      .map((row) => ({
-        id: `remote:${row.external_id}`,
-        name: row.name,
-        author: row.author,
-        favorite: row.favorite === true,
-        metadata: (row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata))
-          ? row.metadata
-          : {},
-        updatedAt: 0,
-      }));
+    return [
+      ...user.map((record) => ({ ...record, source: 'remote-user' as const })),
+      ...shared.map((record) => ({ ...record, source: 'remote-shared' as const })),
+    ];
   };
 
   const visibleCollectionRecords = useMemo<CollectionSearchRecord[]>(() => {
     const query = appliedSearchQuery.trim().toLowerCase();
+    const sourceOrder: Record<CollectionSearchRecord['source'], number> = {
+      local: 0,
+      'remote-user': 1,
+      'remote-shared': 2,
+    };
+    const groupedSort = (left: CollectionSearchRecord, right: CollectionSearchRecord): number => {
+      if (sourceOrder[left.source] !== sourceOrder[right.source]) {
+        return sourceOrder[left.source] - sourceOrder[right.source];
+      }
+
+      if (left.favorite !== right.favorite) {
+        return left.favorite ? -1 : 1;
+      }
+
+      return left.name.localeCompare(right.name);
+    };
+
     const localSorted = [...collectionRecords].sort((left, right) => {
       if (left.favorite !== right.favorite) {
         return left.favorite ? -1 : 1;
@@ -865,25 +883,25 @@ export const CardPopoverPage = () => {
       || record.author.toLowerCase().includes(query),
     );
 
-    const localKeys = new Set(localMatches.map((record) => `${record.name.toLowerCase()}::${record.author.toLowerCase()}`));
-
-    const remoteMatches = remoteCollectionRecords
+    const remoteUserMatches = remoteCollectionRecords
+      .filter((record) => record.source === 'remote-user')
       .filter((record) =>
         record.name.toLowerCase().includes(query)
         || record.author.toLowerCase().includes(query),
-      )
-      .filter((record) => !localKeys.has(`${record.name.toLowerCase()}::${record.author.toLowerCase()}`))
-      .sort((left, right) => {
-        if (left.favorite !== right.favorite) {
-          return left.favorite ? -1 : 1;
-        }
-        return left.name.localeCompare(right.name);
-      });
+      );
+
+    const remoteSharedMatches = remoteCollectionRecords
+      .filter((record) => record.source === 'remote-shared')
+      .filter((record) =>
+        record.name.toLowerCase().includes(query)
+        || record.author.toLowerCase().includes(query),
+      );
 
     return [
       ...localMatches.map((record) => ({ ...record, source: 'local' as const })),
-      ...remoteMatches.map((record) => ({ ...record, source: 'remote' as const })),
-    ];
+      ...remoteUserMatches,
+      ...remoteSharedMatches,
+    ].sort(groupedSort);
   }, [collectionRecords, remoteCollectionRecords, appliedSearchQuery]);
 
   const handleTrayPinClick = () => {
@@ -909,15 +927,27 @@ export const CardPopoverPage = () => {
       return;
     }
 
+    if (!authHydrated) {
+      await hydrateAuthFromSession();
+      setAuthHydrated(true);
+    }
+
     try {
       const authorName = (await OBR.player.getName()).trim();
-      const status = await upsertUnitFromMetadata(
-        liveUnitItem.metadata as Record<string, unknown>,
-        authorName,
-        isFavoriteEnabled,
-      );
+      const status = isConnected()
+        ? await upsertConnectedRemoteUnit(
+          liveUnitItem.metadata as Record<string, unknown>,
+          authorName,
+          isFavoriteEnabled,
+        )
+        : await upsertUnitFromMetadata(
+          liveUnitItem.metadata as Record<string, unknown>,
+          authorName,
+          isFavoriteEnabled,
+        );
       await loadCollectionRecords();
-      await OBR.notification.show(status === 'created' ? 'Unit saved to Collection.' : 'Unit updated in Collection.');
+      const target = isConnected() ? 'online Collection' : 'Collection';
+      await OBR.notification.show(status === 'created' ? `Unit saved to ${target}.` : `Unit updated in ${target}.`);
     } catch (error) {
       LOGGER.log('Collection save failed', error);
       await OBR.notification.show('Could not save this unit to Collection.', 'ERROR');
@@ -1033,10 +1063,17 @@ export const CardPopoverPage = () => {
       return;
     }
 
-    searchSupabaseCollection(query)
-      .then((records) => {
-        setRemoteCollectionRecords(records);
-      })
+    const runSearch = async () => {
+      if (!authHydrated) {
+        await hydrateAuthFromSession();
+        setAuthHydrated(true);
+      }
+
+      const records = await searchSupabaseCollection(query);
+      setRemoteCollectionRecords(records);
+    };
+
+    runSearch()
       .catch(async (error) => {
         LOGGER.log('Supabase collection search failed', error);
         setRemoteCollectionRecords([]);
@@ -1053,7 +1090,7 @@ export const CardPopoverPage = () => {
     try {
       await replaceUnitExtensionMetadata(record.metadata);
       setIsFavoriteEnabled(false);
-      await OBR.notification.show(record.source === 'remote'
+      await OBR.notification.show(record.source !== 'local'
         ? `Imported ${record.name} from online collection.`
         : `Imported ${record.name}.`);
     } catch (error) {
@@ -1063,13 +1100,18 @@ export const CardPopoverPage = () => {
   };
 
   const handleCollectionRecordDelete = async (record: CollectionSearchRecord) => {
-    if (record.source !== 'local') {
-      return;
-    }
-
     try {
-      await deleteUnitCollectionRecord(record.id);
-      await loadCollectionRecords();
+      if (record.source === 'remote-user') {
+        await deleteRemoteCollectionRecord(record.id);
+        setRemoteCollectionRecords((previous) =>
+          previous.filter((entry) => !(entry.source === 'remote-user' && entry.id === record.id)),
+        );
+      } else if (record.source === 'local') {
+        await deleteUnitCollectionRecord(record.id);
+        setCollectionRecords((previous) => previous.filter((entry) => entry.id !== record.id));
+      } else {
+        return;
+      }
       await OBR.notification.show(`Deleted ${record.name} from Collection.`);
     } catch (error) {
       LOGGER.log('Collection record delete failed', error);
@@ -1224,7 +1266,7 @@ export const CardPopoverPage = () => {
                   {visibleCollectionRecords.length === 0 ? (
                     <Message $theme={theme}>No collection records found.</Message>
                   ) : visibleCollectionRecords.map((record) => (
-                    <CollectionRow key={record.id} $theme={theme}>
+                    <CollectionRow key={`${record.source}:${record.id}`} $theme={theme}>
                       <CollectionInfo>
                         <CollectionNameRow $theme={theme}>
                           {record.favorite ? <FavoriteMark>❤</FavoriteMark> : null}
@@ -1235,11 +1277,14 @@ export const CardPopoverPage = () => {
                           <AuthorName $color={getAuthorColorByInitial(record.author)}>
                             {record.author}
                           </AuthorName>
-                          {record.source === 'remote' ? (
-                            <SourceTag $theme={theme} title="Online">
-                              <Cloud size={11} />
-                            </SourceTag>
-                          ) : null}
+                          <SourceTag
+                            $theme={theme}
+                            title={record.source === 'local' ? 'Local' : (record.source === 'remote-user' ? 'My Cloud' : 'Shared')}
+                          >
+                            {record.source === 'local' ? <HardDrive size={11} /> : null}
+                            {record.source === 'remote-user' ? <Cloudy size={11} /> : null}
+                            {record.source === 'remote-shared' ? <Server size={11} /> : null}
+                          </SourceTag>
                         </CollectionAuthorRow>
                       </CollectionInfo>
                       <CollectionActions>
@@ -1253,7 +1298,7 @@ export const CardPopoverPage = () => {
                         >
                           Import
                         </CollectionActionButton>
-                        {record.source === 'local' ? (
+                        {record.source !== 'remote-shared' ? (
                           <CollectionActionButton
                             type="button"
                             $theme={theme}

@@ -7,15 +7,9 @@ import { Regex } from '../helpers/Regex';
 import { useSceneStore } from '../helpers/BSCache';
 import { AddOrReplaceAdjective } from '../helpers/Adjectives';
 import { filterExtensionMetadata, getAllUnitCollectionRecords, type UnitCollectionRecord } from '../helpers/unitCollectionDb';
-import { supabase } from '../supabase/supabaseClient';
+import { findRemoteUnitCollectionByNames, findSharedUnitCollectionByNames } from '../helpers/unitCollectionRemote';
 
 const VIEW_UNIT_CONTEXT_MENU_ID = 'com.battle-system.forge/view-unit';
-
-type SupabaseCollectionRow = {
-    name: string;
-    metadata: Record<string, unknown> | null;
-    is_active: boolean | null;
-};
 
 const normalizeLookupName = (name: string): string => name.trim().toLowerCase();
 
@@ -64,36 +58,6 @@ const getFirstCollectionMatchesByName = async (names: string[]): Promise<Map<str
         return byNormalizedName;
     }
 
-    try {
-        const { data, error } = await supabase
-            .from('bs_forge_creatures')
-            .select('name,metadata,is_active')
-            .eq('is_active', true)
-            .in('name', normalizedNames)
-            .limit(250);
-
-        if (!error && Array.isArray(data)) {
-            const rows = data as SupabaseCollectionRow[];
-            for (const row of rows) {
-                const normalized = normalizeLookupName(String(row.name || ''));
-                if (!normalized || byNormalizedName.has(normalized)) {
-                    continue;
-                }
-
-                const metadata = row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
-                    ? filterExtensionMetadata(row.metadata)
-                    : null;
-                if (!metadata) {
-                    continue;
-                }
-
-                byNormalizedName.set(normalized, metadata);
-            }
-        }
-    } catch (error) {
-        LOGGER.log('Supabase collection lookup failed, falling back to local collection', error);
-    }
-
     const localRecords = await getAllUnitCollectionRecords();
     const localByName = new Map<string, UnitCollectionRecord[]>();
     for (const record of localRecords) {
@@ -112,10 +76,6 @@ const getFirstCollectionMatchesByName = async (names: string[]): Promise<Map<str
 
     for (const name of normalizedNames) {
         const normalized = normalizeLookupName(name);
-        if (byNormalizedName.has(normalized)) {
-            continue;
-        }
-
         const localMatches = localByName.get(normalized);
         const firstLocal = localMatches?.[0];
         if (!firstLocal || !firstLocal.metadata) {
@@ -123,6 +83,30 @@ const getFirstCollectionMatchesByName = async (names: string[]): Promise<Map<str
         }
 
         byNormalizedName.set(normalized, filterExtensionMetadata(firstLocal.metadata));
+    }
+
+    try {
+        const remoteRecords = await findRemoteUnitCollectionByNames(normalizedNames);
+        for (const record of remoteRecords) {
+            const normalized = normalizeLookupName(record.name);
+            if (!normalized || byNormalizedName.has(normalized) || !record.metadata) {
+                continue;
+            }
+
+            byNormalizedName.set(normalized, filterExtensionMetadata(record.metadata));
+        }
+
+        const sharedRecords = await findSharedUnitCollectionByNames(normalizedNames);
+        for (const record of sharedRecords) {
+            const normalized = normalizeLookupName(record.name);
+            if (!normalized || byNormalizedName.has(normalized) || !record.metadata) {
+                continue;
+            }
+
+            byNormalizedName.set(normalized, filterExtensionMetadata(record.metadata));
+        }
+    } catch (error) {
+        LOGGER.log('Remote collection lookup failed, using local collection only', error);
     }
 
     return byNormalizedName;

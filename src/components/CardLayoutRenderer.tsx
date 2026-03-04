@@ -98,14 +98,21 @@ const UnitNameCell = styled(BaseCell)`
   width: 100% !important;
 `;
 
-const UnitNameText = styled.span`
+const UnitNameInput = styled.input<{ $theme: CardLayoutTheme }>`
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: ${props => props.$theme.primary};
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: 22px;
+  font-weight: 700;
   line-height: 1.1;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  line-clamp: 2;
-  overflow: hidden;
+  padding: 0;
+  margin: 0;
+
+  &:focus {
+    outline: none;
+  }
 `;
 
 const Label = styled.div<{
@@ -695,6 +702,27 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
     return 'Unknown';
   }, [unitItem]);
+  const [unitNameDraft, setUnitNameDraft] = useState(unitName);
+
+  useEffect(() => {
+    setUnitNameDraft(unitName);
+  }, [unitName]);
+
+  const saveUnitName = async () => {
+    const trimmed = unitNameDraft.trim();
+    const fallback = unitName.trim() || 'Unknown';
+    const nextName = trimmed || fallback;
+
+    setUnitNameDraft(nextName);
+
+    if (nextName === unitName) {
+      return;
+    }
+
+    await onUpdateMetadata({
+      [UnitConstants.UNIT_NAME]: nextName,
+    });
+  };
 
   const getMetadataKeyForBid = (bid: string): string => `${OwlbearIds.EXTENSIONID}/${bid}`;
 
@@ -1631,7 +1659,25 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     <CardShell $theme={systemTheme} $backgroundUrl={backgroundUrl}>
       <Layer>
         <Row>
-          <UnitNameCell $theme={systemTheme}><UnitNameText>{unitName}</UnitNameText></UnitNameCell>
+          <UnitNameCell $theme={systemTheme}>
+            <UnitNameInput
+              $theme={systemTheme}
+              value={unitNameDraft}
+              onChange={(event) => {
+                setUnitNameDraft(event.target.value);
+              }}
+              onBlur={() => {
+                void saveUnitName();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+              }}
+              aria-label="Unit Name"
+            />
+          </UnitNameCell>
         </Row>
 
         {rows.map((row) => (

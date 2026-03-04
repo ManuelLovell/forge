@@ -4,7 +4,7 @@ import { SystemKeys } from '../components/SystemPage';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import LOGGER from './Logger';
 import { useSceneStore } from './BSCache';
-import { isConnected } from '../auth/authHelpers';
+import { DATA_STORED_IN_ROOM } from './Constants';
 
 interface SystemData {
   theme: {
@@ -32,38 +32,25 @@ export const useSystemData = (): SystemData => {
     cardLayout: [],
     listLayout: [],
     attributes: [],
-    systemName: defaultGameSystem.name,
+    systemName: '',
     importDate: null,
     isLoading: true,
   });
+  const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
+  const cacheReady = useSceneStore((state) => state.cacheReady);
 
   useEffect(() => {
-    try {
-      const connected = isConnected();
-      if (!connected) {
-        setSystemData({
-          theme: {
-            primary: defaultGameSystem.theme_primary,
-            offset: defaultGameSystem.theme_offset,
-            background: defaultGameSystem.theme_background,
-            border: defaultGameSystem.theme_border,
-            background_url: defaultGameSystem.background_url,
-          },
-          cardLayout: defaultGameSystem.card_layout as CardLayoutComponent[],
-          listLayout: defaultGameSystem.list_layout as ListLayoutComponent[],
-          attributes: defaultGameSystem.attributes as SystemAttribute[],
-          systemName: defaultGameSystem.name,
-          importDate: null,
-          isLoading: false,
-        });
-        return;
-      }
+    if (!cacheReady) {
+      return;
+    }
 
-      const theme = sceneMetadata[SystemKeys.CURRENT_THEME] as SystemData['theme'] | undefined;
-      const cardLayout = sceneMetadata[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
-      const listLayout = sceneMetadata[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;
-      const attributes = sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
+    try {
+      const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
+      const theme = storageContainer[SystemKeys.CURRENT_THEME] as SystemData['theme'] | undefined;
+      const cardLayout = storageContainer[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
+      const listLayout = storageContainer[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;
+      const attributes = storageContainer[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
 
       if (!theme || !Array.isArray(cardLayout) || !Array.isArray(listLayout) || !Array.isArray(attributes)) {
         LOGGER.log('System data missing, using defaults');
@@ -85,8 +72,8 @@ export const useSystemData = (): SystemData => {
         return;
       }
 
-      const systemName = sceneMetadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
-      const importDate = sceneMetadata[SystemKeys.IMPORT_DATE] as string || null;
+      const systemName = storageContainer[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
+      const importDate = storageContainer[SystemKeys.IMPORT_DATE] as string || null;
 
       setSystemData({
         theme,
@@ -115,7 +102,7 @@ export const useSystemData = (): SystemData => {
         isLoading: false,
       });
     }
-  }, [sceneMetadata]);
+  }, [cacheReady, roomMetadata, sceneMetadata]);
 
   return systemData;
 };

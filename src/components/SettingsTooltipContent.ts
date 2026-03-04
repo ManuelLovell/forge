@@ -20,6 +20,7 @@ export const SETTINGS_TOOLTIPS = {
   enableRumble: 'Enables Rumble integration for dice rolls.',
   enableBones: 'Enables Bones integration for dice rolls.',
   enableDicePlus: 'Enables Dice+ integration for dice rolls.',
+  enableTextBasedRolls: 'Enables built-in text-based dice rolling handled directly by Forge.',
   enableObrNotification: 'Enables in-app Owlbear notifications for supported roll and system events.',
   showResultsToAll: 'When enabled, notifications are shown to all players instead of only the local user.',
   enableDiscordLogging: 'Sends roll or event logs to a configured Discord webhook.',

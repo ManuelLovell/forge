@@ -5,7 +5,7 @@ import LOGGER from './Logger';
 import { initializeChatLogListener, useChatLogStore } from './ChatLogStore';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from './Constants';
 import { SettingsConstants } from '../interfaces/MetadataKeys';
-import { extractRollTotal, initializeBonesBroadcastResultListener, initializeRumbleBroadcastResultListener, initializeDicePlusResultListener } from './DiceRollIntegration';
+import { extractRollTotal, initializeBonesBroadcastResultListener, initializeRumbleBroadcastResultListener, initializeDicePlusResultListener, initializeTextBasedRollResultListener } from './DiceRollIntegration';
 import { sendDiscordWebhookMessage } from './DiscordWebhook';
 
 const CHATLOG_CHANNEL = `${OwlbearIds.EXTENSIONID}/chatlog`;
@@ -117,6 +117,19 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
                 actionName: result.result.diceNotation,
                 total: result.result.totalValue,
             });
+            publishRollMessage(message);
+        });
+
+        initializeTextBasedRollResultListener((result) => {
+            const detail = result.output.trim();
+            const message = detail.length > 0
+                ? `${result.senderName} rolled ${result.actionName} for ${result.total}. ${detail}`
+                : formatRollMessage({
+                    tokenName: result.senderName,
+                    actionName: result.actionName,
+                    total: result.total,
+                });
+
             publishRollMessage(message);
         });
 

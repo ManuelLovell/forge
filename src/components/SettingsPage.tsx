@@ -159,6 +159,7 @@ export const SettingsPage = () => {
   const [enableRumble, setEnableRumble] = useState(false);
   const [enableBones, setEnableBones] = useState(false);
   const [enableDicePlus, setEnableDicePlus] = useState(false);
+  const [enableTextBasedRolls, setEnableTextBasedRolls] = useState(false);
   const [enableObrNotification, setEnableObrNotification] = useState(false);
   const [showNotificationToAll, setShowNotificationToAll] = useState(false);
   const [enableDiscordLogging, setEnableDiscordLogging] = useState(false);
@@ -267,6 +268,9 @@ export const SettingsPage = () => {
     }
     if (storageContainer[SettingsConstants.ENABLE_DICE_PLUS] !== undefined) {
       setEnableDicePlus(storageContainer[SettingsConstants.ENABLE_DICE_PLUS] as boolean);
+    }
+    if (storageContainer[SettingsConstants.ENABLE_TEXT_BASED_ROLLS] !== undefined) {
+      setEnableTextBasedRolls(storageContainer[SettingsConstants.ENABLE_TEXT_BASED_ROLLS] as boolean);
     }
     if (storageContainer[SettingsConstants.ENABLE_OBR_NOTIFICATION] !== undefined) {
       setEnableObrNotification(storageContainer[SettingsConstants.ENABLE_OBR_NOTIFICATION] as boolean);
@@ -891,6 +895,30 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableTextBasedRolls}>Enable Text-Based Rolls</SettingsTooltip>
+            </ControlLabel>
+            <ToggleControl
+              label="Enable Text-Based Rolls"
+              isOn={enableTextBasedRolls}
+              onChange={async (value) => {
+                setEnableTextBasedRolls(value);
+                await saveData(SettingsConstants.ENABLE_TEXT_BASED_ROLLS, value);
+                if (value) {
+                  setEnableObrNotification(true);
+                  setEnableRumble(false);
+                  setEnableBones(false);
+                  setEnableDicePlus(false);
+                  await saveData(SettingsConstants.ENABLE_OBR_NOTIFICATION, true);
+                  await saveData(SettingsConstants.ENABLE_RUMBLE, false);
+                  await saveData(SettingsConstants.ENABLE_BONES, false);
+                  await saveData(SettingsConstants.ENABLE_DICE_PLUS, false);
+                }
+              }}
+            />
+          </ControlRow>
+
+          <ControlRow theme={theme}>
+            <ControlLabel theme={theme}>
               <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableRumble}>Enable Rumble! Integration</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
@@ -902,8 +930,10 @@ export const SettingsPage = () => {
                 if (value) {
                   setEnableBones(false);
                   setEnableDicePlus(false);
+                  setEnableTextBasedRolls(false);
                   await saveData(SettingsConstants.ENABLE_BONES, false);
                   await saveData(SettingsConstants.ENABLE_DICE_PLUS, false);
+                  await saveData(SettingsConstants.ENABLE_TEXT_BASED_ROLLS, false);
                 }
               }}
             />
@@ -922,8 +952,10 @@ export const SettingsPage = () => {
                 if (value) {
                   setEnableRumble(false);
                   setEnableDicePlus(false);
+                  setEnableTextBasedRolls(false);
                   await saveData(SettingsConstants.ENABLE_RUMBLE, false);
                   await saveData(SettingsConstants.ENABLE_DICE_PLUS, false);
+                  await saveData(SettingsConstants.ENABLE_TEXT_BASED_ROLLS, false);
                 }
               }}
             />
@@ -942,8 +974,10 @@ export const SettingsPage = () => {
                 if (value) {
                   setEnableRumble(false);
                   setEnableBones(false);
+                  setEnableTextBasedRolls(false);
                   await saveData(SettingsConstants.ENABLE_RUMBLE, false);
                   await saveData(SettingsConstants.ENABLE_BONES, false);
+                  await saveData(SettingsConstants.ENABLE_TEXT_BASED_ROLLS, false);
                 }
               }}
             />

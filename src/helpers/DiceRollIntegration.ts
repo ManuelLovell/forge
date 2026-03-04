@@ -1,4 +1,5 @@
 import OBR from '@owlbear-rodeo/sdk';
+import { DiceRoll } from '@dice-roller/rpg-dice-roller';
 import { OwlbearIds } from './Constants';
 import LOGGER from './Logger';
 import { SettingsConstants } from '../interfaces/MetadataKeys';
@@ -29,6 +30,18 @@ export async function sendCentralDiceRoll(
     const enableBones = settings[SettingsConstants.ENABLE_BONES] as boolean || false;
     const enableRumble = settings[SettingsConstants.ENABLE_RUMBLE] as boolean || false;
     const enableDicePlus = settings[SettingsConstants.ENABLE_DICE_PLUS] as boolean || false;
+    const enableTextBasedRolls = settings[SettingsConstants.ENABLE_TEXT_BASED_ROLLS] as boolean || false;
+
+    if (enableTextBasedRolls) {
+        await requestTextBasedRoll({
+            notation: params.notation,
+            actionName: params.actionName,
+            senderName: params.senderName,
+            senderId: params.senderId,
+            senderColor: params.senderColor,
+        });
+        return;
+    }
 
     if (enableDicePlus) {
         // Dice+ roll
@@ -237,6 +250,7 @@ export const BONES_BROADCASTLISTENER = 'bones.broadcast.listener';
 export const BONES_BROADCASTSENDER = 'bones.broadcast.sender';
 export const RUMBLE_BROADCAST_LISTENER = 'FORGE_LISTENER';
 export const RUMBLE_BROADCAST_SENDER = 'FORGE_SENDER';
+export const TEXT_BASED_ROLL_RESULT_CHANNEL = `${OwlbearIds.EXTENSIONID}/text-roll-result`;
 
 export interface RumbleRollBroadcastPayload {
     sender: string;
@@ -248,8 +262,19 @@ export interface RumbleRollBroadcastResult {
     message: string;
 }
 
+export interface TextBasedRollResult {
+    notation: string;
+    actionName: string;
+    senderName: string;
+    senderId: string;
+    senderColor: string;
+    total: number;
+    output: string;
+}
+
 let responseListenerInitialized = false;
 let rumbleResponseListenerInitialized = false;
+let textBasedRollResponseListenerInitialized = false;
 
 export const requestRumbleBroadcastRoll = async (payload: RumbleRollBroadcastPayload): Promise<void> => {
     LOGGER.log('Rumble roll request sent', {
@@ -259,6 +284,59 @@ export const requestRumbleBroadcastRoll = async (payload: RumbleRollBroadcastPay
     });
 
     await OBR.broadcast.sendMessage(RUMBLE_BROADCAST_LISTENER, payload, { destination: 'LOCAL' });
+};
+
+export const requestTextBasedRoll = async (payload: {
+    notation: string;
+    actionName: string;
+    senderName: string;
+    senderId: string;
+    senderColor: string;
+}): Promise<void> => {
+    const roll = new DiceRoll(payload.notation);
+
+    const result: TextBasedRollResult = {
+        notation: payload.notation,
+        actionName: payload.actionName,
+        senderName: payload.senderName,
+        senderId: payload.senderId,
+        senderColor: payload.senderColor,
+        total: roll.total,
+        output: roll.output,
+    };
+
+    LOGGER.log('Text-based roll result generated', result);
+    await OBR.broadcast.sendMessage(TEXT_BASED_ROLL_RESULT_CHANNEL, result, { destination: 'ALL' });
+};
+
+export const initializeTextBasedRollResultListener = (
+    onResult: (result: TextBasedRollResult) => void,
+): void => {
+    if (textBasedRollResponseListenerInitialized) {
+        return;
+    }
+
+    OBR.broadcast.onMessage(TEXT_BASED_ROLL_RESULT_CHANNEL, (event) => {
+        const data = event.data as unknown;
+        if (!data || typeof data !== 'object') {
+            return;
+        }
+
+        const parsed = data as Partial<TextBasedRollResult>;
+        if (
+            typeof parsed.senderName !== 'string'
+            || typeof parsed.actionName !== 'string'
+            || typeof parsed.notation !== 'string'
+            || typeof parsed.total !== 'number'
+            || typeof parsed.output !== 'string'
+        ) {
+            return;
+        }
+
+        onResult(parsed as TextBasedRollResult);
+    });
+
+    textBasedRollResponseListenerInitialized = true;
 };
 
 export const initializeRumbleBroadcastResultListener = (

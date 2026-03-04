@@ -69,6 +69,7 @@ export class SettingsConstants {
   static ENABLE_RUMBLE = `${EXTENSION_ID}/enabrumb`;
   static ENABLE_BONES = `${EXTENSION_ID}/enabbone`;
   static ENABLE_DICE_PLUS = `${EXTENSION_ID}/enabdice`;
+  static ENABLE_TEXT_BASED_ROLLS = `${EXTENSION_ID}/enabtext`;
   static ENABLE_OBR_NOTIFICATION = `${EXTENSION_ID}/obrnotif`;
   static SHOW_NOTIFICATION_TO_ALL = `${EXTENSION_ID}/shownote`;
   static ENABLE_DISCORD_LOGGING = `${EXTENSION_ID}/enabdisc`;

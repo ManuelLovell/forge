@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dice-roller/rpg-dice-roller": "^5.5.1",
     "@emotion/styled": "^11.14.1",
     "@owlbear-rodeo/sdk": "^3.1.0",
     "@supabase/supabase-js": "^2.91.1",

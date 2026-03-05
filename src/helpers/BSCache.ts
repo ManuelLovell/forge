@@ -1,5 +1,24 @@
 import type { Player, Item } from '@owlbear-rodeo/sdk';
 import { create } from 'zustand';
+import type { CardLayoutComponent, ListLayoutComponent, SystemAttribute } from '../interfaces/SystemResponse';
+
+export interface RuntimeSystemTheme {
+    primary: string;
+    offset: string;
+    background: string;
+    border: string;
+    background_url: string;
+}
+
+export interface RuntimeSystemData {
+    theme: RuntimeSystemTheme;
+    cardLayout: CardLayoutComponent[];
+    listLayout: ListLayoutComponent[];
+    attributes: SystemAttribute[];
+    systemName: string;
+    importDate: string | null;
+    snapshotPublicId: string | null;
+}
 
 interface BSCache
 {
@@ -29,6 +48,9 @@ interface BSCache
 
     partyData: Player[];
     setPartyData: (party: Player[]) => void;
+
+    systemData: RuntimeSystemData | null;
+    setSystemData: (data: RuntimeSystemData | null) => void;
 }
 
 export const useSceneStore = create<BSCache>((set) => ({
@@ -58,6 +80,9 @@ export const useSceneStore = create<BSCache>((set) => ({
 
     partyData: [],
     setPartyData: (party) => set({ partyData: party }),
+
+    systemData: null,
+    setSystemData: (data) => set({ systemData: data }),
 }));
 
 export const sceneStore = useSceneStore;

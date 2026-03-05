@@ -8,6 +8,7 @@ import { EXTENSION_ID, MOCK_BIDS } from '../helpers/MockData';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
 import { SettingsConstants, UnitConstants, getPerPlayerSettingKey } from '../interfaces/MetadataKeys';
 import type { SystemAttribute } from '../interfaces/SystemResponse';
+import { supabase } from '../supabase/supabaseClient';
 
 type PartyHudOrientation = 'bottom' | 'left' | 'top' | 'right';
 
@@ -26,8 +27,7 @@ type ThemeData = {
 };
 
 const SYSTEM_KEYS = {
-  CURRENT_THEME: `${OwlbearIds.EXTENSIONID}/CurrentTheme`,
-  CURRENT_ATTR: `${OwlbearIds.EXTENSIONID}/CurrentAttr`,
+  SNAPSHOT_PUBLIC_ID: `${OwlbearIds.EXTENSIONID}/SnapshotPublicId`,
 } as const;
 
 const DEFAULT_THEME: ThemeData = {
@@ -394,6 +394,8 @@ const PartyHudPopoverPage = () => {
   }));
   const [currentPlayerId, setCurrentPlayerId] = useState<string>('');
   const [bossTokenCount, setBossTokenCount] = useState(0);
+  const [snapshotTheme, setSnapshotTheme] = useState<ThemeData | null>(null);
+  const [snapshotAttributes, setSnapshotAttributes] = useState<SystemAttribute[] | null>(null);
 
   const countBossTokens = (items: Item[]): number => {
     return items.filter((item) => item.metadata?.[UnitConstants.BOSS_MODE] === true).length;
@@ -401,6 +403,74 @@ const PartyHudPopoverPage = () => {
 
   useEffect(() => {
     let mounted = true;
+
+    const loadSnapshotData = async (roomMetadata: Record<string, unknown>) => {
+      const snapshotId = roomMetadata[SYSTEM_KEYS.SNAPSHOT_PUBLIC_ID];
+      if (typeof snapshotId !== 'string' || snapshotId.trim().length === 0) {
+        if (mounted) {
+          setSnapshotTheme(null);
+          setSnapshotAttributes(null);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase.rpc('bs_forge_get_snapshot_for_room', {
+        p_snapshot_public_id: snapshotId,
+      });
+
+      if (error) {
+        if (mounted) {
+          setSnapshotTheme(null);
+          setSnapshotAttributes(null);
+        }
+        return;
+      }
+
+      const snapshot = Array.isArray(data) ? data[0] : data;
+      if (!snapshot || typeof snapshot !== 'object') {
+        if (mounted) {
+          setSnapshotTheme(null);
+          setSnapshotAttributes(null);
+        }
+        return;
+      }
+
+      const parsed = snapshot as Partial<{
+        theme_primary: string;
+        theme_offset: string;
+        theme_background: string;
+        theme_border: string;
+        background_url: string;
+        attributes: unknown;
+      }>;
+
+      const attrArray = parseSystemArrayField<SystemAttribute>(parsed.attributes);
+
+      if (
+        typeof parsed.theme_primary !== 'string'
+        || typeof parsed.theme_offset !== 'string'
+        || typeof parsed.theme_background !== 'string'
+        || typeof parsed.theme_border !== 'string'
+        || !Array.isArray(attrArray)
+      ) {
+        if (mounted) {
+          setSnapshotTheme(null);
+          setSnapshotAttributes(null);
+        }
+        return;
+      }
+
+      if (mounted) {
+        setSnapshotTheme({
+          primary: parsed.theme_primary,
+          offset: parsed.theme_offset,
+          background: parsed.theme_background,
+          border: parsed.theme_border,
+          background_url: typeof parsed.background_url === 'string' ? parsed.background_url : '',
+        });
+        setSnapshotAttributes(attrArray);
+      }
+    };
 
     const initialize = async () => {
       const [sceneMetadata, roomMetadata, items, playerId] = await Promise.all([
@@ -417,6 +487,7 @@ const PartyHudPopoverPage = () => {
       setCache({ sceneMetadata, roomMetadata, items });
       setCurrentPlayerId(playerId);
       setBossTokenCount(countBossTokens(items));
+      await loadSnapshotData(roomMetadata);
       setReady(true);
     };
 
@@ -430,6 +501,7 @@ const PartyHudPopoverPage = () => {
     const unsubscribeRoomMetadata = OBR.room.onMetadataChange((roomMetadata) => {
       if (!mounted) return;
       setCache((prev) => ({ ...prev, roomMetadata }));
+      void loadSnapshotData(roomMetadata);
     });
 
     const unsubscribeItems = OBR.scene.items.onChange((items) => {
@@ -463,18 +535,20 @@ const PartyHudPopoverPage = () => {
   }, []);
 
   const theme = useMemo(() => {
-    const storedTheme = cache.sceneMetadata[SYSTEM_KEYS.CURRENT_THEME] as ThemeData | undefined;
-    if (!storedTheme?.primary || !storedTheme?.offset || !storedTheme?.background || !storedTheme?.border) {
-      return DEFAULT_THEME;
+    if (snapshotTheme) {
+      return snapshotTheme;
     }
 
-    return storedTheme;
-  }, [cache.sceneMetadata]);
+    return DEFAULT_THEME;
+  }, [snapshotTheme]);
 
   const attributes = useMemo(() => {
-    const parsed = parseSystemArrayField<SystemAttribute>(cache.sceneMetadata[SYSTEM_KEYS.CURRENT_ATTR]);
-    return parsed || (defaultGameSystem.attributes as SystemAttribute[]);
-  }, [cache.sceneMetadata]);
+    if (snapshotAttributes) {
+      return snapshotAttributes;
+    }
+
+    return defaultGameSystem.attributes as SystemAttribute[];
+  }, [snapshotAttributes]);
 
   const storage = useMemo(() => getStorageValue(cache), [cache]);
 

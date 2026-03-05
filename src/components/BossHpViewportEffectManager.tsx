@@ -6,7 +6,6 @@ import { EXTENSION_ID, MOCK_BIDS } from '../helpers/MockData';
 import LOGGER from '../helpers/Logger';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { SystemAttribute } from '../interfaces/SystemResponse';
-import { SystemKeys } from './SystemPage';
 import { BOSS_HP_VIEWPORT_EFFECT } from '../assets/bossHpViewportEffect';
 
 const BOSS_HP_EFFECT_FLAG = `${EXTENSION_ID}/boss-hp-effect`;
@@ -98,6 +97,7 @@ export const BossHpViewportEffectManager = () => {
   const localItems = useSceneStore((state) => state.localItems);
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
+  const runtimeSystemData = useSceneStore((state) => state.systemData);
 
   useEffect(() => {
     if (!cacheReady || !sceneReady) {
@@ -108,7 +108,7 @@ export const BossHpViewportEffectManager = () => {
 
     const syncBossBars = async () => {
       const storage = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
-      const attributes = (sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined) || [];
+      const attributes = runtimeSystemData?.attributes || [];
       const { currentHpBid, maxHpBid } = getConfiguredHpBidKeys(storage, attributes);
 
       const existingEffects = localItems.filter((item) => {
@@ -237,7 +237,7 @@ export const BossHpViewportEffectManager = () => {
     return () => {
       cancelled = true;
     };
-  }, [cacheReady, sceneReady, items, localItems, roomMetadata, sceneMetadata]);
+  }, [cacheReady, sceneReady, items, localItems, roomMetadata, sceneMetadata, runtimeSystemData]);
 
   return null;
 };

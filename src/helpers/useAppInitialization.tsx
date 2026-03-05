@@ -1,18 +1,28 @@
 import { useEffect, useState } from 'react';
-import OBR from '@owlbear-rodeo/sdk';
 import { useForgeTheme } from './ThemeContext';
-import { useSceneStore } from './BSCache';
+import { RuntimeSystemData, RuntimeSystemTheme, useSceneStore } from './BSCache';
 import { SystemKeys } from '../components/SystemPage';
 import { SystemAttribute, CardLayoutComponent, ListLayoutComponent } from '../interfaces/SystemResponse';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import LOGGER from './Logger';
+import { supabase } from '../supabase/supabaseClient';
 
-interface ThemeData {
-  primary: string;
-  offset: string;
-  background: string;
-  border: string;
+type ThemeData = RuntimeSystemTheme;
+
+interface SnapshotRoomResponse {
+  snapshot_public_id: string;
+  source_share_id: string;
+  system_name: string;
   background_url: string;
+  theme_primary: string;
+  theme_offset: string;
+  theme_background: string;
+  theme_border: string;
+  card_layout: unknown;
+  list_layout: unknown;
+  attributes: unknown;
+  imported_at: string;
+  updated_at: string;
 }
 
 /**
@@ -27,35 +37,47 @@ interface ThemeData {
 export const useAppInitialization = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const { updateThemeFromSystem } = useForgeTheme();
-  const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
+  const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const cacheReady = useSceneStore((state) => state.cacheReady);
+  const runtimeSystemData = useSceneStore((state) => state.systemData);
+  const setRuntimeSystemData = useSceneStore((state) => state.setSystemData);
+
+  const buildDefaultRuntimeSystemData = (): RuntimeSystemData => ({
+    theme: {
+      primary: defaultGameSystem.theme_primary,
+      offset: defaultGameSystem.theme_offset,
+      background: defaultGameSystem.theme_background,
+      border: defaultGameSystem.theme_border,
+      background_url: defaultGameSystem.background_url,
+    },
+    cardLayout: defaultGameSystem.card_layout as CardLayoutComponent[],
+    listLayout: defaultGameSystem.list_layout as ListLayoutComponent[],
+    attributes: defaultGameSystem.attributes as SystemAttribute[],
+    systemName: defaultGameSystem.name,
+    importDate: null,
+    snapshotPublicId: null,
+  });
 
   useEffect(() => {
-    if (!cacheReady) {
-      return;
+    if (!cacheReady && isInitialized) {
+      setIsInitialized(false);
+      setRuntimeSystemData(null);
     }
+  }, [cacheReady, isInitialized, setRuntimeSystemData]);
 
-    const themeMeta = sceneMetadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
-
-    if (!themeMeta?.primary || !themeMeta?.offset || !themeMeta?.background || !themeMeta?.border) {
-      updateThemeFromSystem(
-        defaultGameSystem.theme_primary,
-        defaultGameSystem.theme_offset,
-        defaultGameSystem.theme_background,
-        defaultGameSystem.theme_border,
-        defaultGameSystem.background_url
-      );
+  useEffect(() => {
+    if (!cacheReady || !runtimeSystemData) {
       return;
     }
 
     updateThemeFromSystem(
-      themeMeta.primary,
-      themeMeta.offset,
-      themeMeta.background,
-      themeMeta.border,
-      themeMeta.background_url
+      runtimeSystemData.theme.primary,
+      runtimeSystemData.theme.offset,
+      runtimeSystemData.theme.background,
+      runtimeSystemData.theme.border,
+      runtimeSystemData.theme.background_url,
     );
-  }, [cacheReady, sceneMetadata, updateThemeFromSystem]);
+  }, [cacheReady, runtimeSystemData, updateThemeFromSystem]);
 
   useEffect(() => {
     // Early return if already initialized
@@ -91,28 +113,85 @@ export const useAppInitialization = () => {
     };
 
     const loadSystemDataAndTheme = async () => {
-      try {
-        const themeMeta = sceneMetadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
-        const cardMeta = sceneMetadata[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
-        const listMeta = sceneMetadata[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;
-        const attrMeta = sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
-
-        // If any key is missing or invalid, initialize with default system
-        if (!themeMeta || !Array.isArray(cardMeta) || !Array.isArray(listMeta) || !Array.isArray(attrMeta)) {
-          LOGGER.log('System data not found, initializing with defaults');
-          await initializeDefaultSystem();
-          return;
+      const parseSnapshotArrayField = <T,>(value: unknown, fieldName: string): T[] => {
+        if (Array.isArray(value)) {
+          return value as T[];
         }
 
-        // Apply existing theme
-        LOGGER.log('Loading existing system theme:', themeMeta);
-        updateThemeFromSystem(
-          themeMeta.primary,
-          themeMeta.offset,
-          themeMeta.background,
-          themeMeta.border,
-          themeMeta.background_url
-        );
+        if (typeof value === 'string') {
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(value);
+          } catch {
+            throw new Error(`Snapshot ${fieldName} is not valid JSON`);
+          }
+
+          if (!Array.isArray(parsed)) {
+            throw new Error(`Snapshot ${fieldName} is not a JSON array`);
+          }
+
+          return parsed as T[];
+        }
+
+        throw new Error(`Snapshot ${fieldName} has invalid type`);
+      };
+
+      const hydrateRuntimeFromSnapshot = async (snapshotPublicId: string): Promise<boolean> => {
+        const { data, error } = await supabase.rpc('bs_forge_get_snapshot_for_room', {
+          p_snapshot_public_id: snapshotPublicId,
+        });
+
+        if (error) {
+          LOGGER.error('Failed to load room snapshot:', error);
+          return false;
+        }
+
+        const snapshotData = (Array.isArray(data) ? data[0] : data) as SnapshotRoomResponse | null;
+        if (!snapshotData || typeof snapshotData.snapshot_public_id !== 'string') {
+          LOGGER.warn('Room snapshot reference was set, but no snapshot record was returned');
+          return false;
+        }
+
+        const cardLayout = parseSnapshotArrayField<CardLayoutComponent>(snapshotData.card_layout, 'card_layout');
+        const listLayout = parseSnapshotArrayField<ListLayoutComponent>(snapshotData.list_layout, 'list_layout');
+        const attributes = parseSnapshotArrayField<SystemAttribute>(snapshotData.attributes, 'attributes');
+
+        const snapshotTheme: ThemeData = {
+          primary: snapshotData.theme_primary,
+          offset: snapshotData.theme_offset,
+          background: snapshotData.theme_background,
+          border: snapshotData.theme_border,
+          background_url: snapshotData.background_url,
+        };
+
+        setRuntimeSystemData({
+          theme: snapshotTheme,
+          cardLayout,
+          listLayout,
+          attributes,
+          systemName: snapshotData.system_name,
+          importDate: snapshotData.imported_at,
+          snapshotPublicId: snapshotData.snapshot_public_id,
+        });
+
+        LOGGER.log('System data hydrated from room snapshot', {
+          snapshotPublicId: snapshotData.snapshot_public_id,
+          systemName: snapshotData.system_name,
+        });
+
+        return true;
+      };
+
+      try {
+        const roomSnapshotId = roomMetadata[SystemKeys.SNAPSHOT_PUBLIC_ID];
+        if (typeof roomSnapshotId === 'string' && roomSnapshotId.trim().length > 0) {
+          const loadedFromSnapshot = await hydrateRuntimeFromSnapshot(roomSnapshotId);
+          if (loadedFromSnapshot) {
+            return;
+          }
+        }
+        LOGGER.log('Room snapshot reference missing or unavailable, initializing defaults');
+        await initializeDefaultSystem();
 
       } catch (error) {
         LOGGER.error('Error loading system data:', error);
@@ -121,34 +200,9 @@ export const useAppInitialization = () => {
     };
 
     const initializeDefaultSystem = async () => {
-      const defaultTheme: ThemeData = {
-        primary: defaultGameSystem.theme_primary,
-        offset: defaultGameSystem.theme_offset,
-        background: defaultGameSystem.theme_background,
-        border: defaultGameSystem.theme_border,
-        background_url: defaultGameSystem.background_url,
-      };
-
-      // Store default system in OBR
-      await OBR.scene.setMetadata({
-        [SystemKeys.CURRENT_THEME]: defaultTheme,
-        [SystemKeys.CURRENT_CARD]: defaultGameSystem.card_layout,
-        [SystemKeys.CURRENT_LIST]: defaultGameSystem.list_layout,
-        [SystemKeys.CURRENT_ATTR]: defaultGameSystem.attributes,
-        [SystemKeys.SYSTEM_NAME]: defaultGameSystem.name,
-        [SystemKeys.IMPORT_DATE]: null,
-      });
-
+      const defaultRuntimeData = buildDefaultRuntimeSystemData();
+      setRuntimeSystemData(defaultRuntimeData);
       LOGGER.log('Default system initialized');
-
-      // Apply default theme
-      updateThemeFromSystem(
-        defaultTheme.primary,
-        defaultTheme.offset,
-        defaultTheme.background,
-        defaultTheme.border,
-        defaultTheme.background_url
-      );
     };
 
     initializeApp();
@@ -157,7 +211,117 @@ export const useAppInitialization = () => {
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cacheReady, isInitialized]);
+  }, [
+    cacheReady,
+    isInitialized,
+    roomMetadata,
+    setRuntimeSystemData,
+    updateThemeFromSystem,
+  ]);
+
+  useEffect(() => {
+    if (!cacheReady || !isInitialized) {
+      return;
+    }
+
+    const parseSnapshotArrayField = <T,>(value: unknown): T[] | null => {
+      if (Array.isArray(value)) {
+        return value as T[];
+      }
+
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed as T[] : null;
+        } catch {
+          return null;
+        }
+      }
+
+      return null;
+    };
+
+    const roomSnapshotValue = roomMetadata[SystemKeys.SNAPSHOT_PUBLIC_ID];
+    const roomSnapshotId = typeof roomSnapshotValue === 'string' && roomSnapshotValue.trim().length > 0
+      ? roomSnapshotValue.trim()
+      : null;
+
+    const currentSnapshotId = runtimeSystemData?.snapshotPublicId ?? null;
+    if (roomSnapshotId === currentSnapshotId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncSnapshotChange = async () => {
+      if (!roomSnapshotId) {
+        if (!cancelled) {
+          setRuntimeSystemData(buildDefaultRuntimeSystemData());
+          LOGGER.log('Room snapshot reference cleared, reverted runtime system to defaults');
+        }
+        return;
+      }
+
+      const { data, error } = await supabase.rpc('bs_forge_get_snapshot_for_room', {
+        p_snapshot_public_id: roomSnapshotId,
+      });
+
+      if (error) {
+        LOGGER.error('Failed to refresh system from room snapshot change:', error);
+        return;
+      }
+
+      const snapshotData = (Array.isArray(data) ? data[0] : data) as SnapshotRoomResponse | null;
+      if (!snapshotData || typeof snapshotData.snapshot_public_id !== 'string') {
+        LOGGER.warn('Room snapshot reference changed, but snapshot record was not found');
+        return;
+      }
+
+      const cardLayout = parseSnapshotArrayField<CardLayoutComponent>(snapshotData.card_layout);
+      const listLayout = parseSnapshotArrayField<ListLayoutComponent>(snapshotData.list_layout);
+      const attributes = parseSnapshotArrayField<SystemAttribute>(snapshotData.attributes);
+
+      if (!cardLayout || !listLayout || !attributes) {
+        LOGGER.warn('Room snapshot refresh returned invalid payload arrays');
+        return;
+      }
+
+      if (!cancelled) {
+        setRuntimeSystemData({
+          theme: {
+            primary: snapshotData.theme_primary,
+            offset: snapshotData.theme_offset,
+            background: snapshotData.theme_background,
+            border: snapshotData.theme_border,
+            background_url: snapshotData.background_url,
+          },
+          cardLayout,
+          listLayout,
+          attributes,
+          systemName: snapshotData.system_name,
+          importDate: snapshotData.imported_at,
+          snapshotPublicId: snapshotData.snapshot_public_id,
+        });
+
+        LOGGER.log('Runtime system refreshed from room snapshot change', {
+          snapshotPublicId: snapshotData.snapshot_public_id,
+          systemName: snapshotData.system_name,
+        });
+      }
+    };
+
+    void syncSnapshotChange();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    cacheReady,
+    isInitialized,
+    roomMetadata,
+    runtimeSystemData,
+    setRuntimeSystemData,
+  ]);
 
   return { isInitialized };
 };

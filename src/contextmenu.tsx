@@ -9,6 +9,7 @@ import { DATA_STORED_IN_ROOM, OwlbearIds } from './helpers/Constants';
 import { rgbaFromHex } from './helpers/ThemeConstants';
 import { MOCK_BIDS } from './helpers/MockData';
 import { SettingsConstants } from './interfaces/MetadataKeys';
+import { supabase } from './supabase/supabaseClient';
 import './styles/sub.css';
 
 type ThemeData = {
@@ -25,7 +26,7 @@ type CacheState = {
 };
 
 const SYSTEM_KEYS = {
-    CURRENT_THEME: `${OwlbearIds.EXTENSIONID}/CurrentTheme`,
+    SNAPSHOT_PUBLIC_ID: `${OwlbearIds.EXTENSIONID}/SnapshotPublicId`,
 } as const;
 
 const DEFAULT_THEME: ThemeData = {
@@ -121,6 +122,7 @@ const getMetadataNumericValue = (item: Item | null, key: string): string => {
 
 const ContextMenuHpEditor = () => {
     const [cache, setCache] = useState<CacheState>({ sceneMetadata: {}, roomMetadata: {} });
+    const [snapshotTheme, setSnapshotTheme] = useState<ThemeData | null>(null);
     const [selectedItemId, setSelectedItemId] = useState<string>('');
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
     const [currentHp, setCurrentHp] = useState('');
@@ -129,13 +131,12 @@ const ContextMenuHpEditor = () => {
     const storage = useMemo(() => getStorageValue(cache), [cache]);
 
     const theme = useMemo(() => {
-        const storedTheme = cache.sceneMetadata[SYSTEM_KEYS.CURRENT_THEME] as ThemeData | undefined;
-        if (!storedTheme?.primary || !storedTheme?.offset || !storedTheme?.background || !storedTheme?.border) {
-            return DEFAULT_THEME;
+        if (snapshotTheme) {
+            return snapshotTheme;
         }
 
-        return storedTheme;
-    }, [cache.sceneMetadata]);
+        return DEFAULT_THEME;
+    }, [snapshotTheme]);
 
     const currentHpBid = useMemo(() => {
         const fromStorage = storage[SettingsConstants.HP_CURRENT_BID];
@@ -152,6 +153,65 @@ const ContextMenuHpEditor = () => {
 
     useEffect(() => {
         let mounted = true;
+
+        const loadSnapshotTheme = async (roomMetadata: Record<string, unknown>) => {
+            const snapshotId = roomMetadata[SYSTEM_KEYS.SNAPSHOT_PUBLIC_ID];
+            if (typeof snapshotId !== 'string' || snapshotId.trim().length === 0) {
+                if (mounted) {
+                    setSnapshotTheme(null);
+                }
+                return;
+            }
+
+            const { data, error } = await supabase.rpc('bs_forge_get_snapshot_for_room', {
+                p_snapshot_public_id: snapshotId,
+            });
+
+            if (error) {
+                if (mounted) {
+                    setSnapshotTheme(null);
+                }
+                return;
+            }
+
+            const snapshot = Array.isArray(data) ? data[0] : data;
+            if (!snapshot || typeof snapshot !== 'object') {
+                if (mounted) {
+                    setSnapshotTheme(null);
+                }
+                return;
+            }
+
+            const parsed = snapshot as Partial<{
+                theme_primary: string;
+                theme_offset: string;
+                theme_background: string;
+                theme_border: string;
+                background_url: string;
+            }>;
+
+            if (
+                typeof parsed.theme_primary !== 'string'
+                || typeof parsed.theme_offset !== 'string'
+                || typeof parsed.theme_background !== 'string'
+                || typeof parsed.theme_border !== 'string'
+            ) {
+                if (mounted) {
+                    setSnapshotTheme(null);
+                }
+                return;
+            }
+
+            if (mounted) {
+                setSnapshotTheme({
+                    primary: parsed.theme_primary,
+                    offset: parsed.theme_offset,
+                    background: parsed.theme_background,
+                    border: parsed.theme_border,
+                    background_url: typeof parsed.background_url === 'string' ? parsed.background_url : '',
+                });
+            }
+        };
 
         const setSelection = async (selection: string[] | undefined) => {
             const nextId = selection?.[0] || '';
@@ -185,6 +245,7 @@ const ContextMenuHpEditor = () => {
             }
 
             setCache({ sceneMetadata, roomMetadata });
+            await loadSnapshotTheme(roomMetadata);
             await setSelection(selection);
         };
 
@@ -198,6 +259,7 @@ const ContextMenuHpEditor = () => {
         const unsubscribeRoomMetadata = OBR.room.onMetadataChange((roomMetadata) => {
             if (!mounted) return;
             setCache((prev) => ({ ...prev, roomMetadata }));
+            void loadSnapshotTheme(roomMetadata);
         });
 
         const unsubscribeItems = OBR.scene.items.onChange((items) => {

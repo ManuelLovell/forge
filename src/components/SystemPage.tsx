@@ -3,9 +3,9 @@ import { motion } from 'framer-motion';
 import styled from 'styled-components';
 import OBR from '@owlbear-rodeo/sdk';
 import { supabase } from '../supabase/supabaseClient';
-import { SystemResponse, SystemAttribute, CardLayoutComponent, ListLayoutComponent } from '../interfaces/SystemResponse';
+import { SystemAttribute, CardLayoutComponent, ListLayoutComponent } from '../interfaces/SystemResponse';
 import { useForgeTheme } from '../helpers/ThemeContext';
-import { useSceneStore } from '../helpers/BSCache';
+import { RuntimeSystemData, useSceneStore } from '../helpers/BSCache';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { PageContainer, PageTitle, Card, Button, Input } from './SharedStyledComponents';
 import { PopupModal } from './PopupModal';
@@ -29,13 +29,26 @@ const BACKUP_KEY_PREFIX = 'com.battle-system.forge';
 
 // Storage keys for system data
 export const SystemKeys = {
-  CURRENT_THEME: `${EXTENSION_ID}/CurrentTheme`,
-  CURRENT_CARD: `${EXTENSION_ID}/CurrentCard`,
-  CURRENT_LIST: `${EXTENSION_ID}/CurrentList`,
-  CURRENT_ATTR: `${EXTENSION_ID}/CurrentAttr`,
   SYSTEM_NAME: `${EXTENSION_ID}/SystemName`,
   IMPORT_DATE: `${EXTENSION_ID}/ImportDate`,
+  SNAPSHOT_PUBLIC_ID: `${EXTENSION_ID}/SnapshotPublicId`,
 } as const;
+
+interface SnapshotSystemRecord {
+  snapshot_public_id: string;
+  source_share_id: string;
+  system_name: string;
+  background_url: string;
+  theme_primary: string;
+  theme_offset: string;
+  theme_background: string;
+  theme_border: string;
+  card_layout: unknown;
+  list_layout: unknown;
+  attributes: unknown;
+  imported_at: string;
+  updated_at: string;
+}
 
 interface ThemeData {
   primary: string;
@@ -86,29 +99,6 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
     return error.message;
   }
   return fallback;
-};
-
-const parseImportedArrayField = <T,>(value: T[] | string, fieldName: string): T[] => {
-  if (Array.isArray(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(value);
-    } catch {
-      throw new Error(`Imported ${fieldName} is not valid JSON`);
-    }
-
-    if (!Array.isArray(parsed)) {
-      throw new Error(`Imported ${fieldName} is not a JSON array`);
-    }
-
-    return parsed as T[];
-  }
-
-  throw new Error(`Imported ${fieldName} has invalid type`);
 };
 
 const InputGroup = styled.div`
@@ -323,6 +313,9 @@ const pageVariants = {
 export const SystemPage = () => {
   const { theme, updateThemeFromSystem } = useForgeTheme();
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
+  const roomMetadata = useSceneStore((state) => state.roomMetadata);
+  const runtimeSystemData = useSceneStore((state) => state.systemData);
+  const setRuntimeSystemData = useSceneStore((state) => state.setSystemData);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isConnected());
 
   const [shareId, setShareId] = useState('');
@@ -351,13 +344,13 @@ export const SystemPage = () => {
     setIsAuthenticated(isConnected());
     loadCurrentSystemFromCache();
     loadBackups();
-  }, [sceneMetadata]);
+  }, [sceneMetadata, roomMetadata, runtimeSystemData]);
 
   // Load current system info from cache and backups on mount
   useEffect(() => {
     loadCurrentSystemFromCache();
     loadBackups();
-  }, [sceneMetadata]);
+  }, [sceneMetadata, roomMetadata, runtimeSystemData]);
 
   const loadCurrentSystemFromCache = () => {
     try {
@@ -381,21 +374,40 @@ export const SystemPage = () => {
         return;
       }
 
-      const themeMeta = sceneMetadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
-      const attrMeta = sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
-      const systemName = sceneMetadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
-      const importDate = sceneMetadata[SystemKeys.IMPORT_DATE] as string || null;
+      if (runtimeSystemData) {
+        const configuredCurrentHpBid = sceneMetadata[SettingsConstants.HP_CURRENT_BID] as string | undefined;
+        const configuredMaxHpBid = sceneMetadata[SettingsConstants.HP_MAX_BID] as string | undefined;
+        const configuredBuffVisualPreset = sceneMetadata[SettingsConstants.BUFF_VISUAL_PRESET];
+        const configuredDebuffVisualPreset = sceneMetadata[SettingsConstants.DEBUFF_VISUAL_PRESET];
+
+        setCurrentSystemName(runtimeSystemData.systemName);
+        setCurrentImportDate(runtimeSystemData.importDate);
+        setCurrentTheme(runtimeSystemData.theme);
+        setSystemAttributes(runtimeSystemData.attributes);
+        setHpCurrentBid(configuredCurrentHpBid || '');
+        setHpMaxBid(configuredMaxHpBid || '');
+        setBuffVisualPreset(isBuffVisualPreset(configuredBuffVisualPreset) ? configuredBuffVisualPreset : DEFAULT_BUFF_VISUAL_PRESET);
+        setDebuffVisualPreset(isDebuffVisualPreset(configuredDebuffVisualPreset) ? configuredDebuffVisualPreset : DEFAULT_DEBUFF_VISUAL_PRESET);
+        return;
+      }
+
+      const roomSystemName = roomMetadata[SystemKeys.SYSTEM_NAME] as string | undefined;
+      const roomImportDate = roomMetadata[SystemKeys.IMPORT_DATE] as string | undefined;
       const configuredCurrentHpBid = sceneMetadata[SettingsConstants.HP_CURRENT_BID] as string | undefined;
       const configuredMaxHpBid = sceneMetadata[SettingsConstants.HP_MAX_BID] as string | undefined;
       const configuredBuffVisualPreset = sceneMetadata[SettingsConstants.BUFF_VISUAL_PRESET];
       const configuredDebuffVisualPreset = sceneMetadata[SettingsConstants.DEBUFF_VISUAL_PRESET];
 
-      const attributes = Array.isArray(attrMeta) ? attrMeta : [];
-
-      setCurrentSystemName(systemName);
-      setCurrentImportDate(importDate);
-      setCurrentTheme(themeMeta || null);
-      setSystemAttributes(attributes);
+      setCurrentSystemName(roomSystemName || defaultGameSystem.name);
+      setCurrentImportDate(roomImportDate || null);
+      setCurrentTheme({
+        primary: defaultGameSystem.theme_primary,
+        offset: defaultGameSystem.theme_offset,
+        background: defaultGameSystem.theme_background,
+        border: defaultGameSystem.theme_border,
+        background_url: defaultGameSystem.background_url,
+      });
+      setSystemAttributes(defaultGameSystem.attributes as SystemAttribute[]);
       setHpCurrentBid(configuredCurrentHpBid || '');
       setHpMaxBid(configuredMaxHpBid || '');
       setBuffVisualPreset(isBuffVisualPreset(configuredBuffVisualPreset) ? configuredBuffVisualPreset : DEFAULT_BUFF_VISUAL_PRESET);
@@ -412,6 +424,29 @@ export const SystemPage = () => {
       return;
     }
     await OBR.scene.setMetadata({ [key]: value });
+  };
+
+  const parseSnapshotArrayField = <T,>(value: unknown, fieldName: string): T[] => {
+    if (Array.isArray(value)) {
+      return value as T[];
+    }
+
+    if (typeof value === 'string') {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(value);
+      } catch {
+        throw new Error(`Imported ${fieldName} is not valid JSON`);
+      }
+
+      if (!Array.isArray(parsed)) {
+        throw new Error(`Imported ${fieldName} is not a JSON array`);
+      }
+
+      return parsed as T[];
+    }
+
+    throw new Error(`Imported ${fieldName} has invalid type`);
   };
 
   const numericAttributes = systemAttributes.filter((attribute) => attribute.attr_type === 'numb');
@@ -442,28 +477,24 @@ export const SystemPage = () => {
 
   const createBackup = async (_systemName: string) => {
     try {
-      const themeMeta = sceneMetadata[SystemKeys.CURRENT_THEME] as ThemeData | undefined;
-      const cardMeta = sceneMetadata[SystemKeys.CURRENT_CARD] as CardLayoutComponent[] | undefined;
-      const listMeta = sceneMetadata[SystemKeys.CURRENT_LIST] as ListLayoutComponent[] | undefined;
-      const attrMeta = sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined;
-      const currentName = sceneMetadata[SystemKeys.SYSTEM_NAME] as string || defaultGameSystem.name;
-
-      if (!themeMeta || !Array.isArray(cardMeta) || !Array.isArray(listMeta) || !Array.isArray(attrMeta)) {
-        LOGGER.warn('Cannot create backup: system data incomplete');
+      if (!runtimeSystemData) {
+        LOGGER.warn('Cannot create backup: runtime system data is unavailable');
         return;
       }
+
+      const currentName = runtimeSystemData.systemName || defaultGameSystem.name;
 
       const backup: SystemBackup = {
         name: currentName,
         backupDate: new Date().toISOString(),
-        theme_primary: themeMeta.primary,
-        theme_offset: themeMeta.offset,
-        theme_background: themeMeta.background,
-        theme_border: themeMeta.border,
-        background_url: themeMeta.background_url,
-        card_layout: cardMeta,
-        list_layout: listMeta,
-        attributes: attrMeta,
+        theme_primary: runtimeSystemData.theme.primary,
+        theme_offset: runtimeSystemData.theme.offset,
+        theme_background: runtimeSystemData.theme.background,
+        theme_border: runtimeSystemData.theme.border,
+        background_url: runtimeSystemData.theme.background_url,
+        card_layout: runtimeSystemData.cardLayout,
+        list_layout: runtimeSystemData.listLayout,
+        attributes: runtimeSystemData.attributes,
       };
 
       const backupKey = `${BACKUP_KEY_PREFIX}.${currentName}.backup`;
@@ -540,10 +571,9 @@ export const SystemPage = () => {
       await ensureConnected();
       const { data, error: fetchError } = await withSupabaseAuthRetry(async () => {
         return supabase
-          .from('v_bs_system_with_attributes')
-          .select('*')
-          .eq('share_id', shareId)
-          .maybeSingle();
+          .rpc('bs_forge_import_system_snapshot', {
+            p_source_share_id: shareId.trim(),
+          });
       });
 
       if (fetchError) throw fetchError;
@@ -554,10 +584,14 @@ export const SystemPage = () => {
         return;
       }
 
-      const systemData = data as SystemResponse;
-      const cardLayout = parseImportedArrayField<CardLayoutComponent>(systemData.card_layout, 'card_layout');
-      const listLayout = parseImportedArrayField<ListLayoutComponent>(systemData.list_layout, 'list_layout');
-      const attributes = systemData.attributes;
+      const importedSnapshot = (Array.isArray(data) ? data[0] : data) as SnapshotSystemRecord | null;
+      if (!importedSnapshot || typeof importedSnapshot.snapshot_public_id !== 'string') {
+        throw new Error('Snapshot import did not return a valid record');
+      }
+
+      const cardLayout = parseSnapshotArrayField<CardLayoutComponent>(importedSnapshot.card_layout, 'card_layout');
+      const listLayout = parseSnapshotArrayField<ListLayoutComponent>(importedSnapshot.list_layout, 'list_layout');
+      const attributes = parseSnapshotArrayField<SystemAttribute>(importedSnapshot.attributes, 'attributes');
 
       if (!Array.isArray(attributes)) {
         throw new Error('Imported attributes are not a valid array');
@@ -568,26 +602,34 @@ export const SystemPage = () => {
 
       // Prepare theme data
       const themeData: ThemeData = {
-        primary: systemData.theme_primary,
-        offset: systemData.theme_offset,
-        background: systemData.theme_background,
-        border: systemData.theme_border,
-        background_url: systemData.background_url,
+        primary: importedSnapshot.theme_primary,
+        offset: importedSnapshot.theme_offset,
+        background: importedSnapshot.theme_background,
+        border: importedSnapshot.theme_border,
+        background_url: importedSnapshot.background_url,
       };
 
-      // Save to OBR scene metadata
-      await OBR.scene.setMetadata({
-        [SystemKeys.CURRENT_THEME]: themeData,
-        [SystemKeys.CURRENT_CARD]: cardLayout,
-        [SystemKeys.CURRENT_LIST]: listLayout,
-        [SystemKeys.CURRENT_ATTR]: attributes,
-        [SystemKeys.SYSTEM_NAME]: systemData.name,
-        [SystemKeys.IMPORT_DATE]: new Date().toISOString(),
+      const importTimestamp = new Date().toISOString();
+
+      await OBR.room.setMetadata({
+        [SystemKeys.SNAPSHOT_PUBLIC_ID]: importedSnapshot.snapshot_public_id,
+        [SystemKeys.SYSTEM_NAME]: importedSnapshot.system_name,
+        [SystemKeys.IMPORT_DATE]: importTimestamp,
+      });
+
+      setRuntimeSystemData({
+        theme: themeData,
+        cardLayout,
+        listLayout,
+        attributes,
+        systemName: importedSnapshot.system_name,
+        importDate: importTimestamp,
+        snapshotPublicId: importedSnapshot.snapshot_public_id,
       });
 
       // Update local state
-      setCurrentSystemName(systemData.name);
-      setCurrentImportDate(new Date().toISOString());
+      setCurrentSystemName(importedSnapshot.system_name);
+      setCurrentImportDate(importTimestamp);
       setCurrentTheme(themeData);
 
       // Apply new theme
@@ -599,10 +641,13 @@ export const SystemPage = () => {
         themeData.background_url
       );
 
-      setSuccess(`System "${systemData.name}" loaded successfully! Backup created.`);
+      setSuccess(`System "${importedSnapshot.system_name}" loaded successfully! Backup created.`);
       setShareId('');
 
-      LOGGER.log('System loaded:', systemData.name);
+      LOGGER.log('System snapshot imported and loaded:', {
+        systemName: importedSnapshot.system_name,
+        snapshotPublicId: importedSnapshot.snapshot_public_id,
+      });
 
     } catch (err: unknown) {
       LOGGER.error('Error fetching system:', err);
@@ -627,6 +672,13 @@ export const SystemPage = () => {
     setSuccess(null);
 
     try {
+      if (!isConnected()) {
+        setError('Please connect your Battle-System account before restoring backups for room sharing.');
+        return;
+      }
+
+      await ensureConnected();
+
       // Create backup of current system (may overwrite if same name)
       await createBackup(currentSystemName);
 
@@ -643,19 +695,54 @@ export const SystemPage = () => {
         throw new Error('Backup data is invalid');
       }
 
-      // Save to OBR scene metadata
-      await OBR.scene.setMetadata({
-        [SystemKeys.CURRENT_THEME]: themeData,
-        [SystemKeys.CURRENT_CARD]: backup.card_layout,
-        [SystemKeys.CURRENT_LIST]: backup.list_layout,
-        [SystemKeys.CURRENT_ATTR]: backup.attributes,
+      const restoreTimestamp = new Date().toISOString();
+
+      const restoreSourceKey = `forge-backup:${backup.name.trim().toLowerCase()}`;
+      const { data: publishData, error: publishError } = await withSupabaseAuthRetry(async () => {
+        return supabase.rpc('bs_forge_upsert_user_snapshot_payload', {
+          p_source_share_id: restoreSourceKey,
+          p_system_name: backup.name,
+          p_background_url: backup.background_url,
+          p_theme_primary: backup.theme_primary,
+          p_theme_offset: backup.theme_offset,
+          p_theme_background: backup.theme_background,
+          p_theme_border: backup.theme_border,
+          p_card_layout: backup.card_layout,
+          p_list_layout: backup.list_layout,
+          p_attributes: backup.attributes,
+        });
+      });
+
+      if (publishError) {
+        throw publishError;
+      }
+
+      const publishedSnapshot = (Array.isArray(publishData) ? publishData[0] : publishData) as SnapshotSystemRecord | null;
+      if (!publishedSnapshot || typeof publishedSnapshot.snapshot_public_id !== 'string') {
+        throw new Error('Backup restore snapshot publish failed');
+      }
+
+      const restoredRuntimeData: RuntimeSystemData = {
+        theme: themeData,
+        cardLayout: backup.card_layout,
+        listLayout: backup.list_layout,
+        attributes: backup.attributes,
+        systemName: backup.name,
+        importDate: restoreTimestamp,
+        snapshotPublicId: publishedSnapshot.snapshot_public_id,
+      };
+
+      setRuntimeSystemData(restoredRuntimeData);
+
+      await OBR.room.setMetadata({
+        [SystemKeys.SNAPSHOT_PUBLIC_ID]: publishedSnapshot.snapshot_public_id,
         [SystemKeys.SYSTEM_NAME]: backup.name,
-        [SystemKeys.IMPORT_DATE]: new Date().toISOString(),
+        [SystemKeys.IMPORT_DATE]: restoreTimestamp,
       });
 
       // Update local state
       setCurrentSystemName(backup.name);
-      setCurrentImportDate(new Date().toISOString());
+      setCurrentImportDate(restoreTimestamp);
       setCurrentTheme(themeData);
 
       // Apply theme
@@ -692,12 +779,18 @@ export const SystemPage = () => {
         background_url: defaultGameSystem.background_url,
       };
 
-      // Store default system in OBR
-      await OBR.scene.setMetadata({
-        [SystemKeys.CURRENT_THEME]: defaultTheme,
-        [SystemKeys.CURRENT_CARD]: defaultGameSystem.card_layout,
-        [SystemKeys.CURRENT_LIST]: defaultGameSystem.list_layout,
-        [SystemKeys.CURRENT_ATTR]: defaultGameSystem.attributes,
+      setRuntimeSystemData({
+        theme: defaultTheme,
+        cardLayout: defaultGameSystem.card_layout as CardLayoutComponent[],
+        listLayout: defaultGameSystem.list_layout as ListLayoutComponent[],
+        attributes: defaultGameSystem.attributes as SystemAttribute[],
+        systemName: defaultGameSystem.name,
+        importDate: null,
+        snapshotPublicId: null,
+      });
+
+      await OBR.room.setMetadata({
+        [SystemKeys.SNAPSHOT_PUBLIC_ID]: null,
         [SystemKeys.SYSTEM_NAME]: defaultGameSystem.name,
         [SystemKeys.IMPORT_DATE]: null,
       });

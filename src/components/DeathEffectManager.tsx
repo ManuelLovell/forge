@@ -7,7 +7,6 @@ import LOGGER from '../helpers/Logger';
 import { deathMarkEffect } from '../assets/deathEffect';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { SystemAttribute } from '../interfaces/SystemResponse';
-import { SystemKeys } from './SystemPage';
 
 const DEATH_EFFECT_FLAG = `${EXTENSION_ID}/death-effect-token`;
 const DEATH_EFFECT_OWNER = `${EXTENSION_ID}/death-effect-owner`;
@@ -68,6 +67,7 @@ export const DeathEffectManager = () => {
   const localItems = useSceneStore((state) => state.localItems);
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
+  const runtimeSystemData = useSceneStore((state) => state.systemData);
 
   useEffect(() => {
     if (!cacheReady || !sceneReady) {
@@ -79,7 +79,7 @@ export const DeathEffectManager = () => {
     const syncDeathEffects = async () => {
       const storage = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
       const showDeathEffect = (storage[SettingsConstants.SHOW_DEATH_EFFECT] as boolean | undefined) ?? false;
-      const attributes = (sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined) || [];
+      const attributes = runtimeSystemData?.attributes || [];
       const currentHpBid = getConfiguredCurrentHpBid(storage, attributes);
 
       const existingEffects = localItems.filter((item) => {
@@ -187,7 +187,7 @@ export const DeathEffectManager = () => {
     return () => {
       cancelled = true;
     };
-  }, [cacheReady, sceneReady, items, localItems, roomMetadata, sceneMetadata]);
+  }, [cacheReady, sceneReady, items, localItems, roomMetadata, sceneMetadata, runtimeSystemData]);
 
   return null;
 };

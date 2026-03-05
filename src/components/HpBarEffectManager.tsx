@@ -7,7 +7,6 @@ import LOGGER from '../helpers/Logger';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { SystemAttribute } from '../interfaces/SystemResponse';
 import { HP_BAR_EFFECT } from '../assets/hpBarEffect';
-import { SystemKeys } from './SystemPage';
 
 const HP_BAR_EFFECT_FLAG = `${EXTENSION_ID}/hp-bar-effect`;
 const HP_BAR_EFFECT_OWNER = `${EXTENSION_ID}/hp-bar-owner`;
@@ -208,6 +207,7 @@ export const HpBarEffectManager = () => {
   const gridDpi = useSceneStore((state) => state.gridDpi);
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
+  const runtimeSystemData = useSceneStore((state) => state.systemData);
 
   useEffect(() => {
     if (!cacheReady || !sceneReady) {
@@ -224,7 +224,7 @@ export const HpBarEffectManager = () => {
       const effectiveShowHpNumbers = !showHpBars && showHpNumbers;
       const orientation = getOrientation(storage[SettingsConstants.HP_BAR_ORIENTATION]);
       const orientationValue = getOrientationValue(storage[SettingsConstants.HP_BAR_ORIENTATION]);
-      const attributes = (sceneMetadata[SystemKeys.CURRENT_ATTR] as SystemAttribute[] | undefined) || [];
+      const attributes = runtimeSystemData?.attributes || [];
       const { currentHpBid, maxHpBid } = getConfiguredHpBidKeys(storage, attributes);
 
       const existingBars = localItems.filter((item) => {
@@ -489,7 +489,7 @@ export const HpBarEffectManager = () => {
     return () => {
       cancelled = true;
     };
-  }, [cacheReady, sceneReady, items, localItems, gridDpi, roomMetadata, sceneMetadata]);
+  }, [cacheReady, sceneReady, items, localItems, gridDpi, roomMetadata, sceneMetadata, runtimeSystemData]);
 
   return null;
 };

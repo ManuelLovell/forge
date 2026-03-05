@@ -29,6 +29,7 @@ import {
 } from '../helpers/unitCollectionDb';
 import { hydrateAuthFromSession, isConnected } from '../auth/authHelpers';
 import type { CardLayoutComponent, SystemAttribute } from '../interfaces/SystemResponse';
+import { supabase } from '../supabase/supabaseClient';
 import {
   deleteRemoteUnitCollectionRecord as deleteRemoteCollectionRecord,
   searchRemoteUnitCollection as searchConnectedRemoteCollection,
@@ -37,9 +38,7 @@ import {
 } from '../helpers/unitCollectionRemote';
 
 const SYSTEM_KEYS = {
-  CURRENT_THEME: `${OwlbearIds.EXTENSIONID}/CurrentTheme`,
-  CURRENT_CARD: `${OwlbearIds.EXTENSIONID}/CurrentCard`,
-  CURRENT_ATTR: `${OwlbearIds.EXTENSIONID}/CurrentAttr`,
+  SNAPSHOT_PUBLIC_ID: `${OwlbearIds.EXTENSIONID}/SnapshotPublicId`,
 } as const;
 
 type CardCache = {
@@ -577,6 +576,9 @@ export const CardPopoverPage = () => {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(() => readUnitIdFromQuery());
   const isPinned = useMemo(() => readPinnedFromQuery(), []);
   const [cache, setCache] = useState<CardCache>({ metadata: {}, items: [] });
+  const [snapshotTheme, setSnapshotTheme] = useState<ThemeData | null>(null);
+  const [snapshotCardLayout, setSnapshotCardLayout] = useState<CardLayoutComponent[] | null>(null);
+  const [snapshotAttributes, setSnapshotAttributes] = useState<SystemAttribute[] | null>(null);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [isCurrentUserGm, setIsCurrentUserGm] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -599,23 +601,28 @@ export const CardPopoverPage = () => {
   };
 
   const cardLayout = useMemo(() => {
-    const fromMetadata = parseSystemArrayField<CardLayoutComponent>(cache.metadata[SYSTEM_KEYS.CURRENT_CARD]);
-    return fromMetadata || (defaultGameSystem.card_layout as CardLayoutComponent[]);
-  }, [cache.metadata]);
-
-  const attributes = useMemo(() => {
-    const fromMetadata = parseSystemArrayField<SystemAttribute>(cache.metadata[SYSTEM_KEYS.CURRENT_ATTR]);
-    return fromMetadata || (defaultGameSystem.attributes as SystemAttribute[]);
-  }, [cache.metadata]);
-
-  const theme = useMemo(() => {
-    const currentTheme = cache.metadata[SYSTEM_KEYS.CURRENT_THEME] as ThemeData | undefined;
-    if (!currentTheme?.primary || !currentTheme?.offset || !currentTheme?.background || !currentTheme?.border) {
-      return DEFAULT_THEME;
+    if (snapshotCardLayout) {
+      return snapshotCardLayout;
     }
 
-    return currentTheme;
-  }, [cache.metadata]);
+    return defaultGameSystem.card_layout as CardLayoutComponent[];
+  }, [snapshotCardLayout]);
+
+  const attributes = useMemo(() => {
+    if (snapshotAttributes) {
+      return snapshotAttributes;
+    }
+
+    return defaultGameSystem.attributes as SystemAttribute[];
+  }, [snapshotAttributes]);
+
+  const theme = useMemo(() => {
+    if (snapshotTheme) {
+      return snapshotTheme;
+    }
+
+    return DEFAULT_THEME;
+  }, [snapshotTheme]);
 
   const tooltipTheme = useMemo(() => createTheme(
     theme.primary,
@@ -650,6 +657,82 @@ export const CardPopoverPage = () => {
   useEffect(() => {
     let isMounted = true;
 
+    const loadSnapshotData = async (roomMetadata: Record<string, unknown>) => {
+      const snapshotId = roomMetadata[SYSTEM_KEYS.SNAPSHOT_PUBLIC_ID];
+      if (typeof snapshotId !== 'string' || snapshotId.trim().length === 0) {
+        if (isMounted) {
+          setSnapshotTheme(null);
+          setSnapshotCardLayout(null);
+          setSnapshotAttributes(null);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase.rpc('bs_forge_get_snapshot_for_room', {
+        p_snapshot_public_id: snapshotId,
+      });
+
+      if (error) {
+        if (isMounted) {
+          setSnapshotTheme(null);
+          setSnapshotCardLayout(null);
+          setSnapshotAttributes(null);
+        }
+        return;
+      }
+
+      const snapshot = Array.isArray(data) ? data[0] : data;
+      if (!snapshot || typeof snapshot !== 'object') {
+        if (isMounted) {
+          setSnapshotTheme(null);
+          setSnapshotCardLayout(null);
+          setSnapshotAttributes(null);
+        }
+        return;
+      }
+
+      const parsed = snapshot as Partial<{
+        theme_primary: string;
+        theme_offset: string;
+        theme_background: string;
+        theme_border: string;
+        background_url: string;
+        card_layout: unknown;
+        attributes: unknown;
+      }>;
+
+      const parsedCardLayout = parseSystemArrayField<CardLayoutComponent>(parsed.card_layout);
+      const parsedAttributes = parseSystemArrayField<SystemAttribute>(parsed.attributes);
+
+      if (
+        typeof parsed.theme_primary !== 'string'
+        || typeof parsed.theme_offset !== 'string'
+        || typeof parsed.theme_background !== 'string'
+        || typeof parsed.theme_border !== 'string'
+        || !Array.isArray(parsedCardLayout)
+        || !Array.isArray(parsedAttributes)
+      ) {
+        if (isMounted) {
+          setSnapshotTheme(null);
+          setSnapshotCardLayout(null);
+          setSnapshotAttributes(null);
+        }
+        return;
+      }
+
+      if (isMounted) {
+        setSnapshotTheme({
+          primary: parsed.theme_primary,
+          offset: parsed.theme_offset,
+          background: parsed.theme_background,
+          border: parsed.theme_border,
+          background_url: typeof parsed.background_url === 'string' ? parsed.background_url : '',
+        });
+        setSnapshotCardLayout(parsedCardLayout);
+        setSnapshotAttributes(parsedAttributes);
+      }
+    };
+
     const initialize = async () => {
       const [metadata, items, roomMetadata, playerId, playerRole] = await Promise.all([
         OBR.scene.getMetadata(),
@@ -666,6 +749,7 @@ export const CardPopoverPage = () => {
       syncLoggerEnabled(DATA_STORED_IN_ROOM ? roomMetadata : metadata);
 
       setCache({ metadata, items });
+      await loadSnapshotData(roomMetadata);
       setCurrentPlayerId(playerId);
       setIsCurrentUserGm(String(playerRole || '').toUpperCase() === 'GM');
       setIsReady(true);
@@ -684,6 +768,8 @@ export const CardPopoverPage = () => {
 
     const unsubscribeRoomMetadata = OBR.room.onMetadataChange((metadata) => {
       if (!isMounted) return;
+
+      void loadSnapshotData(metadata);
 
       if (DATA_STORED_IN_ROOM) {
         syncLoggerEnabled(metadata);

@@ -886,6 +886,7 @@ export const CardPopoverPage = () => {
       UnitConstants.FABRICATED,
       UnitConstants.INITIATIVE,
       UnitConstants.ON_LIST,
+      UnitConstants.IN_PARTY,
     ];
 
     await OBR.scene.items.updateItems([unitItem.id], (itemsToUpdate) => {

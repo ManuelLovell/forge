@@ -8,10 +8,20 @@ import { useSceneStore } from '../helpers/BSCache';
 import { AddOrReplaceAdjective } from '../helpers/Adjectives';
 import { filterExtensionMetadata, getAllUnitCollectionRecords, type UnitCollectionRecord } from '../helpers/unitCollectionDb';
 import { findRemoteUnitCollectionByNames, findSharedUnitCollectionByNames } from '../helpers/unitCollectionRemote';
+import { MOCK_BIDS } from '../helpers/MockData';
 
 const VIEW_UNIT_CONTEXT_MENU_ID = 'com.battle-system.forge/view-unit';
 
 const normalizeLookupName = (name: string): string => name.trim().toLowerCase();
+
+const normalizeBid = (value: unknown): string | null => {
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+};
 
 const getSearchNameFromItem = (itemName: string): string => {
     const trimmed = itemName.trim();
@@ -117,10 +127,39 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
     const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
     const sceneItems = useSceneStore((state) => state.items);
     const playerData = useSceneStore((state) => state.playerData);
+    const runtimeSystemData = useSceneStore((state) => state.systemData);
 
     //Control for setting the data to Room or to Scene
     const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
-    const healthAttrbEnabled = storageContainer[SettingsConstants.HP_CURRENT_BID] !== undefined && storageContainer[SettingsConstants.HP_MAX_BID] !== undefined;
+    const systemAttributes = runtimeSystemData?.attributes ?? [];
+    const attributeBids = new Set(systemAttributes.map((attribute) => attribute.attr_bid));
+
+    const inferredCurrentHpBid = systemAttributes.find((attribute) => {
+        const abbr = (attribute.attr_abbr || '').toUpperCase();
+        const name = (attribute.attr_name || '').toLowerCase();
+        return abbr === 'HP' || name === 'hit points';
+    })?.attr_bid;
+
+    const inferredMaxHpBid = systemAttributes.find((attribute) => {
+        const abbr = (attribute.attr_abbr || '').toUpperCase();
+        const name = (attribute.attr_name || '').toLowerCase();
+        return abbr === 'MHP' || name === 'max hit points';
+    })?.attr_bid;
+
+    const configuredCurrentHpBid = normalizeBid(storageContainer[SettingsConstants.HP_CURRENT_BID]);
+    const configuredMaxHpBid = normalizeBid(storageContainer[SettingsConstants.HP_MAX_BID]);
+
+    const resolvedCurrentHpBid = configuredCurrentHpBid
+        && (attributeBids.size === 0 || attributeBids.has(configuredCurrentHpBid))
+        ? configuredCurrentHpBid
+        : (inferredCurrentHpBid || (attributeBids.size === 0 ? MOCK_BIDS.CURRENT_HP : ''));
+
+    const resolvedMaxHpBid = configuredMaxHpBid
+        && (attributeBids.size === 0 || attributeBids.has(configuredMaxHpBid))
+        ? configuredMaxHpBid
+        : (inferredMaxHpBid || (attributeBids.size === 0 ? MOCK_BIDS.MAX_HP : ''));
+
+    const healthAttrbEnabled = Boolean(resolvedCurrentHpBid && resolvedMaxHpBid);
     const showModifyUnitContextMenu = storageContainer[SettingsConstants.SHOW_MODIFY_UNIT_CONTEXT_MENU] === undefined
         ? true
         : storageContainer[SettingsConstants.SHOW_MODIFY_UNIT_CONTEXT_MENU] === true;

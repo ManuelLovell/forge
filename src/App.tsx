@@ -1,7 +1,7 @@
 import './styles/App.css'
 import 'tippy.js/dist/tippy.css';
 import { useSceneStore } from './helpers/BSCache';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import OBR from '@owlbear-rodeo/sdk';
 import { Navigation, type PageType } from './components/NavigationComponent';
@@ -21,8 +21,9 @@ import { useAppInitialization } from './helpers/useAppInitialization';
 import GlobalStyles from './styles/GlobalStyles';
 import styled from 'styled-components';
 import { DATA_STORED_IN_ROOM } from './helpers/Constants';
-import { SettingsConstants } from './interfaces/MetadataKeys';
+import { SettingsConstants, getPerPlayerSettingKey } from './interfaces/MetadataKeys';
 import { initializeAuthOnStartup } from './auth/authHelpers';
+import { closePartyHudModal, openPartyHudModal } from './helpers/partyHudModal';
 
 const LoadingContainer = styled.div`
   display: flex;
@@ -59,8 +60,13 @@ function App() {
   const { theme } = useForgeTheme();
   const [currentPage, setCurrentPage] = useState<PageType>('ForgeMain');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const isPartyHudModalOpenRef = useRef(false);
   const isCurrentUserGm = String(playerData?.role || '').toUpperCase() === 'GM';
   const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
+  const currentPlayerId = playerData?.id;
+  const partyHudOpenKey = getPerPlayerSettingKey(SettingsConstants.PARTY_HUD_OPEN, currentPlayerId);
+  const hudOpenRaw = storageContainer[partyHudOpenKey] ?? storageContainer[SettingsConstants.PARTY_HUD_OPEN];
+  const isPartyHudOpen = hudOpenRaw === true;
   const showPlayerView = storageContainer[SettingsConstants.SHOW_PLAYER_VIEW] as boolean || false;
   const canAccessInitiativeList = isCurrentUserGm || showPlayerView;
   const isAppReady = sceneReady && cacheReady && isInitialized;
@@ -114,6 +120,38 @@ function App() {
 
     void initializeAuthOnStartup();
   }, [isAppReady]);
+
+  useEffect(() => {
+    if (!isAppReady) {
+      return;
+    }
+
+    let mounted = true;
+
+    const syncPartyHudModalState = async () => {
+      if (isPartyHudOpen && !isPartyHudModalOpenRef.current) {
+        await openPartyHudModal();
+
+        if (mounted) {
+          isPartyHudModalOpenRef.current = true;
+        }
+        return;
+      }
+
+      if (!isPartyHudOpen && isPartyHudModalOpenRef.current) {
+        await closePartyHudModal();
+        if (mounted) {
+          isPartyHudModalOpenRef.current = false;
+        }
+      }
+    };
+
+    void syncPartyHudModalState();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isAppReady, isPartyHudOpen]);
 
   useEffect(() => {
     if (!isAppReady) {

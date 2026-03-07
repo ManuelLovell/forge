@@ -1,19 +1,18 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import OBR, { isImage } from '@owlbear-rodeo/sdk';
 import styled from 'styled-components';
 import { useSceneStore } from '../helpers/BSCache';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSystemData } from '../helpers/useSystemData';
-import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
+import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
 import { SettingsConstants, UnitConstants, getPerPlayerSettingKey } from '../interfaces/MetadataKeys';
 import { PageContainer, PageTitle } from './SharedStyledComponents';
 import { ToggleControl } from './ToggleControl';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
+import { closePartyHudModal, openPartyHudModal } from '../helpers/partyHudModal';
 
 type PartyHudOrientation = 'bottom' | 'left' | 'top' | 'right';
-
-const PARTY_HUD_MODAL_ID = `${OwlbearIds.EXTENSIONID}-partyhud`;
 
 const PartyList = styled.div<{ theme: ForgeTheme }>`
   display: flex;
@@ -178,17 +177,6 @@ const isPartyHudOrientation = (value: unknown): value is PartyHudOrientation => 
   return value === 'bottom' || value === 'left' || value === 'top' || value === 'right';
 };
 
-const openPartyHudModal = async () => {
-  await OBR.modal.open({
-    id: PARTY_HUD_MODAL_ID,
-    url: '/pages/forgeparty.html',
-    fullScreen: true,
-    hideBackdrop: true,
-    hidePaper: true,
-    disablePointerEvents: true
-  });
-};
-
 export const PartyPage = () => {
   const isHudModalOpenRef = useRef(false);
   const { theme } = useForgeTheme();
@@ -239,7 +227,7 @@ export const PartyPage = () => {
     await savePartySetting(partyHudOpenKey, next);
 
     if (!next) {
-      await OBR.modal.close(PARTY_HUD_MODAL_ID);
+      await closePartyHudModal();
       isHudModalOpenRef.current = false;
       return;
     }
@@ -266,33 +254,6 @@ export const PartyPage = () => {
       itemsToUpdate[0].metadata = metadata;
     });
   };
-
-  useEffect(() => {
-    let mounted = true;
-
-    const syncHudModalState = async () => {
-      if (hudOpen && !isHudModalOpenRef.current) {
-        await openPartyHudModal();
-        if (mounted) {
-          isHudModalOpenRef.current = true;
-        }
-        return;
-      }
-
-      if (!hudOpen && isHudModalOpenRef.current) {
-        await OBR.modal.close(PARTY_HUD_MODAL_ID);
-        if (mounted) {
-          isHudModalOpenRef.current = false;
-        }
-      }
-    };
-
-    void syncHudModalState();
-
-    return () => {
-      mounted = false;
-    };
-  }, [hudOpen]);
 
   return (
     <motion.div

@@ -10,7 +10,8 @@ import {
   NavButton,
   Backdrop,
   MenuButton,
-  MenuButtonBuffer
+  MenuButtonBuffer,
+  MenuSubText
 } from './NavigationStyles';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSceneStore } from '../helpers/BSCache';
@@ -46,11 +47,11 @@ export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate, canAcces
             {/* Top Section - General Info */}
             <MenuHeader theme={theme}>
               <MenuTitle theme={theme}>Forge!</MenuTitle>
-              <MenuInfo theme={theme}>Alpha Testing!</MenuInfo>
+              <MenuInfo theme={theme}>Beta Testing!</MenuInfo>
             </MenuHeader>
-
-            {/* Spacer */}
-            <MenuSpacer />
+            <MenuSubText theme={theme}>
+              Thanks for checking it out!  Please report any bugs/issues to the Battle-System Discord.
+            </MenuSubText>
 
             {/* Navigation Links - Bottom Section */}
             <MenuNav theme={theme}>

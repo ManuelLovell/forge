@@ -663,6 +663,19 @@ const clampInt = (value: unknown, min: number, max: number, fallback: number): n
   return Math.max(min, Math.min(max, rounded));
 };
 
+const resolveTextAlign = (value: unknown, fallback: 'left' | 'center' | 'right' = 'center'): 'left' | 'center' | 'right' => {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'left' || normalized === 'center' || normalized === 'right') {
+    return normalized;
+  }
+
+  return fallback;
+};
+
 const resolveAttribute = (attributes: SystemAttribute[], idOrBid?: string) => {
   if (!idOrBid) {
     return null;
@@ -1088,7 +1101,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     const type = component.type as string;
     const style = component.styles || {};
     const attr = resolveAttribute(attributes, style.attributeId);
-    const textAlign = style.textAlign || 'left';
+    const textAlign = resolveTextAlign(style.textAlign ?? style.align, 'center');
     const stretch = style.stretch === true;
 
     if (type === 'line-break') {
@@ -1147,7 +1160,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       const label = getLabelFromAttribute(attr, style.labelMode);
       const hasLabel = !!label;
       const labelPosition = style.labelPosition === 'right' ? 'right' : 'left';
-      const textValueAlign = style.textAlign || 'center';
+      const textValueAlign = resolveTextAlign(style.textAlign ?? style.align, 'center');
       const fontWeight = style.fontWeight === 'bold' ? 700 : 400;
       const fontStyle = style.fontStyle === 'italic' ? 'italic' : 'normal';
       const bid = attr?.attr_bid;

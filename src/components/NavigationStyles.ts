@@ -31,15 +31,23 @@ export const ContentArea = styled.div<{ theme: ForgeTheme; $backgroundUrl?: stri
 `;
 
 export const MenuOverlay = styled(motion.div)<{ theme: ForgeTheme }>`
-  ${tw`fixed top-0 left-0 bottom-0 w-[150px] flex flex-col rounded-r-lg z-[1000] backdrop-blur`}
+  ${tw`fixed top-0 left-0 bottom-0 w-[150px] flex flex-col z-[1000] backdrop-blur`}
   background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.50)};
   border: 2px solid ${props => props.theme.BORDER};
+  border-radius: 16px;
 `;
 
 export const MenuHeader = styled.div<{ theme: ForgeTheme }>`
   ${tw`p-5 flex-none`}
   border-bottom: 1px solid ${props => props.theme.BORDER};
   background-color: ${props => props.theme.OFFSET};
+  border-radius: 12px 12px 0 0;
+`;
+
+export const MenuSubText = styled.div<{ theme: ForgeTheme }>`
+  ${tw`text-sm mt-1 flex-1 place-content-center`}
+  padding: 2px 6px;
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.7)};
 `;
 
 export const MenuTitle = styled.h2<{ theme: ForgeTheme }>`

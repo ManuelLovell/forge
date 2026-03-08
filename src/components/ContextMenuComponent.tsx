@@ -34,6 +34,26 @@ const getSearchNameFromItem = (itemName: string): string => {
         : trimmed;
 };
 
+const getPreferredUnitNameFromItem = (item: { name?: string; metadata?: Record<string, unknown>; text?: { plainText?: string } }): string => {
+    const textName = typeof item.text?.plainText === 'string' ? item.text.plainText.trim() : '';
+    if (textName.length > 0) {
+        return textName;
+    }
+
+    const metadataNameRaw = item.metadata?.[UnitConstants.UNIT_NAME];
+    const metadataName = typeof metadataNameRaw === 'string' ? metadataNameRaw.trim() : '';
+    if (metadataName.length > 0) {
+        return metadataName;
+    }
+
+    const itemName = typeof item.name === 'string' ? item.name.trim() : '';
+    if (itemName.length > 0) {
+        return itemName;
+    }
+
+    return typeof item.name === 'string' ? item.name : '';
+};
+
 const openCardPopoverForUnit = async (unitId: string) => {
     const windowHeight = await OBR.viewport.getHeight();
     const modalBuffer = 100;
@@ -269,10 +289,11 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
 
                         for (let item of context.items) {
                             const update: Metadata = {};
+                            const textItem = item as typeof item & { text?: { plainText?: string } };
+                            const preferredUnitName = getPreferredUnitNameFromItem(textItem);
 
                             // If already fabricated, we don't need to build it again
                             if (item.metadata[UnitConstants.FABRICATED] !== true) {
-                                const textItem = item as typeof item & { text?: { plainText?: string } };
                                 const itemName = getSearchNameFromItem(textItem.text?.plainText || item.name);
 
                                 const match = collectionMatches.get(normalizeLookupName(itemName));
@@ -281,7 +302,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                 }
 
                                 if (typeof update[UnitConstants.UNIT_NAME] !== 'string' || !String(update[UnitConstants.UNIT_NAME]).trim()) {
-                                    update[UnitConstants.UNIT_NAME] = item.name;
+                                    update[UnitConstants.UNIT_NAME] = preferredUnitName;
                                 }
                                 update[UnitConstants.FABRICATED] = true;
                                 if (useDescriptiveDuplicates) {
@@ -306,6 +327,10 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                 }
                             }
 
+                            if (typeof update[UnitConstants.UNIT_NAME] !== 'string' || !String(update[UnitConstants.UNIT_NAME]).trim()) {
+                                update[UnitConstants.UNIT_NAME] = preferredUnitName;
+                            }
+
                             update[UnitConstants.ON_LIST] = true;
                             update[UnitConstants.INITIATIVE] = 0;
                             metadataUpdates.push({ id: item.id, metadata: update });
@@ -319,8 +344,12 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                     Object.assign(item.metadata, forUnit.metadata);
                                     if (sceneMetadata[SettingsConstants.SHOW_NAMES] === true) {
                                         const textItem = item as typeof item & { text?: { plainText?: string } };
+                                        const resolvedUnitName = typeof forUnit.metadata[UnitConstants.UNIT_NAME] === 'string'
+                                            && String(forUnit.metadata[UnitConstants.UNIT_NAME]).trim().length > 0
+                                            ? String(forUnit.metadata[UnitConstants.UNIT_NAME]).trim()
+                                            : getPreferredUnitNameFromItem(textItem);
                                         if (textItem.text) {
-                                            textItem.text.plainText = String(forUnit.metadata[UnitConstants.UNIT_NAME] || '');
+                                            textItem.text.plainText = resolvedUnitName;
                                         }
                                     }
                                 }
@@ -447,6 +476,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
 
                     if (selectedItem.metadata[UnitConstants.FABRICATED] !== true) {
                         const textItem = selectedItem as typeof selectedItem & { text?: { plainText?: string } };
+                        const preferredUnitName = getPreferredUnitNameFromItem(textItem);
                         const itemName = getSearchNameFromItem(textItem.text?.plainText || selectedItem.name);
 
                         await OBR.action.setBadgeText('Retrieving Data.. ⏱️');
@@ -459,7 +489,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                         }
 
                         if (typeof update[UnitConstants.UNIT_NAME] !== 'string' || !String(update[UnitConstants.UNIT_NAME]).trim()) {
-                            update[UnitConstants.UNIT_NAME] = selectedItem.name;
+                            update[UnitConstants.UNIT_NAME] = preferredUnitName;
                         }
 
                         update[UnitConstants.FABRICATED] = true;
@@ -479,8 +509,12 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
 
                             if (sceneMetadata[SettingsConstants.SHOW_NAMES] === true) {
                                 const writableItem = item as typeof item & { text?: { plainText?: string } };
+                                const resolvedUnitName = typeof update[UnitConstants.UNIT_NAME] === 'string'
+                                    && String(update[UnitConstants.UNIT_NAME]).trim().length > 0
+                                    ? String(update[UnitConstants.UNIT_NAME]).trim()
+                                    : getPreferredUnitNameFromItem(writableItem);
                                 if (writableItem.text) {
-                                    writableItem.text.plainText = String(update[UnitConstants.UNIT_NAME] || '');
+                                    writableItem.text.plainText = resolvedUnitName;
                                 }
                             }
                         });

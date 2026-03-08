@@ -12,6 +12,9 @@ export interface CardLayoutStyles {
   labelName?: string;
   description?: string;
   styleDesign?: 'dash' | 'solid';
+  imageUrl?: string;
+  imageRows?: number;
+  imageCols?: number;
   [key: string]: any; // Allow additional properties
 }
 
@@ -22,7 +25,7 @@ export interface CardLayoutComponent {
   id: string;
   col: number;
   row: number;
-  type: 'text-value' | 'column-text' | 'column-value' | 'line-break' | 'text' | 'action-list' | 'item-list';
+  type: 'text-value' | 'column-text' | 'column-value' | 'line-break' | 'text' | 'action-list' | 'item-list' | 'image';
   styles?: CardLayoutStyles;
   fullsize: boolean;
 }

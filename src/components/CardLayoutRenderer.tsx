@@ -293,6 +293,36 @@ const DefaultDivider = styled.div<{ $theme: CardLayoutTheme }>`
   background: ${props => `linear-gradient(10deg, ${props.$theme.border || 'white'}, rgba(255,255,255,0))`};
 `;
 
+const ImageBlock = styled.div<{ $theme: CardLayoutTheme; $heightPx: number }>`
+  width: 100%;
+  height: ${props => `${props.$heightPx}px`};
+  border-radius: 8px;
+  border: 1px solid ${props => rgbaFromHex(props.$theme.border, 0.9)};
+  background: ${props => rgbaFromHex(props.$theme.background, 0.42)};
+  overflow: hidden;
+  box-sizing: border-box;
+`;
+
+const ImageElement = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+`;
+
+const ImagePlaceholder = styled.div<{ $theme: CardLayoutTheme }>`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 12px;
+  color: ${props => rgbaFromHex(props.$theme.offset, 0.95)};
+  padding: 6px;
+  box-sizing: border-box;
+`;
+
 const DashDivider = styled.div<{ $theme: CardLayoutTheme }>`
   width: 100%;
   height: 0;
@@ -618,6 +648,20 @@ const sizeMapTitle = { sm: '14px', md: '16px', lg: '18px' };
 const sizeMapTextValue = { sm: '14px', md: '16px', lg: '18px' };
 const sizeMapColumn = { sm: '14px', md: '16px', lg: '18px' };
 const sizeMapTextValueRow = { sm: '14px', md: '16px', lg: '18px' };
+const IMAGE_ROW_UNIT_HEIGHT = 40;
+
+const clampInt = (value: unknown, min: number, max: number, fallback: number): number => {
+  const numeric = typeof value === 'number'
+    ? value
+    : (typeof value === 'string' ? Number(value) : NaN);
+
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+
+  const rounded = Math.trunc(numeric);
+  return Math.max(min, Math.min(max, rounded));
+};
 
 const resolveAttribute = (attributes: SystemAttribute[], idOrBid?: string) => {
   if (!idOrBid) {
@@ -1057,6 +1101,26 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
     if (type === 'line-spacer') {
       return <Spacer key={component.id} $full={component.fullsize} />;
+    }
+
+    if (type === 'image') {
+      const imageUrl = typeof style.imageUrl === 'string' ? style.imageUrl.trim() : '';
+      const resolvedCols = clampInt(style.imageCols, 1, 2, component.fullsize ? 2 : 1);
+      const resolvedRows = clampInt(style.imageRows, 1, 6, 1);
+      const isFullWidth = resolvedCols === 2;
+      const heightPx = IMAGE_ROW_UNIT_HEIGHT * resolvedRows;
+
+      return (
+        <BaseCell key={component.id} $theme={systemTheme} $full={isFullWidth}>
+          <ImageBlock $theme={systemTheme} $heightPx={heightPx}>
+            {imageUrl ? (
+              <ImageElement src={imageUrl} alt="Card component" loading="lazy" />
+            ) : (
+              <ImagePlaceholder $theme={systemTheme}>No image selected</ImagePlaceholder>
+            )}
+          </ImageBlock>
+        </BaseCell>
+      );
     }
 
     if (type === 'text') {

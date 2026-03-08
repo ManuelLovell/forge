@@ -28,20 +28,26 @@ import{A as e,C as t,D as n,E as r,F as i,L as a,M as o,N as s,O as c,R as l,S a
     }
   `}
 `,Gp=T(Zu.div)`
-  ${{position:`fixed`,bottom:`0`,left:`0`,top:`0`,zIndex:`1000`,display:`flex`,width:`150px`,flexDirection:`column`,borderTopRightRadius:`0.5rem`,borderBottomRightRadius:`0.5rem`,"--tw-backdrop-blur":`blur(8px)`,WebkitBackdropFilter:`var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)`,backdropFilter:`var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)`}}
+  ${{position:`fixed`,bottom:`0`,left:`0`,top:`0`,zIndex:`1000`,display:`flex`,width:`150px`,flexDirection:`column`,"--tw-backdrop-blur":`blur(8px)`,WebkitBackdropFilter:`var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)`,backdropFilter:`var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)`}}
   background-color: ${e=>f(e.theme.BACKGROUND,.5)};
   border: 2px solid ${e=>e.theme.BORDER};
+  border-radius: 16px;
 `,Kp=T.div`
   ${{flex:`none`,padding:`1.25rem`}}
   border-bottom: 1px solid ${e=>e.theme.BORDER};
   background-color: ${e=>e.theme.OFFSET};
-`,qp=T.h2`
+  border-radius: 12px 12px 0 0;
+`,qp=T.div`
+  ${{marginTop:`0.25rem`,flex:`1 1 0%`,placeContent:`center`,fontSize:`0.875rem`}}
+  padding: 2px 6px;
+  color: ${e=>f(e.theme.PRIMARY,.7)};
+`,Jp=T.h2`
   ${{margin:`0`,marginBottom:`0.5rem`,fontSize:`1.125rem`}}
   color: ${e=>e.theme.PRIMARY};
-`,Jp=T.p`
+`,Yp=T.p`
   ${{margin:`0`,fontSize:`0.875rem`}}
   color: ${e=>f(e.theme.PRIMARY,.7)};
-`,Yp=Hp.div({flex:`1 1 0%`}),Xp=T.nav`
+`;Hp.div({flex:`1 1 0%`});const Xp=T.nav`
   ${{flex:`none`,paddingLeft:`0`,paddingRight:`0`,paddingBottom:`50px`,paddingTop:`0.5rem`}}
   border-top: 1px solid ${e=>e.theme.BORDER};
 `,Zp=T.button`
@@ -58,7 +64,7 @@ import{A as e,C as t,D as n,E as r,F as i,L as a,M as o,N as s,O as c,R as l,S a
   background-color: ${e=>f(e.theme.BACKGROUND,.75)};
   border: 2px solid ${e=>e.theme.BORDER};
   color: ${e=>e.theme.PRIMARY};
-`,tm=({isOpen:e,currentPage:t,onToggle:n,onNavigate:r,canAccessInitiativeList:i=!0})=>{let{theme:a}=We(),o=P(e=>e.playerData),s=String(o?.role||``).toUpperCase()===`GM`;return(0,F.jsxs)(F.Fragment,{children:[(0,F.jsx)(ol,{children:e&&(0,F.jsxs)(Gp,{theme:a,initial:{x:-300},animate:{x:0},exit:{x:-300},transition:{type:`tween`,duration:.3},style:{boxShadow:`4px 0 12px rgba(0, 0, 0, 0.15)`},children:[(0,F.jsxs)(Kp,{theme:a,children:[(0,F.jsx)(qp,{theme:a,children:`Forge!`}),(0,F.jsx)(Jp,{theme:a,children:`Alpha Testing!`})]}),(0,F.jsx)(Yp,{}),(0,F.jsxs)(Xp,{theme:a,children:[i&&(0,F.jsx)(Zp,{theme:a,$isActive:t===`ForgeMain`,onClick:()=>r(`ForgeMain`),children:`Main`}),(0,F.jsx)(Zp,{theme:a,$isActive:t===`Party`,onClick:()=>r(`Party`),children:`Party`}),(0,F.jsx)(Zp,{theme:a,$isActive:t===`ChatLog`,onClick:()=>r(`ChatLog`),children:`System Log`}),s&&(0,F.jsx)(Zp,{theme:a,$isActive:t===`System`,onClick:()=>r(`System`),children:`System`}),s&&(0,F.jsx)(Zp,{theme:a,$isActive:t===`Settings`,onClick:()=>r(`Settings`),children:`Settings`})]})]})}),e&&(0,F.jsx)(Qp,{onClick:n}),(0,F.jsx)($p,{children:(0,F.jsx)(em,{theme:a,onClick:n,children:(0,F.jsx)(Ee,{size:24})})})]})},nm=T.div`
+`,tm=({isOpen:e,currentPage:t,onToggle:n,onNavigate:r,canAccessInitiativeList:i=!0})=>{let{theme:a}=We(),o=P(e=>e.playerData),s=String(o?.role||``).toUpperCase()===`GM`;return(0,F.jsxs)(F.Fragment,{children:[(0,F.jsx)(ol,{children:e&&(0,F.jsxs)(Gp,{theme:a,initial:{x:-300},animate:{x:0},exit:{x:-300},transition:{type:`tween`,duration:.3},style:{boxShadow:`4px 0 12px rgba(0, 0, 0, 0.15)`},children:[(0,F.jsxs)(Kp,{theme:a,children:[(0,F.jsx)(Jp,{theme:a,children:`Forge!`}),(0,F.jsx)(Yp,{theme:a,children:`Beta Testing!`})]}),(0,F.jsxs)(qp,{theme:a,children:[`Thanks for checking it out!  Please report any bugs/issues to the`,(0,F.jsx)(`a`,{href:`https://discord.gg/Kh9hbHAZnX`,target:`_blank`,rel:`noreferrer`,children:` Battle-System Discord`}),`.`]}),(0,F.jsxs)(Xp,{theme:a,children:[i&&(0,F.jsx)(Zp,{theme:a,$isActive:t===`ForgeMain`,onClick:()=>r(`ForgeMain`),children:`Main`}),(0,F.jsx)(Zp,{theme:a,$isActive:t===`Party`,onClick:()=>r(`Party`),children:`Party`}),(0,F.jsx)(Zp,{theme:a,$isActive:t===`ChatLog`,onClick:()=>r(`ChatLog`),children:`System Log`}),s&&(0,F.jsx)(Zp,{theme:a,$isActive:t===`System`,onClick:()=>r(`System`),children:`System`}),s&&(0,F.jsx)(Zp,{theme:a,$isActive:t===`Settings`,onClick:()=>r(`Settings`),children:`Settings`})]})]})}),e&&(0,F.jsx)(Qp,{onClick:n}),(0,F.jsx)($p,{children:(0,F.jsx)(em,{theme:a,onClick:n,children:(0,F.jsx)(Ee,{size:24})})})]})},nm=T.div`
   padding: 20px;
   color: ${e=>e.theme.PRIMARY};
   min-height: 100vh;

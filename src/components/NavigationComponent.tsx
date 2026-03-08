@@ -5,7 +5,6 @@ import {
   MenuHeader,
   MenuTitle,
   MenuInfo,
-  MenuSpacer,
   MenuNav,
   NavButton,
   Backdrop,
@@ -50,7 +49,8 @@ export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate, canAcces
               <MenuInfo theme={theme}>Beta Testing!</MenuInfo>
             </MenuHeader>
             <MenuSubText theme={theme}>
-              Thanks for checking it out!  Please report any bugs/issues to the Battle-System Discord.
+              Thanks for checking it out!  Please report any bugs/issues to the  
+              <a href="https://discord.gg/Kh9hbHAZnX" target="_blank" rel="noreferrer"> Battle-System Discord</a>.
             </MenuSubText>
 
             {/* Navigation Links - Bottom Section */}

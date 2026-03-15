@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Item } from '@owlbear-rodeo/sdk';
 import OBR from '@owlbear-rodeo/sdk';
 import styled from 'styled-components';
-import { Cloudy, HardDrive, Menu, Search, Server } from 'lucide-react';
+import { CircleQuestionMark, Cloudy, Download, HardDrive, Menu, Pin, BookMarked, Search, Server, Star, Upload } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import LOGGER from '../helpers/Logger';
@@ -395,6 +395,7 @@ const TrayActionButton = styled.button<{ $theme: ThemeData }>`
   border-radius: 6px;
   border: 2px solid ${props => props.$theme.border};
   background: ${props => rgbaFromHex(props.$theme.background, 0.9)};
+  color: ${props => props.$theme.primary};
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -423,15 +424,6 @@ const FavoriteActionButton = styled(TrayActionButton)<{ $active: boolean; $theme
   &:disabled {
     background: ${props => rgbaFromHex(props.$theme.background, 0.9)};
   }
-`;
-
-const TrayActionIcon = styled.img<{ $active?: boolean }>`
-  width: 20px;
-  height: 20px;
-  display: block;
-  filter: ${props => props.$active
-    ? 'brightness(0) saturate(100%) invert(23%) sepia(82%) saturate(6574%) hue-rotate(349deg) brightness(96%) contrast(115%)'
-    : 'none'};
 `;
 
 const ImportTextArea = styled.textarea<{ $theme: ThemeData }>`
@@ -466,6 +458,37 @@ const ModalErrorText = styled.div<{ $theme: ThemeData }>`
   margin-top: 8px;
   color: ${props => rgbaFromHex(props.$theme.offset, 0.95)};
   font-size: 12px;
+`;
+
+const HelpModalContent = styled.div<{ $theme: ThemeData }>`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: ${props => rgbaFromHex(props.$theme.primary, 0.92)};
+  font-size: 12px;
+  line-height: 1.45;
+`;
+
+const HelpSectionTitle = styled.div<{ $theme: ThemeData }>`
+  font-size: 13px;
+  font-weight: 700;
+  color: ${props => props.$theme.primary};
+`;
+
+const HelpList = styled.ul`
+  margin: 0;
+  padding-left: 16px;
+`;
+
+const HelpCode = styled.code<{ $theme: ThemeData }>`
+  display: block;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid ${props => rgbaFromHex(props.$theme.border, 0.7)};
+  background: ${props => rgbaFromHex(props.$theme.background, 0.82)};
+  color: ${props => props.$theme.primary};
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  white-space: pre-wrap;
 `;
 
 const LocalModalOverlay = styled.div`
@@ -593,6 +616,7 @@ export const CardPopoverPage = () => {
   const [collectionRecords, setCollectionRecords] = useState<UnitCollectionRecord[]>([]);
   const [remoteCollectionRecords, setRemoteCollectionRecords] = useState<CollectionSearchRecord[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
   const [authHydrated, setAuthHydrated] = useState(false);
@@ -1501,7 +1525,7 @@ export const CardPopoverPage = () => {
               }}
             >
               <SettingsTooltip theme={tooltipTheme} text="Pin/Unpin card popover">
-                <TrayActionIcon src="/pin.svg" alt="" aria-hidden="true" />
+                <Pin size={16} />
               </SettingsTooltip>
             </TrayActionButton>
             <FavoriteActionButton
@@ -1513,7 +1537,7 @@ export const CardPopoverPage = () => {
               onClick={handleTrayFavoriteClick}
             >
               <SettingsTooltip theme={tooltipTheme} text="Mark next save as favorite">
-                <TrayActionIcon $active={isFavoriteEnabled} src="/favorite.svg" alt="" aria-hidden="true" />
+                <Star size={16} fill={isFavoriteEnabled ? 'currentColor' : 'none'} />
               </SettingsTooltip>
             </FavoriteActionButton>
 
@@ -1525,7 +1549,7 @@ export const CardPopoverPage = () => {
               onClick={handleTrayCollectionSaveClick}
             >
               <SettingsTooltip theme={tooltipTheme} text="Save current unit to Collection">
-                <TrayActionIcon src="/collection.svg" alt="" aria-hidden="true" />
+                <BookMarked size={16} />
               </SettingsTooltip>
             </TrayActionButton>
           </TrayActionGroup>
@@ -1538,7 +1562,7 @@ export const CardPopoverPage = () => {
               onClick={handleTrayImportClick}
             >
               <SettingsTooltip theme={tooltipTheme} text="Import unit data from JSON">
-                <TrayActionIcon src="/import.svg" alt="" aria-hidden="true" />
+                <Download size={16} />
               </SettingsTooltip>
             </TrayActionButton>
             <TrayActionButton
@@ -1548,7 +1572,19 @@ export const CardPopoverPage = () => {
               onClick={handleTrayExportClick}
             >
               <SettingsTooltip theme={tooltipTheme} text="Export current unit data to clipboard">
-                <TrayActionIcon src="/export.svg" alt="" aria-hidden="true" />
+                <Upload size={16} />
+              </SettingsTooltip>
+            </TrayActionButton>
+            <TrayActionButton
+              type="button"
+              $theme={theme}
+              aria-label="Card Help"
+              onClick={() => {
+                setIsHelpModalOpen(true);
+              }}
+            >
+              <SettingsTooltip theme={tooltipTheme} text="Help with BIDs and dice notation">
+                <CircleQuestionMark size={16} />
               </SettingsTooltip>
             </TrayActionButton>
           </TrayActionGroup>
@@ -1701,6 +1737,57 @@ export const CardPopoverPage = () => {
                 onClick={handleImportModalApply}
               >
                 Import
+              </ModalActionButton>
+            </LocalModalActions>
+          </LocalModalContainer>
+        </>
+      ) : null}
+
+      {isHelpModalOpen ? (
+        <>
+          <LocalModalOverlay onClick={() => {
+            setIsHelpModalOpen(false);
+          }} />
+          <LocalModalContainer
+            $theme={theme}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <LocalModalTitle $theme={theme}>Card Help</LocalModalTitle>
+            <HelpModalContent $theme={theme}>
+              <HelpSectionTitle $theme={theme}>Rollable Values</HelpSectionTitle>
+              <HelpList>
+                <li>Right-click a value on the card to open the field menu.</li>
+                <li>The menu shows the field name and BID in brackets, like <strong>[Z017]</strong>.</li>
+                <li>For rollable fields, use that menu to choose <strong>Edit value</strong>, <strong>Roll with Advantage</strong>, or <strong>Roll with Disadvantage</strong>.</li>
+              </HelpList>
+
+              <HelpSectionTitle $theme={theme}>Dice Chips in Text</HelpSectionTitle>
+              <HelpList>
+                <li>Wrap a formula in square brackets to create a clickable dice chip.</li>
+                <li>You can also use fl(floor) to round down or ce(ceil) to round up. Ex; [1d20+fl(@Strength/2)]</li>
+              </HelpList>
+              <HelpCode $theme={theme}>Melee attack: [1d20+5] to hit.</HelpCode>
+
+              <HelpSectionTitle $theme={theme}>Using Attributes in Formulas</HelpSectionTitle>
+              <HelpList>
+                <li>Reference by BID with <strong>@BID</strong>.</li>
+                <li>Reference by attribute name with <strong>@NAME</strong>. Swap spaces with underscores.</li>
+              </HelpList>
+              <HelpCode $theme={theme}>Damage: [2d8+@Z017]</HelpCode>
+              <HelpCode $theme={theme}>Damage: [2d8+@Strength]</HelpCode>
+            </HelpModalContent>
+            <LocalModalActions>
+              <ModalActionButton
+                type="button"
+                $theme={theme}
+                $variant="primary"
+                onClick={() => {
+                  setIsHelpModalOpen(false);
+                }}
+              >
+                Close
               </ModalActionButton>
             </LocalModalActions>
           </LocalModalContainer>

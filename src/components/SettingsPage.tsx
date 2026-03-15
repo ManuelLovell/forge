@@ -145,6 +145,7 @@ export const SettingsPage = () => {
   const [showListHpNumbers, setShowListHpNumbers] = useState(true);
   const [showOwnerOnlyEdit, setShowOwnerOnlyEdit] = useState(false);
   const [showModifyUnitContextMenu, setShowModifyUnitContextMenu] = useState(true);
+  const [showViewUnitContextMenuForPlayers, setShowViewUnitContextMenuForPlayers] = useState(true);
 
   // Game Controls state
   const [showHpBars, setShowHpBars] = useState(false);
@@ -230,6 +231,11 @@ export const SettingsPage = () => {
       setShowModifyUnitContextMenu(storageContainer[SettingsConstants.SHOW_MODIFY_UNIT_CONTEXT_MENU] as boolean);
     } else {
       setShowModifyUnitContextMenu(true);
+    }
+    if (storageContainer[SettingsConstants.SHOW_VIEW_UNIT_CONTEXT_MENU_FOR_PLAYERS] !== undefined) {
+      setShowViewUnitContextMenuForPlayers(storageContainer[SettingsConstants.SHOW_VIEW_UNIT_CONTEXT_MENU_FOR_PLAYERS] as boolean);
+    } else {
+      setShowViewUnitContextMenuForPlayers(true);
     }
     if (storageContainer[SettingsConstants.SHOW_NON_PARTY_UNITS] !== undefined) {
       setShowNonPartyUnits(storageContainer[SettingsConstants.SHOW_NON_PARTY_UNITS] as boolean);
@@ -734,6 +740,20 @@ export const SettingsPage = () => {
               onChange={async (value) => {
                 setShowModifyUnitContextMenu(value);
                 await saveData(SettingsConstants.SHOW_MODIFY_UNIT_CONTEXT_MENU, value);
+              }}
+            />
+          </ControlRow>
+
+          <ControlRow theme={theme}>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showViewUnitContextMenuForPlayers}>Show View Unit Context Menu for Players</SettingsTooltip>
+            </ControlLabel>
+            <ToggleControl
+              label="Show View Unit Context Menu for Players"
+              isOn={showViewUnitContextMenuForPlayers}
+              onChange={async (value) => {
+                setShowViewUnitContextMenuForPlayers(value);
+                await saveData(SettingsConstants.SHOW_VIEW_UNIT_CONTEXT_MENU_FOR_PLAYERS, value);
               }}
             />
           </ControlRow>

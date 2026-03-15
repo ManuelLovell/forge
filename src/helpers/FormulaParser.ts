@@ -9,6 +9,7 @@ enum TokenType {
   NUMBER = 'NUMBER',
   DICE = 'DICE',
   BID_REF = 'BID_REF',
+  NAME_REF = 'NAME_REF',
   OPERATOR = 'OPERATOR',
   FUNCTION = 'FUNCTION',
   LPAREN = 'LPAREN',
@@ -47,6 +48,8 @@ interface Roll20ConversionResult {
 interface ResolvedNotationOptions {
   bidValueMap?: Record<string, number>;
   resolveBidValue?: (bid: string) => number | undefined;
+  nameValueMap?: Record<string, number>;
+  resolveNameValue?: (name: string) => number | undefined;
   onMissingBid?: 'error' | 'useZero';
 }
 
@@ -62,7 +65,7 @@ interface ResolvedNotationResult {
 
 // Allowed mathematical functions
 const ALLOWED_FUNCTIONS = new Set([
-  'floor', 'ceil', 'round', 'abs', 'max', 'min'
+  'floor', 'ceil', 'fl', 'cl', 'round', 'abs', 'max', 'min'
 ]);
 
 // Allowed operators
@@ -73,6 +76,10 @@ const VALID_DIE_SIZES = new Set([4, 6, 8, 10, 12, 20, 100]);
 
 // Dice modifiers
 const DICE_MODIFIERS = new Set(['kh', 'kl', 'dh', 'dl', '!']);
+
+const normalizeReferenceKey = (value: string): string => {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+};
 
 // ============================================================================
 // TOKENIZER
@@ -165,26 +172,31 @@ function tokenize(formula: string): Token[] {
       }
     }
 
-    // BID references (@BID format)
-    if (char === '@') {
+    // Attribute references (@BID / @NAME / #NAME)
+    if (char === '@' || char === '#') {
       const startPos = i;
+      const marker = char;
       i++; // Skip @
-      let bid = '';
+      let reference = '';
       
-      while (i < formula.length && /[A-Z0-9]/.test(formula[i])) {
-        bid += formula[i];
+      while (i < formula.length && /[A-Z0-9_]/i.test(formula[i])) {
+        reference += formula[i];
         i++;
       }
       
-      if (bid.length === 0) {
-        throw new Error(`Invalid BID reference at position ${startPos}: missing identifier after @`);
+      if (reference.length === 0) {
+        throw new Error(`Invalid reference at position ${startPos}: missing identifier after ${marker}`);
       }
       
-      if (bid.length > 4) {
-        throw new Error(`Invalid BID reference at position ${startPos}: BID too long (max 4 characters)`);
+      if (reference.length > 64) {
+        throw new Error(`Invalid reference at position ${startPos}: identifier too long (max 64 characters)`);
       }
-      
-      tokens.push({ type: TokenType.BID_REF, value: bid, position: startPos });
+
+      tokens.push({
+        type: marker === '@' ? TokenType.BID_REF : TokenType.NAME_REF,
+        value: reference,
+        position: startPos,
+      });
       continue;
     }
 
@@ -394,11 +406,23 @@ class FormulaEvaluator {
   private tokens: Token[];
   private current: number;
   private readonly options: ResolvedNotationOptions;
+  private readonly normalizedNameValueMap: Record<string, number>;
 
   constructor(tokens: Token[], options: ResolvedNotationOptions) {
     this.tokens = tokens;
     this.current = 0;
     this.options = options;
+    this.normalizedNameValueMap = {};
+
+    const entries = Object.entries(this.options.nameValueMap || {});
+    for (const [key, value] of entries) {
+      const normalized = normalizeReferenceKey(key);
+      if (!normalized || !Number.isFinite(value)) {
+        continue;
+      }
+
+      this.normalizedNameValueMap[normalized] = value;
+    }
   }
 
   private peek(): Token {
@@ -415,6 +439,69 @@ class FormulaEvaluator {
       throw new Error(`${message} at position ${token.position}`);
     }
     return this.advance();
+  }
+
+  private resolveBidValueFlexible(bid: string): number | undefined {
+    const directValue = this.options.resolveBidValue?.(bid) ?? this.options.bidValueMap?.[bid];
+    if (directValue !== undefined) {
+      return directValue;
+    }
+
+    const upperBid = bid.toUpperCase();
+    if (upperBid !== bid) {
+      const upperValue = this.options.resolveBidValue?.(upperBid) ?? this.options.bidValueMap?.[upperBid];
+      if (upperValue !== undefined) {
+        return upperValue;
+      }
+    }
+
+    const lowerBid = bid.toLowerCase();
+    if (lowerBid !== bid) {
+      const lowerValue = this.options.resolveBidValue?.(lowerBid) ?? this.options.bidValueMap?.[lowerBid];
+      if (lowerValue !== undefined) {
+        return lowerValue;
+      }
+    }
+
+    return this.resolveNamedValueFlexible(bid);
+  }
+
+  private resolveNamedValueFlexible(name: string): number | undefined {
+    const directValue = this.options.resolveNameValue?.(name) ?? this.options.nameValueMap?.[name];
+    if (directValue !== undefined) {
+      return directValue;
+    }
+
+    const upperName = name.toUpperCase();
+    if (upperName !== name) {
+      const upperValue = this.options.resolveNameValue?.(upperName) ?? this.options.nameValueMap?.[upperName];
+      if (upperValue !== undefined) {
+        return upperValue;
+      }
+    }
+
+    const lowerName = name.toLowerCase();
+    if (lowerName !== name) {
+      const lowerValue = this.options.resolveNameValue?.(lowerName) ?? this.options.nameValueMap?.[lowerName];
+      if (lowerValue !== undefined) {
+        return lowerValue;
+      }
+    }
+
+    const normalizedName = normalizeReferenceKey(name);
+    if (normalizedName) {
+      const normalizedValue = this.normalizedNameValueMap[normalizedName];
+      if (normalizedValue !== undefined) {
+        return normalizedValue;
+      }
+
+      const callbackValue = this.options.resolveNameValue?.(normalizedName);
+      if (callbackValue !== undefined) {
+        return callbackValue;
+      }
+    }
+
+    return undefined;
   }
 
   parse(): EvaluatedValue {
@@ -464,15 +551,31 @@ class FormulaEvaluator {
 
     if (token.type === TokenType.BID_REF) {
       this.advance();
-      const bid = token.value;
-      const resolvedValue = this.options.resolveBidValue?.(bid) ?? this.options.bidValueMap?.[bid];
+      const reference = token.value;
+      const resolvedValue = this.resolveBidValueFlexible(reference);
       const onMissingBid = this.options.onMissingBid ?? 'error';
 
       if (resolvedValue === undefined || Number.isNaN(resolvedValue)) {
         if (onMissingBid === 'useZero') {
           return { kind: 'number', value: 0, precedence: 3 };
         }
-        throw new Error(`No numeric value found for BID @${bid}`);
+        throw new Error(`No numeric value found for reference @${reference}`);
+      }
+
+      return { kind: 'number', value: resolvedValue, precedence: 3 };
+    }
+
+    if (token.type === TokenType.NAME_REF) {
+      this.advance();
+      const reference = token.value;
+      const resolvedValue = this.resolveNamedValueFlexible(reference);
+      const onMissingBid = this.options.onMissingBid ?? 'error';
+
+      if (resolvedValue === undefined || Number.isNaN(resolvedValue)) {
+        if (onMissingBid === 'useZero') {
+          return { kind: 'number', value: 0, precedence: 3 };
+        }
+        throw new Error(`No numeric value found for reference #${reference}`);
       }
 
       return { kind: 'number', value: resolvedValue, precedence: 3 };
@@ -527,9 +630,11 @@ class FormulaEvaluator {
   private evaluateFunction(name: string, args: number[]): number {
     switch (name) {
       case 'floor':
+      case 'fl':
         if (args.length !== 1) throw new Error('floor expects exactly 1 argument');
         return Math.floor(args[0]);
       case 'ceil':
+      case 'cl':
         if (args.length !== 1) throw new Error('ceil expects exactly 1 argument');
         return Math.ceil(args[0]);
       case 'round':
@@ -646,14 +751,38 @@ export function toRoll20Formula(
   const tokens = tokenize(formula).filter((token) => token.type !== TokenType.EOF);
   const convertedParts: string[] = [];
 
+  const resolveBidAttributeFlexible = (bid: string): string | undefined => {
+    const directValue = options.resolveBidAttribute?.(bid) ?? options.bidAttributeMap?.[bid];
+    if (directValue !== undefined) {
+      return directValue;
+    }
+
+    const upperBid = bid.toUpperCase();
+    if (upperBid !== bid) {
+      const upperValue = options.resolveBidAttribute?.(upperBid) ?? options.bidAttributeMap?.[upperBid];
+      if (upperValue !== undefined) {
+        return upperValue;
+      }
+    }
+
+    const lowerBid = bid.toLowerCase();
+    if (lowerBid !== bid) {
+      const lowerValue = options.resolveBidAttribute?.(lowerBid) ?? options.bidAttributeMap?.[lowerBid];
+      if (lowerValue !== undefined) {
+        return lowerValue;
+      }
+    }
+
+    return undefined;
+  };
+
   for (const token of tokens) {
     if (token.type !== TokenType.BID_REF) {
       convertedParts.push(token.value);
       continue;
     }
 
-    const mappedAttribute =
-      options.resolveBidAttribute?.(token.value) ?? options.bidAttributeMap?.[token.value];
+    const mappedAttribute = resolveBidAttributeFlexible(token.value);
 
     if (!mappedAttribute && onMissingBid === 'error') {
       return {
@@ -723,10 +852,13 @@ export function toResolvedDiceNotation(
 // Expected `func` format (grammar summary):
 // - Literals: `12`, `3.5`
 // - Dice: `1d20`, `4d6kh3`, `4d6kl3`, `4d6dh1`, `4d6dl1`, `1d6!`
-// - Attribute references: `@STR`, `@DEX` (1-4 uppercase letters/numbers)
+// - Attribute references:
+//   - BID style: `@STR`, `@BE12`
+//   - Name style: `@STRENGTH`, `#STRENGTH`, `#MAX_HP`
+//   - Name references are case-insensitive and normalized (non-alphanumeric chars ignored)
 // - Operators: `+`, `-`, `*`, `/`
 // - Parentheses: `( ... )`
-// - Functions: `floor(...)`, `ceil(...)`, `round(...)`, `abs(...)`, `max(...)`, `min(...)`
+// - Functions: `floor(...)`/`fl(...)`, `ceil(...)`/`cl(...)`, `round(...)`, `abs(...)`, `max(...)`, `min(...)`
 // - Function args are comma-separated expressions: `max(1d20, @DEX + 2)`
 //
 // Output shape from this file:

@@ -10,6 +10,7 @@ export const SETTINGS_TOOLTIPS = {
   showHpNumbersOnList: 'If disabled, Players do not see exact HP/Max HP values in the Initiative List for non-owned units.',
   ownerOnlyEdit: 'Restricts editing controls to GMs and token owners.',
   showAdjustHpContextMenu: 'Shows or hides context menu options used to modify HP quickly.',
+  showViewUnitContextMenuForPlayers: 'Shows or hides the View Unit right-click context menu option for Players while keeping it available for GMs.',
   showHpBarsOnTokens: 'Displays graphical HP bars on tokens in the scene.',
   hpOrientation: 'Sets where HP bars or HP numbers are anchored relative to tokens.',
   showHpNumbersOnTokens: 'Displays current/max HP numbers directly on tokens.',

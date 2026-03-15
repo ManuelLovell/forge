@@ -45,6 +45,7 @@ export class SettingsConstants {
   static SHOW_LIST_HP_NUMBERS = `${EXTENSION_ID}/listhpn`;
   static SHOW_OWNER_ONLY_EDIT = `${EXTENSION_ID}/ownedit`;
   static SHOW_MODIFY_UNIT_CONTEXT_MENU = `${EXTENSION_ID}/modictx`;
+  static SHOW_VIEW_UNIT_CONTEXT_MENU_FOR_PLAYERS = `${EXTENSION_ID}/viewctxp`;
 
   // Game Controls
   static SHOW_HP_BARS = `${EXTENSION_ID}/showhpbar`;

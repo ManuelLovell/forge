@@ -53,6 +53,13 @@ type InlineNotationToken = {
   notation: string;
 };
 
+type FieldContextMenuState = {
+  draftKey: string;
+  attribute: SystemAttribute;
+  input: HTMLInputElement | null;
+  isRollable: boolean;
+};
+
 const CardShell = styled.div<{ $theme: CardLayoutTheme; $backgroundUrl?: string }>`
   width: 100%;
   max-width: 350px;
@@ -498,6 +505,72 @@ const InlineNotationButton = styled.button<{ $theme: CardLayoutTheme }>`
   text-overflow: ellipsis;
 `;
 
+const RollableMenuActions = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const RollableModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 9999;
+`;
+
+const RollableModalContainer = styled.div<{ $theme: CardLayoutTheme }>`
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(420px, calc(100vw - 24px));
+  border-radius: 10px;
+  border: 2px solid ${props => rgbaFromHex(props.$theme.border, 0.9)};
+  background: ${props => rgbaFromHex(props.$theme.background, 0.95)};
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  padding: 14px;
+  box-sizing: border-box;
+  z-index: 10000;
+`;
+
+const RollableModalTitle = styled.h3<{ $theme: CardLayoutTheme }>`
+  margin: 0 0 12px;
+  color: ${props => rgbaFromHex(props.$theme.primary, 0.98)};
+  font-size: 16px;
+`;
+
+const RollableModalTitleRow = styled.div`
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+`;
+
+const RollableModalBid = styled.span<{ $theme: CardLayoutTheme }>`
+  color: ${props => rgbaFromHex(props.$theme.offset, 0.95)};
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+`;
+
+const RollableMenuButton = styled.button<{ $theme: CardLayoutTheme }>`
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid ${props => rgbaFromHex(props.$theme.border, 0.9)};
+  background: ${props => rgbaFromHex(props.$theme.background, 0.82)};
+  color: ${props => rgbaFromHex(props.$theme.primary, 0.95)};
+  padding: 8px 10px;
+  box-sizing: border-box;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: ${props => rgbaFromHex(props.$theme.offset, 0.38)};
+  }
+`;
+
 const ActionNameRow = styled.div`
   display: flex;
   width: 100%;
@@ -738,6 +811,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 }) => {
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [rollableEditMode, setRollableEditMode] = useState<Record<string, boolean>>({});
+  const [fieldContextMenu, setFieldContextMenu] = useState<FieldContextMenuState | null>(null);
   const longPressTimersRef = useRef<Record<string, number>>({});
   const suppressNextClickRef = useRef<Record<string, boolean>>({});
   const LONG_PRESS_MS = 500;
@@ -847,6 +921,32 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     return map;
   }, [attributes, unitItem.metadata]);
 
+  const nameNumericValueMap = useMemo(() => {
+    const map: Record<string, number> = {};
+
+    for (const attribute of attributes) {
+      const rawValue = getMetadataStringValue(attribute.attr_bid).trim();
+      if (!rawValue) {
+        continue;
+      }
+
+      const parsedValue = Number(rawValue);
+      if (!Number.isFinite(parsedValue)) {
+        continue;
+      }
+
+      if (attribute.attr_name) {
+        map[attribute.attr_name] = parsedValue;
+      }
+
+      if (attribute.attr_abbr) {
+        map[attribute.attr_abbr] = parsedValue;
+      }
+    }
+
+    return map;
+  }, [attributes, unitItem.metadata]);
+
   const buildResolvedNotation = (attribute: SystemAttribute | null): string | null => {
     const formula = attribute?.attr_func;
     if (typeof formula !== 'string' || formula.trim().length === 0) {
@@ -855,6 +955,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
     const conversion = toResolvedDiceNotation(formula, {
       bidValueMap: bidNumericValueMap,
+      nameValueMap: nameNumericValueMap,
       onMissingBid: 'error',
     });
 
@@ -901,6 +1002,37 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     await sendNotationRoll(notation, attribute.attr_name || attribute.attr_bid || 'Roll');
   };
 
+  const ADVANTAGE_DICE_PATTERN = /(\d+)d(\d+)([kd][hl]\d+|!)?/ig;
+
+  const resolveAdvantageDisadvantageNotation = (
+    notation: string,
+    mode: 'advantage' | 'disadvantage'
+  ): string | null => {
+    const matches = Array.from(notation.matchAll(ADVANTAGE_DICE_PATTERN));
+    if (matches.length !== 1) {
+      return null;
+    }
+
+    const match = matches[0];
+    const fullMatch = match[0] || '';
+    const rawCount = match[1] || '';
+    const sides = match[2] || '';
+    const modifier = match[3] || '';
+    const matchIndex = match.index;
+
+    if (!fullMatch || !rawCount || !sides || typeof matchIndex !== 'number') {
+      return null;
+    }
+
+    const diceCount = Number(rawCount);
+    if (!Number.isFinite(diceCount) || diceCount !== 1 || modifier) {
+      return null;
+    }
+
+    const replacement = `2d${sides}${mode === 'advantage' ? 'kh1' : 'kl1'}`;
+    return `${notation.slice(0, matchIndex)}${replacement}${notation.slice(matchIndex + fullMatch.length)}`;
+  };
+
   useEffect(() => {
     return () => {
       Object.values(longPressTimersRef.current).forEach((timerId) => {
@@ -912,6 +1044,45 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
   const isRollableEditing = (draftKey: string): boolean => {
     return !!rollableEditMode[draftKey];
   };
+
+  const openFieldContextMenu = (
+    draftKey: string,
+    attribute: SystemAttribute | null,
+    input: HTMLInputElement | null,
+    isRollable: boolean
+  ) => {
+    if (!attribute) {
+      return;
+    }
+
+    setFieldContextMenu({
+      draftKey,
+      attribute,
+      input,
+      isRollable,
+    });
+  };
+
+  const closeFieldContextMenu = () => {
+    setFieldContextMenu(null);
+  };
+
+  useEffect(() => {
+    if (!fieldContextMenu) {
+      return;
+    }
+
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setFieldContextMenu(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscapeKey);
+    return () => {
+      window.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [fieldContextMenu]);
 
   const enableRollableEditMode = (draftKey: string, input?: HTMLInputElement | null) => {
     setRollableEditMode((prev) => ({
@@ -1035,6 +1206,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
       const conversion = toResolvedDiceNotation(formula, {
         bidValueMap: bidNumericValueMap,
+        nameValueMap: nameNumericValueMap,
         onMissingBid: 'error',
       });
 
@@ -1139,9 +1311,18 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     if (type === 'text') {
       const fontSize = sizeMapTitle[(style.fontSize as keyof typeof sizeMapTitle) || 'md'];
       const title = getLabelFromAttribute(attr, style.labelMode) || 'Title Header';
+      const contextDraftKey = `text:${component.id}:${attr?.attr_bid || 'none'}`;
 
       return (
-        <BaseCell key={component.id} $theme={systemTheme} $full={component.fullsize}>
+        <BaseCell
+          key={component.id}
+          $theme={systemTheme}
+          $full={component.fullsize}
+          onContextMenu={attr ? (event) => {
+            event.preventDefault();
+            openFieldContextMenu(contextDraftKey, attr, null, false);
+          } : undefined}
+        >
           <ValueText
             $theme={systemTheme}
             $fontSize={fontSize}
@@ -1210,9 +1391,9 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
             void handleNotationClick(attr);
           } : undefined}
-          onContextMenu={isRollableInput ? (event) => {
+          onContextMenu={attr ? (event) => {
             event.preventDefault();
-            enableRollableEditMode(draftKey, event.currentTarget);
+            openFieldContextMenu(draftKey, attr, event.currentTarget, isRollableInput);
           } : undefined}
           onTouchStart={isRollableInput ? (event) => {
             if (isEditingRollableInput) {
@@ -1298,6 +1479,8 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
             {Array.from({ length: count }).map((_, index) => {
               const bid = normalizedBoolBids[index] || '';
               const isActive = bid ? getMetadataBoolValue(bid) : false;
+              const checkboxAttribute = bid ? resolveAttribute(attributes, bid) : null;
+              const contextDraftKey = `text-checkbox:${component.id}:${bid || `index-${index}`}`;
 
               return isSlider
                 ? (
@@ -1309,6 +1492,10 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     disabled={!bid}
                     onClick={!bid ? undefined : () => {
                       void updateAttributeBoolValue(bid, !isActive);
+                    }}
+                    onContextMenu={!checkboxAttribute ? undefined : (event) => {
+                      event.preventDefault();
+                      openFieldContextMenu(contextDraftKey, checkboxAttribute, null, false);
                     }}
                   >
                     <StyledToggleBar $theme={systemTheme} $active={isActive} />
@@ -1323,6 +1510,10 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     checked={isActive}
                     onChange={!bid ? undefined : (event) => {
                       void updateAttributeBoolValue(bid, event.target.checked);
+                    }}
+                    onContextMenu={!checkboxAttribute ? undefined : (event) => {
+                      event.preventDefault();
+                      openFieldContextMenu(contextDraftKey, checkboxAttribute, null, false);
                     }}
                   />
                 );
@@ -1361,6 +1552,10 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     $align="center"
                     $weight={columnWeight}
                     $fontStyle={columnFontStyle}
+                    onContextMenu={columnAttr ? (event) => {
+                      event.preventDefault();
+                      openFieldContextMenu(`column-text:${component.id}:${bid}`, columnAttr, null, false);
+                    } : undefined}
                   >
                     {columnLabel}
                   </ColumnLabel>
@@ -1425,9 +1620,9 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
                       void handleNotationClick(columnAttr);
                     } : undefined}
-                    onContextMenu={isRollableInput ? (event) => {
+                    onContextMenu={columnAttr ? (event) => {
                       event.preventDefault();
-                      enableRollableEditMode(draftKey, event.currentTarget);
+                      openFieldContextMenu(draftKey, columnAttr, event.currentTarget, isRollableInput);
                     } : undefined}
                     onTouchStart={isRollableInput ? (event) => {
                       if (isEditingRollableInput) {
@@ -1473,7 +1668,15 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
         <BaseCell key={component.id} $theme={systemTheme} $full={component.fullsize}>
           <ListBlock $theme={systemTheme}>
             <ListHeader $theme={systemTheme}>
-              <ListTitle $theme={systemTheme}>{listTitle}</ListTitle>
+              <ListTitle
+                $theme={systemTheme}
+                onContextMenu={listAttr ? (event) => {
+                  event.preventDefault();
+                  openFieldContextMenu(`action-list:${component.id}:${listBid || 'none'}`, listAttr, null, false);
+                } : undefined}
+              >
+                {listTitle}
+              </ListTitle>
               <HeaderIconButton
                 type="button"
                 $theme={systemTheme}
@@ -1596,7 +1799,15 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
         <BaseCell key={component.id} $theme={systemTheme} $full={component.fullsize}>
           <ListBlock $theme={systemTheme}>
             <ListHeader $theme={systemTheme}>
-              <ListTitle $theme={systemTheme}>{listTitle}</ListTitle>
+              <ListTitle
+                $theme={systemTheme}
+                onContextMenu={listAttr ? (event) => {
+                  event.preventDefault();
+                  openFieldContextMenu(`item-list:${component.id}:${listBid || 'none'}`, listAttr, null, false);
+                } : undefined}
+              >
+                {listTitle}
+              </ListTitle>
               <HeaderIconButton
                 type="button"
                 $theme={systemTheme}
@@ -1733,8 +1944,9 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
   };
 
   return (
-    <CardShell $theme={systemTheme} $backgroundUrl={backgroundUrl}>
-      <Layer>
+    <>
+      <CardShell $theme={systemTheme} $backgroundUrl={backgroundUrl}>
+        <Layer>
         <Row>
           <UnitNameCell $theme={systemTheme}>
             <UnitNameInput
@@ -1762,7 +1974,86 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
             {row.items.map((component) => renderComponent(component))}
           </Row>
         ))}
-      </Layer>
-    </CardShell>
+        </Layer>
+      </CardShell>
+
+      {fieldContextMenu ? (
+        <>
+          <RollableModalOverlay onClick={closeFieldContextMenu} />
+          <RollableModalContainer $theme={systemTheme} onClick={(event) => event.stopPropagation()}>
+            <RollableModalTitleRow>
+              <RollableModalTitle $theme={systemTheme}>
+                {fieldContextMenu.attribute.attr_name || 'Attribute'}
+              </RollableModalTitle>
+              <RollableModalBid $theme={systemTheme}>
+                [{fieldContextMenu.attribute.attr_bid}]
+              </RollableModalBid>
+            </RollableModalTitleRow>
+            <RollableMenuActions>
+              {fieldContextMenu.isRollable ? (
+                <RollableMenuButton
+                  type="button"
+                  $theme={systemTheme}
+                  onClick={() => {
+                    closeFieldContextMenu();
+                    enableRollableEditMode(fieldContextMenu.draftKey, fieldContextMenu.input);
+                  }}
+                >
+                  Edit value
+                </RollableMenuButton>
+              ) : null}
+
+              {(() => {
+                if (!fieldContextMenu.isRollable) {
+                  return null;
+                }
+
+                const baseNotation = buildResolvedNotation(fieldContextMenu.attribute);
+                if (!baseNotation) {
+                  return null;
+                }
+
+                const advantageNotation = resolveAdvantageDisadvantageNotation(baseNotation, 'advantage');
+                const disadvantageNotation = resolveAdvantageDisadvantageNotation(baseNotation, 'disadvantage');
+                if (!advantageNotation || !disadvantageNotation) {
+                  return null;
+                }
+
+                return (
+                  <>
+                    <RollableMenuButton
+                      type="button"
+                      $theme={systemTheme}
+                      onClick={() => {
+                        closeFieldContextMenu();
+                        void sendNotationRoll(
+                          advantageNotation,
+                          `${fieldContextMenu.attribute.attr_name || fieldContextMenu.attribute.attr_bid || 'Roll'} (Advantage)`
+                        );
+                      }}
+                    >
+                      Roll with Advantage
+                    </RollableMenuButton>
+                    <RollableMenuButton
+                      type="button"
+                      $theme={systemTheme}
+                      onClick={() => {
+                        closeFieldContextMenu();
+                        void sendNotationRoll(
+                          disadvantageNotation,
+                          `${fieldContextMenu.attribute.attr_name || fieldContextMenu.attribute.attr_bid || 'Roll'} (Disadvantage)`
+                        );
+                      }}
+                    >
+                      Roll with Disadvantage
+                    </RollableMenuButton>
+                  </>
+                );
+              })()}
+            </RollableMenuActions>
+          </RollableModalContainer>
+        </>
+      ) : null}
+    </>
   );
 };

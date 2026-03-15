@@ -11,6 +11,7 @@ import { findRemoteUnitCollectionByNames, findSharedUnitCollectionByNames } from
 import { MOCK_BIDS } from '../helpers/MockData';
 
 const VIEW_UNIT_CONTEXT_MENU_ID = 'com.battle-system.forge/view-unit';
+const VIEW_UNIT_PLAYER_CONTEXT_MENU_ID = 'com.battle-system.forge/view-unit-player';
 
 const normalizeLookupName = (name: string): string => name.trim().toLowerCase();
 
@@ -183,6 +184,9 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
     const showModifyUnitContextMenu = storageContainer[SettingsConstants.SHOW_MODIFY_UNIT_CONTEXT_MENU] === undefined
         ? true
         : storageContainer[SettingsConstants.SHOW_MODIFY_UNIT_CONTEXT_MENU] === true;
+    const showPlayerViewUnitContextMenu = storageContainer[SettingsConstants.SHOW_VIEW_UNIT_CONTEXT_MENU_FOR_PLAYERS] === undefined
+        ? true
+        : storageContainer[SettingsConstants.SHOW_VIEW_UNIT_CONTEXT_MENU_FOR_PLAYERS] === true;
 
     useEffect(() => {
         // This is ran once, but this is a performative place to ensure this is not tried before the scene is ready
@@ -450,18 +454,6 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                 { key: "layer", value: "MOUNT" }],
                             roles: ["GM"],
                         },
-                    },
-                    {
-                        icon: "/icon.svg", // Player Version
-                        label: "View Unit",
-                        filter: {
-                            max: 1,
-                            every: [{ key: "createdUserId", operator: "==", value: playerData?.id }],
-                            some: [
-                                { key: "layer", value: "CHARACTER", coordinator: "||" },
-                                { key: "layer", value: "MOUNT" }],
-                            roles: ["PLAYER"],
-                        },
                     }
                 ],
                 async onClick(context) {
@@ -525,6 +517,87 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                 }
             });
 
+            if (showPlayerViewUnitContextMenu) {
+                OBR.contextMenu.create({
+                    id: VIEW_UNIT_PLAYER_CONTEXT_MENU_ID,
+                    icons: [
+                        {
+                            icon: "/icon.svg", // Player Version
+                            label: "View Unit",
+                            filter: {
+                                max: 1,
+                                every: [{ key: "createdUserId", operator: "==", value: playerData?.id }],
+                                some: [
+                                    { key: "layer", value: "CHARACTER", coordinator: "||" },
+                                    { key: "layer", value: "MOUNT" }],
+                                roles: ["PLAYER"],
+                            },
+                        }
+                    ],
+                    async onClick(context) {
+                        LOGGER.info(`View Unit Clicked: ${context.items[0].name}`);
+
+                        const selectedItem = context.items[0];
+                        if (!selectedItem) {
+                            return;
+                        }
+
+                        const update: Metadata = {};
+
+                        if (selectedItem.metadata[UnitConstants.FABRICATED] !== true) {
+                            const textItem = selectedItem as typeof selectedItem & { text?: { plainText?: string } };
+                            const preferredUnitName = getPreferredUnitNameFromItem(textItem);
+                            const itemName = getSearchNameFromItem(textItem.text?.plainText || selectedItem.name);
+
+                            await OBR.action.setBadgeText('Retrieving Data.. ⏱️');
+                            const collectionMatches = await getFirstCollectionMatchesByName([itemName]);
+                            await OBR.action.setBadgeText(undefined);
+
+                            const match = collectionMatches.get(normalizeLookupName(itemName));
+                            if (match) {
+                                Object.assign(update, match);
+                            }
+
+                            if (typeof update[UnitConstants.UNIT_NAME] !== 'string' || !String(update[UnitConstants.UNIT_NAME]).trim()) {
+                                update[UnitConstants.UNIT_NAME] = preferredUnitName;
+                            }
+
+                            update[UnitConstants.FABRICATED] = true;
+
+                            if (storageContainer[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] !== undefined) {
+                                const currentNamesInScene = sceneItems
+                                    .filter((x) => x.metadata[UnitConstants.UNIT_NAME] != null && x.id !== selectedItem.id)
+                                    .map((x) => x.metadata[UnitConstants.UNIT_NAME]);
+                                if (currentNamesInScene.includes(itemName)) {
+                                    update[UnitConstants.UNIT_NAME] = AddOrReplaceAdjective(itemName);
+                                }
+                            }
+
+                            await OBR.scene.items.updateItems([selectedItem], (items) => {
+                                const item = items[0];
+                                Object.assign(item.metadata, update);
+
+                                if (sceneMetadata[SettingsConstants.SHOW_NAMES] === true) {
+                                    const writableItem = item as typeof item & { text?: { plainText?: string } };
+                                    const resolvedUnitName = typeof update[UnitConstants.UNIT_NAME] === 'string'
+                                        && String(update[UnitConstants.UNIT_NAME]).trim().length > 0
+                                        ? String(update[UnitConstants.UNIT_NAME]).trim()
+                                        : getPreferredUnitNameFromItem(writableItem);
+                                    if (writableItem.text) {
+                                        writableItem.text.plainText = resolvedUnitName;
+                                    }
+                                }
+                            });
+                        }
+
+                        await openCardPopoverForUnit(selectedItem.id);
+
+                    }
+                });
+            } else {
+                OBR.contextMenu.remove(VIEW_UNIT_PLAYER_CONTEXT_MENU_ID).catch(() => { });
+            }
+
             if (healthAttrbEnabled && showModifyUnitContextMenu) {
                 OBR.contextMenu.create({
                     id: UnitConstants.MODIFY_UNIT,
@@ -570,7 +643,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                 OBR.contextMenu.remove(UnitConstants.MODIFY_UNIT).catch(() => { });
             }
         });
-    }, [storageContainer, healthAttrbEnabled, showModifyUnitContextMenu]);
+    }, [storageContainer, healthAttrbEnabled, showModifyUnitContextMenu, showPlayerViewUnitContextMenu]);
 
     return <>{children}</>;
 }

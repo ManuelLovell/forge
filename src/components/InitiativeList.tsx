@@ -120,6 +120,14 @@ interface ListReferenceModalState {
   bid: string;
 }
 
+type RollableContextMenuState = {
+  kind: 'attribute' | 'initiative';
+  fieldKey: string;
+  unitId: string;
+  bid?: string;
+  input: HTMLInputElement | null;
+};
+
 interface RoleLike {
   role?: unknown;
 }
@@ -170,6 +178,8 @@ const getRollableInputTextShadow = (theme: ForgeTheme): string => {
     0 0 2px ${rgbaFromHex(theme.BACKGROUND, 0.85)}
   `;
 };
+
+const ADVANTAGE_DICE_PATTERN = /(\d+)d(\d+)([kd][hl]\d+|!)?/ig;
 
 // Icon mapping
 const iconMap: Record<string, React.ComponentType> = {
@@ -1051,6 +1061,7 @@ export const InitiativeList: React.FC = () => {
   const [elevationDrafts, setElevationDrafts] = useState<Record<string, string>>({});
   const [listReferenceModal, setListReferenceModal] = useState<ListReferenceModalState | null>(null);
   const [rollableEditMode, setRollableEditMode] = useState<Record<string, boolean>>({});
+  const [rollableContextMenu, setRollableContextMenu] = useState<RollableContextMenuState | null>(null);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isListCompact, setIsListCompact] = useState(false);
@@ -1381,10 +1392,7 @@ export const InitiativeList: React.FC = () => {
     return clampNumber(Math.trunc(result), min, max);
   };
 
-  const handleRollInitiative = (unitId: string) => {
-    const sides = getDiceSides(diceRange);
-    const baseRoll = Math.floor(Math.random() * sides) + 1;
-
+  const resolveInitiativeModifierValue = (unitId: string): number => {
     let modifierValue = 0;
     if (initiativeModifierBid) {
       const targetUnit = units.find((unit) => unit.id === unitId);
@@ -1411,6 +1419,20 @@ export const InitiativeList: React.FC = () => {
         }
       }
     }
+
+    return modifierValue;
+  };
+
+  const handleRollInitiative = (unitId: string, mode: 'normal' | 'advantage' | 'disadvantage' = 'normal') => {
+    const sides = getDiceSides(diceRange);
+    const firstRoll = Math.floor(Math.random() * sides) + 1;
+    const secondRoll = mode === 'normal' ? null : Math.floor(Math.random() * sides) + 1;
+
+    const baseRoll = secondRoll === null
+      ? firstRoll
+      : (mode === 'advantage' ? Math.max(firstRoll, secondRoll) : Math.min(firstRoll, secondRoll));
+
+    const modifierValue = resolveInitiativeModifierValue(unitId);
 
     const rolledValue = baseRoll + modifierValue;
     handleInitiativeChange(unitId, String(rolledValue));
@@ -1660,15 +1682,72 @@ export const InitiativeList: React.FC = () => {
     return map;
   };
 
-  const handleNotationClick = async (unit: Unit, bid: string) => {
+  const buildNameNumericValueMapForUnit = (unit: Unit): Record<string, number> => {
+    const map: Record<string, number> = {};
+
+    for (const attribute of attributes) {
+      const key = `${EXTENSION_ID}/${attribute.attr_bid}`;
+      const rawValue = unit.attributes?.[key];
+      if (rawValue === undefined || rawValue === null || rawValue === '') {
+        continue;
+      }
+
+      const parsedValue = Number(rawValue);
+      if (!Number.isFinite(parsedValue)) {
+        continue;
+      }
+
+      if (attribute.attr_name) {
+        map[attribute.attr_name] = parsedValue;
+      }
+
+      if (attribute.attr_abbr) {
+        map[attribute.attr_abbr] = parsedValue;
+      }
+    }
+
+    return map;
+  };
+
+  const resolveAdvantageDisadvantageNotation = (
+    notation: string,
+    mode: 'advantage' | 'disadvantage'
+  ): string | null => {
+    const matches = Array.from(notation.matchAll(ADVANTAGE_DICE_PATTERN));
+    if (matches.length !== 1) {
+      return null;
+    }
+
+    const match = matches[0];
+    const fullMatch = match[0] || '';
+    const rawCount = match[1] || '';
+    const sides = match[2] || '';
+    const modifier = match[3] || '';
+    const matchIndex = match.index;
+
+    if (!fullMatch || !rawCount || !sides || typeof matchIndex !== 'number') {
+      return null;
+    }
+
+    const diceCount = Number(rawCount);
+    if (!Number.isFinite(diceCount) || diceCount !== 1 || modifier) {
+      return null;
+    }
+
+    const replacement = `2d${sides}${mode === 'advantage' ? 'kh1' : 'kl1'}`;
+    return `${notation.slice(0, matchIndex)}${replacement}${notation.slice(matchIndex + fullMatch.length)}`;
+  };
+
+  const resolveUnitBidNotation = (unit: Unit, bid: string): { notation: string; actionName: string } | null => {
     const attribute = resolveAttributeForBid(bid);
     const formula = attribute?.attr_func;
     if (typeof formula !== 'string' || formula.trim().length === 0) {
-      return;
+      return null;
     }
 
     const conversion = toResolvedDiceNotation(formula, {
       bidValueMap: buildBidNumericValueMapForUnit(unit),
+      nameValueMap: buildNameNumericValueMapForUnit(unit),
       onMissingBid: 'error',
     });
 
@@ -1678,14 +1757,55 @@ export const InitiativeList: React.FC = () => {
         bid,
         error: conversion.error,
       });
+      return null;
+    }
+
+    return {
+      notation: conversion.notation,
+      actionName: resolveAttributeForBid(bid)?.attr_name || bid,
+    };
+  };
+
+  const handleNotationClick = async (unit: Unit, bid: string) => {
+    const resolved = resolveUnitBidNotation(unit, bid);
+    if (!resolved) {
       return;
     }
 
-    const actionName = resolveAttributeForBid(bid)?.attr_name || bid;
     const owner = partyData.find((player) => player.id === unit.createdUserId);
     await sendNotationRoll({
-      notation: conversion.notation,
-      actionName,
+      notation: resolved.notation,
+      actionName: resolved.actionName,
+      tokenName: unit.name,
+      senderId: unit.createdUserId || playerData?.id || 'unknown',
+      senderColor: owner?.color || playerData?.color || '#ffffff',
+    });
+  };
+
+  const handleNotationClickWithMode = async (
+    unit: Unit,
+    bid: string,
+    mode: 'normal' | 'advantage' | 'disadvantage'
+  ) => {
+    const resolved = resolveUnitBidNotation(unit, bid);
+    if (!resolved) {
+      return;
+    }
+
+    const notation = mode === 'normal'
+      ? resolved.notation
+      : resolveAdvantageDisadvantageNotation(resolved.notation, mode);
+
+    if (!notation) {
+      return;
+    }
+
+    const owner = partyData.find((player) => player.id === unit.createdUserId);
+    const modeSuffix = mode === 'normal' ? '' : mode === 'advantage' ? ' (Advantage)' : ' (Disadvantage)';
+
+    await sendNotationRoll({
+      notation,
+      actionName: `${resolved.actionName}${modeSuffix}`,
       tokenName: unit.name,
       senderId: unit.createdUserId || playerData?.id || 'unknown',
       senderColor: owner?.color || playerData?.color || '#ffffff',
@@ -1699,6 +1819,23 @@ export const InitiativeList: React.FC = () => {
       });
     };
   }, []);
+
+  useEffect(() => {
+    if (!rollableContextMenu) {
+      return;
+    }
+
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setRollableContextMenu(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscapeKey);
+    return () => {
+      window.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [rollableContextMenu]);
 
   const getRollableFieldKey = (unitId: string, bid: string): string => `value-column:${unitId}:${bid}`;
 
@@ -1716,6 +1853,14 @@ export const InitiativeList: React.FC = () => {
       input?.focus();
       input?.select();
     }, 0);
+  };
+
+  const openRollableContextMenu = (state: RollableContextMenuState) => {
+    setRollableContextMenu(state);
+  };
+
+  const closeRollableContextMenu = () => {
+    setRollableContextMenu(null);
   };
 
   const disableRollableEditMode = (fieldKey: string) => {
@@ -2224,6 +2369,11 @@ export const InitiativeList: React.FC = () => {
     [selectedListReferenceEntries]
   );
 
+  const selectedRollableMenuUnit = useMemo(
+    () => (rollableContextMenu ? sortedUnits.find((unit) => unit.id === rollableContextMenu.unitId) || null : null),
+    [rollableContextMenu, sortedUnits]
+  );
+
   const visibleListColumns = useMemo(() => {
     if (!isListCompact) {
       return listColumns;
@@ -2296,6 +2446,37 @@ export const InitiativeList: React.FC = () => {
     return map;
   }, [selectedListReferenceUnit, attributes]);
 
+  const selectedListNameValueMap = useMemo(() => {
+    if (!selectedListReferenceUnit) {
+      return {} as Record<string, number>;
+    }
+
+    const map: Record<string, number> = {};
+
+    for (const attribute of attributes) {
+      const key = `${EXTENSION_ID}/${attribute.attr_bid}`;
+      const rawValue = selectedListReferenceUnit.attributes?.[key];
+      if (rawValue === undefined || rawValue === null || rawValue === '') {
+        continue;
+      }
+
+      const parsed = Number(rawValue);
+      if (!Number.isFinite(parsed)) {
+        continue;
+      }
+
+      if (attribute.attr_name) {
+        map[attribute.attr_name] = parsed;
+      }
+
+      if (attribute.attr_abbr) {
+        map[attribute.attr_abbr] = parsed;
+      }
+    }
+
+    return map;
+  }, [selectedListReferenceUnit, attributes]);
+
   const parseListInlineNotationTokens = (text: string): string[] => {
     const tokens: string[] = [];
     const matches = text.matchAll(/\[([^\[\]]+)\]/g);
@@ -2308,6 +2489,7 @@ export const InitiativeList: React.FC = () => {
 
       const conversion = toResolvedDiceNotation(formula, {
         bidValueMap: selectedListBidValueMap,
+        nameValueMap: selectedListNameValueMap,
         onMissingBid: 'error',
       });
 
@@ -2530,7 +2712,12 @@ export const InitiativeList: React.FC = () => {
                   return;
                 }
                 event.preventDefault();
-                enableRollableEditMode(initiativeFieldKey, event.currentTarget);
+                openRollableContextMenu({
+                  kind: 'initiative',
+                  fieldKey: initiativeFieldKey,
+                  unitId: unit.id,
+                  input: event.currentTarget,
+                });
               }}
               onTouchStart={(event) => {
                 if (!canInteract) {
@@ -2693,7 +2880,13 @@ export const InitiativeList: React.FC = () => {
                             return;
                           }
                           event.preventDefault();
-                          enableRollableEditMode(fieldKey, event.currentTarget);
+                          openRollableContextMenu({
+                            kind: 'attribute',
+                            fieldKey,
+                            unitId: unit.id,
+                            bid,
+                            input: event.currentTarget,
+                          });
                         } : undefined}
                         onTouchStart={isRollableInput ? (event) => {
                           if (!canInteract) {
@@ -3103,6 +3296,103 @@ export const InitiativeList: React.FC = () => {
           </BossModeToggleWrap>
         </BossModeSection>
         {ownerModalError && <OwnerPickerError theme={theme}>{ownerModalError}</OwnerPickerError>}
+      </PopupModal>
+
+      <PopupModal
+        isOpen={!!rollableContextMenu}
+        title={
+          rollableContextMenu?.kind === 'initiative'
+            ? `Initiative: ${selectedRollableMenuUnit?.name || 'Unit'}`
+            : (resolveAttributeForBid(rollableContextMenu?.bid || '')?.attr_name || 'Roll Options')
+        }
+        onClose={closeRollableContextMenu}
+        maxWidth="460px"
+      >
+        <OwnerPickerHint theme={theme}>
+          Choose an action for this rollable field.
+        </OwnerPickerHint>
+        <OwnerPickerList>
+          <OwnerPickerButton
+            theme={theme}
+            onClick={() => {
+              if (!rollableContextMenu) {
+                return;
+              }
+
+              closeRollableContextMenu();
+              enableRollableEditMode(rollableContextMenu.fieldKey, rollableContextMenu.input);
+            }}
+          >
+            Edit value
+          </OwnerPickerButton>
+
+          {(() => {
+            if (!rollableContextMenu || !selectedRollableMenuUnit) {
+              return null;
+            }
+
+            if (rollableContextMenu.kind === 'initiative') {
+              return (
+                <>
+                  <OwnerPickerButton
+                    theme={theme}
+                    onClick={() => {
+                      closeRollableContextMenu();
+                      handleRollInitiative(rollableContextMenu.unitId, 'advantage');
+                    }}
+                  >
+                    Roll with Advantage
+                  </OwnerPickerButton>
+                  <OwnerPickerButton
+                    theme={theme}
+                    onClick={() => {
+                      closeRollableContextMenu();
+                      handleRollInitiative(rollableContextMenu.unitId, 'disadvantage');
+                    }}
+                  >
+                    Roll with Disadvantage
+                  </OwnerPickerButton>
+                </>
+              );
+            }
+
+            const targetBid = rollableContextMenu.bid || '';
+            const resolved = resolveUnitBidNotation(selectedRollableMenuUnit, targetBid);
+            if (!resolved) {
+              return null;
+            }
+
+            const advantageNotation = resolveAdvantageDisadvantageNotation(resolved.notation, 'advantage');
+            const disadvantageNotation = resolveAdvantageDisadvantageNotation(resolved.notation, 'disadvantage');
+
+            if (!advantageNotation || !disadvantageNotation) {
+              return null;
+            }
+
+            return (
+              <>
+                <OwnerPickerButton
+                  theme={theme}
+                  onClick={() => {
+                    closeRollableContextMenu();
+                    void handleNotationClickWithMode(selectedRollableMenuUnit, targetBid, 'advantage');
+                  }}
+                >
+                  Roll with Advantage
+                </OwnerPickerButton>
+                <OwnerPickerButton
+                  theme={theme}
+                  onClick={() => {
+                    closeRollableContextMenu();
+                    void handleNotationClickWithMode(selectedRollableMenuUnit, targetBid, 'disadvantage');
+                  }}
+                >
+                  Roll with Disadvantage
+                </OwnerPickerButton>
+              </>
+            );
+          })()}
+        </OwnerPickerList>
       </PopupModal>
 
       <EffectsManagerModal manager={effectsManager} />

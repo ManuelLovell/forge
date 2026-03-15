@@ -458,6 +458,10 @@ const ModalActionButton = styled.button<{ $theme: ThemeData; $variant?: 'primary
   cursor: pointer;
 `;
 
+const ModalActionButtonLeft = styled(ModalActionButton)`
+  margin-right: auto;
+`;
+
 const ModalErrorText = styled.div<{ $theme: ThemeData }>`
   margin-top: 8px;
   color: ${props => rgbaFromHex(props.$theme.offset, 0.95)};
@@ -1235,6 +1239,118 @@ export const CardPopoverPage = () => {
     }
   };
 
+  const getTemplateValueForAttributeType = (type: string, options?: { firstNumericBid?: string }): unknown => {
+    const normalized = (type || '').trim().toLowerCase();
+    if (normalized === 'numb') {
+      return 0;
+    }
+
+    if (normalized === 'bool') {
+      return false;
+    }
+
+    if (normalized === 'list') {
+      const bidRef = options?.firstNumericBid ? `@${options.firstNumericBid}` : '@BID';
+      return [
+        {
+          id: 'example-list-001',
+          name: 'Example List Entry',
+          description: `Describe the effect here. Dice chips can be embedded like [1d20+${bidRef}]`,
+        },
+      ];
+    }
+
+    return '';
+  };
+
+  const buildAiImportTemplate = (): string => {
+    const firstNumericAttributeBid = attributes.find((attribute) => attribute.attr_type === 'numb')?.attr_bid;
+    const listAttribute = attributes.find((attribute) => attribute.attr_type === 'list') || null;
+
+    const attributeDictionary = attributes.map((attribute) => {
+      return {
+        bid: attribute.attr_bid,
+        name: attribute.attr_name,
+        type: attribute.attr_type,
+        metadataKey: `${OwlbearIds.EXTENSIONID}/${attribute.attr_bid}`,
+      };
+    });
+
+    const exampleMetadata: Record<string, unknown> = {
+      [UnitConstants.UNIT_NAME]: 'Example Unit Name',
+    };
+
+    for (const attribute of attributes) {
+      exampleMetadata[`${OwlbearIds.EXTENSIONID}/${attribute.attr_bid}`] = getTemplateValueForAttributeType(attribute.attr_type, {
+        firstNumericBid: firstNumericAttributeBid,
+      });
+    }
+
+    const listEntryExample = {
+      id: 'example-list-001',
+      name: 'Example Action Name',
+      description: `Example description with chips like [1d20+${firstNumericAttributeBid ? `@${firstNumericAttributeBid}` : '@BID'}] and [2d6+3].`,
+    };
+
+    const itemListEntryExample = {
+      id: 'example-item-001',
+      name: 'Example Item Name',
+      description: 'Item details go here.',
+      inUse: false,
+    };
+
+    const dictionaryJson = JSON.stringify(attributeDictionary, null, 2);
+    const exampleMetadataJson = JSON.stringify(exampleMetadata, null, 2);
+    const listEntryExampleJson = JSON.stringify(listEntryExample, null, 2);
+    const itemListEntryExampleJson = JSON.stringify(itemListEntryExample, null, 2);
+    const listKeyHint = listAttribute
+      ? `${OwlbearIds.EXTENSIONID}/${listAttribute.attr_bid}`
+      : `${OwlbearIds.EXTENSIONID}/<LIST_BID>`;
+
+    return [
+      'You are generating Forge unit import JSON metadata for this game system.',
+      '',
+      'Requirements:',
+      '1. Output valid JSON only (no markdown, no comments).',
+      '2. Output the metadata object directly (key/value pairs), not prose.',
+      '3. Use provided metadata keys exactly as listed.',
+      '4. Include a valid unit name using the unit-name metadata key.',
+      '5. Match value types exactly: numb -> number, bool -> boolean, list -> array of objects, text -> string.',
+      '6. Do not add keys outside this extension mapping unless explicitly asked.',
+      '',
+      `Extension ID: ${OwlbearIds.EXTENSIONID}`,
+      `Unit Name Metadata Key: ${UnitConstants.UNIT_NAME}`,
+      '',
+      'Attribute Dictionary (required mapping):',
+      dictionaryJson,
+      '',
+      'List Entry Structure Examples:',
+      'Standard/action-style list entry object:',
+      listEntryExampleJson,
+      '',
+      'Item-style list entry object (optional inUse flag):',
+      itemListEntryExampleJson,
+      '',
+      `If a metadata key is list-type (for example ${listKeyHint}), its value should be an array of objects in one of the above shapes.`,
+      '',
+      'Output JSON in this metadata shape:',
+      exampleMetadataJson,
+      '',
+      'Now generate a [CREATURE/UNIT YOU WANT] metadata JSON object in that exact structure.',
+    ].join('\n');
+  };
+
+  const handleCopyAiTemplate = async () => {
+    try {
+      const template = buildAiImportTemplate();
+      await navigator.clipboard.writeText(template);
+      await OBR.notification.show('AI template copied to clipboard.');
+    } catch (error) {
+      LOGGER.log('AI template copy failed', error);
+      await OBR.notification.show('Could not copy AI template to clipboard.', 'ERROR');
+    }
+  };
+
   const handleTraySearchClick = () => {
     const query = trayQuery.trim();
     setAppliedSearchQuery(query);
@@ -1562,6 +1678,15 @@ export const CardPopoverPage = () => {
             />
             {importError ? <ModalErrorText $theme={theme}>{importError}</ModalErrorText> : null}
             <LocalModalActions>
+              <ModalActionButtonLeft
+                type="button"
+                $theme={theme}
+                onClick={() => {
+                  void handleCopyAiTemplate();
+                }}
+              >
+                AI Template
+              </ModalActionButtonLeft>
               <ModalActionButton
                 type="button"
                 $theme={theme}

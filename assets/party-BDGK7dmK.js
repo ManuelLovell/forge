@@ -1,4 +1,4 @@
-import{A as e,C as t,F as n,N as r,O as i,R as a,S as o,T as s,_ as c,b as l,o as u,s as d,t as f,w as p,x as ee,y as m}from"./defaultgamesystem-DB0eKH9e.js";import{n as h,t as g}from"./MockData-DTzuSraw.js";/* empty css               */var _=a(r(),1),v=n(),y=s(),te={SNAPSHOT_PUBLIC_ID:`${t.EXTENSIONID}/SnapshotPublicId`},b={primary:f.theme_primary,offset:f.theme_offset,background:f.theme_background,border:f.theme_border,background_url:f.background_url},x=50,ne=75,re=120,S=8,C=190,w=90,T=120,E=150,ie=1024,ae=6,D=d.div`
+import{A as e,C as t,F as n,N as r,O as i,R as a,S as o,T as s,_ as c,b as l,o as u,s as d,t as f,w as p,x as ee,y as m}from"./defaultgamesystem-BOilZxMK.js";import{n as h,t as g}from"./MockData-DTzuSraw.js";/* empty css               */var _=a(r(),1),v=n(),y=s(),te={SNAPSHOT_PUBLIC_ID:`${t.EXTENSIONID}/SnapshotPublicId`},b={primary:f.theme_primary,offset:f.theme_offset,background:f.theme_background,border:f.theme_border,background_url:f.background_url},x=50,ne=75,re=120,S=8,C=190,w=90,T=120,E=150,ie=1024,ae=6,D=d.div`
   position: fixed;
   inset: 0;
   width: 100vw;

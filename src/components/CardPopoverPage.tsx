@@ -27,14 +27,14 @@ import {
   type UnitCollectionRecord,
   upsertUnitFromMetadata,
 } from '../helpers/unitCollectionDb';
-import { hydrateAuthFromSession, isConnected } from '../auth/authHelpers';
+import { hydrateAuthFromSession, isPremiumAuthorized } from '../auth/authHelpers';
 import type { CardLayoutComponent, SystemAttribute } from '../interfaces/SystemResponse';
 import { supabase } from '../supabase/supabaseClient';
 import {
   deleteRemoteUnitCollectionRecord as deleteRemoteCollectionRecord,
-  searchRemoteUnitCollection as searchConnectedRemoteCollection,
+  searchRemoteUnitCollection as searchPremiumRemoteCollection,
   searchSharedUnitCollection,
-  upsertRemoteUnitFromMetadata as upsertConnectedRemoteUnit,
+  upsertRemoteUnitFromMetadata as upsertPremiumRemoteUnit,
 } from '../helpers/unitCollectionRemote';
 
 const SYSTEM_KEYS = {
@@ -986,7 +986,7 @@ export const CardPopoverPage = () => {
   const searchSupabaseCollection = async (query: string): Promise<CollectionSearchRecord[]> => {
     const [shared, user] = await Promise.all([
       searchSharedUnitCollection(query),
-      isConnected() ? searchConnectedRemoteCollection(query) : Promise.resolve([]),
+      isPremiumAuthorized() ? searchPremiumRemoteCollection(query) : Promise.resolve([]),
     ]);
 
     return [
@@ -1142,8 +1142,8 @@ export const CardPopoverPage = () => {
 
     try {
       const authorName = (await OBR.player.getName()).trim();
-      const status = isConnected()
-        ? await upsertConnectedRemoteUnit(
+      const status = isPremiumAuthorized()
+        ? await upsertPremiumRemoteUnit(
           liveUnitItem.metadata as Record<string, unknown>,
           authorName,
           isFavoriteEnabled,
@@ -1154,7 +1154,7 @@ export const CardPopoverPage = () => {
           isFavoriteEnabled,
         );
       await loadCollectionRecords();
-      const target = isConnected() ? 'online Collection' : 'Collection';
+      const target = isPremiumAuthorized() ? 'online Collection' : 'Collection';
       await OBR.notification.show(status === 'created' ? `Unit saved to ${target}.` : `Unit updated in ${target}.`);
     } catch (error) {
       LOGGER.log('Collection save failed', error);

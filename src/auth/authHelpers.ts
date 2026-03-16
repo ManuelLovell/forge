@@ -1,12 +1,18 @@
 import { connectAccessTokenViaHub } from './connectAccessTokenViaHub';
 import { getAccessToken, setAccessToken } from '../supabase/supabaseClient';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../supabase/supabaseClient';
+import { supabase } from '../supabase/supabaseClient';
 
 const AUTH_STORAGE_PREFIX = 'forge.auth';
 const SESSION_ACCESS_TOKEN_KEY = `${AUTH_STORAGE_PREFIX}.accessToken`;
 const SESSION_EXPIRES_AT_KEY = `${AUTH_STORAGE_PREFIX}.expiresAt`;
+const SESSION_TIER_KEY = `${AUTH_STORAGE_PREFIX}.tier`;
 const LOCAL_EVER_CONNECTED_KEY = `${AUTH_STORAGE_PREFIX}.everConnected`;
 const SESSION_AUTO_RETRY_KEY = `${AUTH_STORAGE_PREFIX}.autoRetryAttempted`;
+
+export type UserTier = 'free' | 'premium';
+
+let activeUserTier: UserTier = 'free';
 
 const hasUnauthorizedText = (value: string): boolean => {
   const lower = value.toLowerCase();
@@ -64,6 +70,79 @@ const parseExpiresAtMs = (value: unknown): number | null => {
   return numeric > 1_000_000_000_000 ? numeric : numeric * 1000;
 };
 
+const toUserTier = (value: unknown): UserTier => {
+  return value === 'premium' ? 'premium' : 'free';
+};
+
+const setUserTier = (tier: UserTier) => {
+  activeUserTier = tier;
+  sessionStorage.setItem(SESSION_TIER_KEY, tier);
+};
+
+const restoreTierFromSessionStorage = () => {
+  const storedTier = sessionStorage.getItem(SESSION_TIER_KEY);
+  activeUserTier = toUserTier(storedTier);
+};
+
+const loadUserTierFromProfile = async (): Promise<UserTier> => {
+  const { data: userResult, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userResult?.user) {
+    return 'free';
+  }
+
+  const userId = userResult.user.id;
+  const userEmail = userResult.user.email?.trim().toLowerCase() ?? null;
+
+  const { data: byAuthId } = await supabase
+    .from('users')
+    .select('tier')
+    .eq('auth_id', userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (byAuthId && typeof byAuthId === 'object') {
+    return toUserTier((byAuthId as { tier?: unknown }).tier);
+  }
+
+  const { data: byId } = await supabase
+    .from('users')
+    .select('tier')
+    .eq('id', userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (byId && typeof byId === 'object') {
+    return toUserTier((byId as { tier?: unknown }).tier);
+  }
+
+  if (userEmail) {
+    const { data: byPatreonId } = await supabase
+      .from('users')
+      .select('tier')
+      .eq('patreon_id', userEmail)
+      .limit(1)
+      .maybeSingle();
+
+    if (byPatreonId && typeof byPatreonId === 'object') {
+      return toUserTier((byPatreonId as { tier?: unknown }).tier);
+    }
+  }
+
+  return 'free';
+};
+
+const refreshTierFromCurrentSession = async (): Promise<UserTier> => {
+  try {
+    const resolvedTier = await loadUserTierFromProfile();
+    setUserTier(resolvedTier);
+    return resolvedTier;
+  } catch {
+    setUserTier('free');
+    return 'free';
+  }
+};
+
 const persistConnectionSnapshot = (token: string, expiresAt: number | null) => {
   sessionStorage.setItem(SESSION_ACCESS_TOKEN_KEY, token);
   sessionStorage.setItem(SESSION_EXPIRES_AT_KEY, expiresAt === null ? '' : String(expiresAt));
@@ -73,6 +152,7 @@ const persistConnectionSnapshot = (token: string, expiresAt: number | null) => {
 const clearConnectionSnapshot = () => {
   sessionStorage.removeItem(SESSION_ACCESS_TOKEN_KEY);
   sessionStorage.removeItem(SESSION_EXPIRES_AT_KEY);
+  sessionStorage.removeItem(SESSION_TIER_KEY);
 };
 
 const hasEverConnected = (): boolean => {
@@ -90,16 +170,19 @@ const restoreTokenFromSessionStorage = (): boolean => {
 
   if (expiresAtMs !== null && expiresAtMs <= Date.now()) {
     clearConnectionSnapshot();
+    activeUserTier = 'free';
     return false;
   }
 
   setAccessToken(token);
+  restoreTierFromSessionStorage();
   return true;
 };
 
 export const connectBattleSystem = async (): Promise<void> => {
   const result = await connectAccessTokenViaHub();
   persistConnectionSnapshot(result.accessToken, result.expiresAt);
+  await refreshTierFromCurrentSession();
 };
 
 const isTokenValidWithSupabase = async (token: string): Promise<boolean> => {
@@ -121,6 +204,7 @@ const isTokenValidWithSupabase = async (token: string): Promise<boolean> => {
 export const validateCurrentConnection = async (): Promise<boolean> => {
   const token = getAccessToken();
   if (!token) {
+    setUserTier('free');
     return false;
   }
 
@@ -130,11 +214,21 @@ export const validateCurrentConnection = async (): Promise<boolean> => {
     return false;
   }
 
+  await refreshTierFromCurrentSession();
+
   return true;
 };
 
 export const isConnected = (): boolean => {
   return !!getAccessToken();
+};
+
+export const getUserTier = (): UserTier => {
+  return activeUserTier;
+};
+
+export const isPremiumAuthorized = (): boolean => {
+  return isConnected() && activeUserTier === 'premium';
 };
 
 export const ensureConnected = async (): Promise<void> => {
@@ -147,6 +241,7 @@ export const ensureConnected = async (): Promise<void> => {
 
 export const clearConnection = () => {
   setAccessToken(null);
+  setUserTier('free');
   clearConnectionSnapshot();
 };
 

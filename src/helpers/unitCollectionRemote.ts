@@ -1,5 +1,5 @@
 import { UnitConstants } from '../interfaces/MetadataKeys';
-import { isConnected, withSupabaseAuthRetry } from '../auth/authHelpers';
+import { isPremiumAuthorized, withSupabaseAuthRetry } from '../auth/authHelpers';
 import { supabase } from '../supabase/supabaseClient';
 import { filterExtensionMetadata, type UnitCollectionRecord } from './unitCollectionDb';
 
@@ -71,7 +71,7 @@ const toUnitCollectionRecord = (row: SupabaseUserCollectionRow): UnitCollectionR
 
 export const searchRemoteUnitCollection = async (query: string): Promise<UnitCollectionRecord[]> => {
   const trimmed = query.trim();
-  if (!trimmed || !isConnected()) {
+  if (!trimmed || !isPremiumAuthorized()) {
     return [];
   }
 
@@ -95,7 +95,7 @@ export const searchRemoteUnitCollection = async (query: string): Promise<UnitCol
 };
 
 export const findRemoteUnitCollectionByNames = async (names: string[]): Promise<UnitCollectionRecord[]> => {
-  if (!isConnected()) {
+  if (!isPremiumAuthorized()) {
     return [];
   }
 
@@ -132,8 +132,8 @@ export const upsertRemoteUnitFromMetadata = async (
   author: string,
   favoriteOverride?: boolean,
 ): Promise<'created' | 'updated'> => {
-  if (!isConnected()) {
-    throw new Error('User is not connected.');
+  if (!isPremiumAuthorized()) {
+    throw new Error('Premium account required.');
   }
 
   const normalizedAuthor = normalizeInputString(author);
@@ -209,8 +209,8 @@ export const upsertRemoteUnitFromMetadata = async (
 };
 
 export const deleteRemoteUnitCollectionRecord = async (id: string): Promise<void> => {
-  if (!isConnected()) {
-    throw new Error('User is not connected.');
+  if (!isPremiumAuthorized()) {
+    throw new Error('Premium account required.');
   }
 
   const response = await withSupabaseAuthRetry(async () => {

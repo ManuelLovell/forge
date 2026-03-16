@@ -1059,6 +1059,7 @@ export const InitiativeList: React.FC = () => {
   const [isRemovingUnit, setIsRemovingUnit] = useState(false);
   const [initiativeDrafts, setInitiativeDrafts] = useState<Record<string, string>>({});
   const [elevationDrafts, setElevationDrafts] = useState<Record<string, string>>({});
+  const [valueDrafts, setValueDrafts] = useState<Record<string, string>>({});
   const [listReferenceModal, setListReferenceModal] = useState<ListReferenceModalState | null>(null);
   const [rollableEditMode, setRollableEditMode] = useState<Record<string, boolean>>({});
   const [rollableContextMenu, setRollableContextMenu] = useState<RollableContextMenuState | null>(null);
@@ -1618,7 +1619,7 @@ export const InitiativeList: React.FC = () => {
 
   const commitValueColumnInput = (unitId: string, bid: string, rawValue: string) => {
     const key = `${EXTENSION_ID}/${bid}`;
-    const currentValue = units.find((unit) => unit.id === unitId)?.attributes?.[key];
+    const currentValue = items.find((item) => item.id === unitId)?.metadata?.[key];
     const committedValue = maybeResolveNumericAttributeInput(rawValue, currentValue);
 
     setUnits(prevUnits =>
@@ -1838,6 +1839,7 @@ export const InitiativeList: React.FC = () => {
   }, [rollableContextMenu]);
 
   const getRollableFieldKey = (unitId: string, bid: string): string => `value-column:${unitId}:${bid}`;
+  const getValueDraftKey = (unitId: string, bid: string): string => `${unitId}:${bid}`;
 
   const isRollableEditing = (fieldKey: string): boolean => {
     return !!rollableEditMode[fieldKey];
@@ -2814,11 +2816,13 @@ export const InitiativeList: React.FC = () => {
               {col.styles?.bidList?.map((bid, idx) => {
                 const isRollableInput = hasAttrFormula(bid);
                 const fieldKey = getRollableFieldKey(unit.id, bid);
+                const valueDraftKey = getValueDraftKey(unit.id, bid);
                 const isEditingRollableInput = isRollableInput && isRollableEditing(fieldKey);
                 const rawAttrValue = unit.attributes[`${EXTENSION_ID}/${bid}`];
-                const valueInputValue = rawAttrValue === undefined || rawAttrValue === null || rawAttrValue === ''
-                  ? '0'
-                  : String(rawAttrValue);
+                const valueInputValue = valueDrafts[valueDraftKey]
+                  ?? (rawAttrValue === undefined || rawAttrValue === null || rawAttrValue === ''
+                    ? '0'
+                    : String(rawAttrValue));
                 const isHpValueBid = bid === hpBidKeys.currentHpBid || bid === hpBidKeys.maxHpBid;
                 const isOwnedByCurrentPlayer = !!currentPlayerId && unit.createdUserId === currentPlayerId;
                 const shouldHideThisValueInput = shouldHideHpNumbersForPlayer && isHpValueBid && !isOwnedByCurrentPlayer;
@@ -2840,23 +2844,17 @@ export const InitiativeList: React.FC = () => {
                         readOnly={!canInteract || (isRollableInput && !isEditingRollableInput)}
                         onChange={!canInteract || (isRollableInput && !isEditingRollableInput) ? undefined : (e) => {
                           const newValue = e.target.value;
-
-                          setUnits(prevUnits =>
-                            prevUnits.map(u =>
-                              u.id === unit.id
-                                ? {
-                                  ...u,
-                                  attributes: {
-                                    ...u.attributes,
-                                    [`${EXTENSION_ID}/${bid}`]: newValue
-                                  }
-                                }
-                                : u
-                            )
-                          );
+                          setValueDrafts((prev) => ({
+                            ...prev,
+                            [valueDraftKey]: newValue,
+                          }));
                         }}
                         onBlur={!canInteract || (isRollableInput && !isEditingRollableInput) ? undefined : (e) => {
                           commitValueColumnInput(unit.id, bid, e.target.value);
+                          setValueDrafts((prev) => {
+                            const { [valueDraftKey]: _removed, ...rest } = prev;
+                            return rest;
+                          });
                           if (isRollableInput) {
                             disableRollableEditMode(fieldKey);
                           }

@@ -14,7 +14,7 @@ import { Upload, X } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import LOGGER from '../helpers/Logger';
 import { SettingsConstants } from '../interfaces/MetadataKeys';
-import { ensureConnected, isConnected, withSupabaseAuthRetry } from '../auth/authHelpers';
+import { ensureConnected, isPremiumAuthorized, withSupabaseAuthRetry } from '../auth/authHelpers';
 import {
   BUFF_VISUAL_PRESET_OPTIONS,
   DEBUFF_VISUAL_PRESET_OPTIONS,
@@ -316,7 +316,7 @@ export const SystemPage = () => {
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const runtimeSystemData = useSceneStore((state) => state.systemData);
   const setRuntimeSystemData = useSceneStore((state) => state.setSystemData);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isConnected());
+  const [isPremiumAuth, setIsPremiumAuth] = useState<boolean>(() => isPremiumAuthorized());
 
   const [shareId, setShareId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -341,7 +341,7 @@ export const SystemPage = () => {
 
   // Load current system info from cache and backups on mount
   useEffect(() => {
-    setIsAuthenticated(isConnected());
+    setIsPremiumAuth(isPremiumAuthorized());
     loadCurrentSystemFromCache();
     loadBackups();
   }, [sceneMetadata, roomMetadata, runtimeSystemData]);
@@ -354,7 +354,7 @@ export const SystemPage = () => {
 
   const loadCurrentSystemFromCache = () => {
     try {
-      if (!isConnected()) {
+      if (!isPremiumAuthorized()) {
         const defaultTheme: ThemeData = {
           primary: defaultGameSystem.theme_primary,
           offset: defaultGameSystem.theme_offset,
@@ -558,8 +558,8 @@ export const SystemPage = () => {
   };
 
   const performSystemImport = async () => {
-    if (!isConnected()) {
-      setError('Please connect your Battle-System account before importing systems.');
+    if (!isPremiumAuthorized()) {
+      setError('Premium account required. Connect and use a premium Battle-System account before importing systems.');
       return;
     }
 
@@ -672,8 +672,8 @@ export const SystemPage = () => {
     setSuccess(null);
 
     try {
-      if (!isConnected()) {
-        setError('Please connect your Battle-System account before restoring backups for room sharing.');
+      if (!isPremiumAuthorized()) {
+        setError('Premium account required. Connect and use a premium Battle-System account before restoring backups for room sharing.');
         return;
       }
 
@@ -830,8 +830,8 @@ export const SystemPage = () => {
     });
   };
 
-  const isImportLocked = !isAuthenticated;
-  const isHpMappingLocked = !isAuthenticated;
+  const isImportLocked = !isPremiumAuth;
+  const isHpMappingLocked = !isPremiumAuth;
 
   return (
     <motion.div
@@ -936,7 +936,7 @@ export const SystemPage = () => {
               </MappingRow>
               {isHpMappingLocked && (
                 <ImportDate theme={theme}>
-                  Log in to edit HP mapping.
+                  Premium account required to edit HP mapping.
                 </ImportDate>
               )}
               <MappingRow>
@@ -990,7 +990,7 @@ export const SystemPage = () => {
           <h3 style={{ color: theme.PRIMARY, marginTop: 0 }}>Import New System</h3>
           <p style={{ color: rgbaFromHex(theme.PRIMARY, 0.8), fontSize: '14px' }}>
             {isImportLocked
-              ? 'Log in to import new/custom systems.'
+              ? 'Premium account required to import new/custom systems.'
               : 'Enter a share_id to download and activate a new game system configuration.'}
           </p>
 

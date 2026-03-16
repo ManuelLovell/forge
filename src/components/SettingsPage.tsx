@@ -16,7 +16,14 @@ import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
 import { bulkImportUnitCollection, exportUnitCollection } from '../helpers/unitCollectionDb';
 import { isValidDiscordWebhookUrl } from '../helpers/DiscordWebhook';
-import { connectBattleSystem, isConnected, validateCurrentConnection } from '../auth/authHelpers';
+import {
+  connectBattleSystem,
+  getUserTier,
+  isConnected,
+  isPremiumAuthorized,
+  type UserTier,
+  validateCurrentConnection,
+} from '../auth/authHelpers';
 import { useSystemData } from '../helpers/useSystemData';
 import { toResolvedDiceNotation, validateFormula } from '../helpers/FormulaParser';
 
@@ -170,6 +177,8 @@ export const SettingsPage = () => {
   const [enableConsoleLog, setEnableConsoleLog] = useState(false);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
   const [authConnected, setAuthConnected] = useState<boolean>(() => isConnected());
+  const [authTier, setAuthTier] = useState<UserTier>(() => getUserTier());
+  const [premiumAuthorized, setPremiumAuthorized] = useState<boolean>(() => isPremiumAuthorized());
   const [isConnectingAuth, setIsConnectingAuth] = useState(false);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
 
@@ -179,7 +188,9 @@ export const SettingsPage = () => {
     const syncAuthStatus = async () => {
       const valid = await validateCurrentConnection();
       if (mounted) {
-        setAuthConnected(valid);
+        setAuthConnected(valid && isConnected());
+        setAuthTier(getUserTier());
+        setPremiumAuthorized(isPremiumAuthorized());
       }
     };
 
@@ -489,11 +500,15 @@ export const SettingsPage = () => {
     try {
       await connectBattleSystem();
       setAuthConnected(isConnected());
+      setAuthTier(getUserTier());
+      setPremiumAuthorized(isPremiumAuthorized());
       await OBR.notification.show('Connected to Battle-System account.', 'SUCCESS');
     } catch (error) {
       LOGGER.error('Battle-System auth connection failed', error);
       await OBR.notification.show('Unable to connect to Battle-System account. Please try again.', 'ERROR');
       setAuthConnected(isConnected());
+      setAuthTier(getUserTier());
+      setPremiumAuthorized(isPremiumAuthorized());
     } finally {
       setIsConnectingAuth(false);
     }
@@ -522,7 +537,9 @@ export const SettingsPage = () => {
             </Button>
           </ButtonGroup>
           <AuthStatus theme={theme} $connected={authConnected}>
-            {authConnected ? 'Status: Connected' : 'Status: Disconnected'}
+            {authConnected
+              ? (premiumAuthorized ? `Status: Connected (${authTier} tier)` : `Status: Connected (${authTier} tier)`)
+              : 'Status: Disconnected'}
           </AuthStatus>
         </Card>
 

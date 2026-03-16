@@ -17,6 +17,9 @@ const GlobalStyles = createGlobalStyle<GlobalStylesProps>`
   }
 
   /* Base styling for the entire app */
+  html {
+    background-color: #00000080;
+    }
   body {
     background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.5)};
     color: ${props => props.theme.PRIMARY};

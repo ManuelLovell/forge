@@ -363,7 +363,7 @@ const Table = styled.table<{ theme: ForgeTheme; $compact?: boolean }>`
 `;
 
 const TableHead = styled.thead<{ theme: ForgeTheme }>`
-  background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.75)};
+  background-color: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.5)};
 `;
 
 const HeaderRow = styled.tr``;

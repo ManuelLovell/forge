@@ -71,7 +71,7 @@ const DEFAULT_THEME: ThemeData = {
 const Root = styled.div<{ $theme: ThemeData }>`
   height: 100vh;
   width: 100%;
-  background-color: ${props => rgbaFromHex(props.$theme.background, 0.25)};
+  background-color: #00000081;
   color: ${props => props.$theme.primary};
   border: 2px solid ${props => props.$theme.border};
   border-radius: 16px;

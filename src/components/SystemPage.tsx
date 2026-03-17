@@ -14,7 +14,14 @@ import { Upload, X } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import LOGGER from '../helpers/Logger';
 import { SettingsConstants } from '../interfaces/MetadataKeys';
-import { ensureConnected, isPremiumAuthorized, withSupabaseAuthRetry } from '../auth/authHelpers';
+import {
+  ensureConnected,
+  getAuthStatusSnapshot,
+  isPremiumAuthorized,
+  subscribeAuthStatus,
+  validateCurrentConnection,
+  withSupabaseAuthRetry,
+} from '../auth/authHelpers';
 import {
   BUFF_VISUAL_PRESET_OPTIONS,
   DEBUFF_VISUAL_PRESET_OPTIONS,
@@ -316,7 +323,7 @@ export const SystemPage = () => {
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const runtimeSystemData = useSceneStore((state) => state.systemData);
   const setRuntimeSystemData = useSceneStore((state) => state.setSystemData);
-  const [isPremiumAuth, setIsPremiumAuth] = useState<boolean>(() => isPremiumAuthorized());
+  const [isPremiumAuth, setIsPremiumAuth] = useState<boolean>(() => getAuthStatusSnapshot().premiumAuthorized);
 
   const [shareId, setShareId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -339,22 +346,40 @@ export const SystemPage = () => {
   const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
   const [confirmMessage, setConfirmMessage] = useState('');
 
-  // Load current system info from cache and backups on mount
+  // Keep premium lock state in sync with auth changes (including connect from Settings).
   useEffect(() => {
-    setIsPremiumAuth(isPremiumAuthorized());
-    loadCurrentSystemFromCache();
-    loadBackups();
-  }, [sceneMetadata, roomMetadata, runtimeSystemData]);
+    let mounted = true;
 
-  // Load current system info from cache and backups on mount
+    const syncAuth = async () => {
+      await validateCurrentConnection();
+      if (mounted) {
+        setIsPremiumAuth(getAuthStatusSnapshot().premiumAuthorized);
+      }
+    };
+
+    const unsubscribe = subscribeAuthStatus((status) => {
+      if (mounted) {
+        setIsPremiumAuth(status.premiumAuthorized);
+      }
+    });
+
+    void syncAuth();
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  // Load current system info and backups when data or auth lock status changes.
   useEffect(() => {
     loadCurrentSystemFromCache();
     loadBackups();
-  }, [sceneMetadata, roomMetadata, runtimeSystemData]);
+  }, [sceneMetadata, roomMetadata, runtimeSystemData, isPremiumAuth]);
 
   const loadCurrentSystemFromCache = () => {
     try {
-      if (!isPremiumAuthorized()) {
+      if (!isPremiumAuth) {
         const defaultTheme: ThemeData = {
           primary: defaultGameSystem.theme_primary,
           offset: defaultGameSystem.theme_offset,

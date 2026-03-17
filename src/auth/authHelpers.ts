@@ -11,8 +11,28 @@ const LOCAL_EVER_CONNECTED_KEY = `${AUTH_STORAGE_PREFIX}.everConnected`;
 const SESSION_AUTO_RETRY_KEY = `${AUTH_STORAGE_PREFIX}.autoRetryAttempted`;
 
 export type UserTier = 'free' | 'premium';
+export type AuthStatusSnapshot = {
+  connected: boolean;
+  tier: UserTier;
+  premiumAuthorized: boolean;
+};
 
 let activeUserTier: UserTier = 'free';
+const authStatusListeners = new Set<(status: AuthStatusSnapshot) => void>();
+
+type ProfileEntitlementsRow = {
+  tier?: unknown;
+  max_attributes?: unknown;
+  max_systems?: unknown;
+  can_share?: unknown;
+  patreon_status?: unknown;
+  premium_expires_at?: unknown;
+};
+
+type AuthIdentity = {
+  id: string;
+  email: string | null;
+};
 
 const hasUnauthorizedText = (value: string): boolean => {
   const lower = value.toLowerCase();
@@ -71,61 +91,169 @@ const parseExpiresAtMs = (value: unknown): number | null => {
 };
 
 const toUserTier = (value: unknown): UserTier => {
-  return value === 'premium' ? 'premium' : 'free';
+  if (typeof value !== 'string') {
+    return 'free';
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized === 'free') {
+    return 'free';
+  }
+
+  return normalized === 'premium' ? 'premium' : 'free';
+};
+
+const toNumericOrNull = (value: unknown): number | null => {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const resolveTierFromEntitlements = (row: ProfileEntitlementsRow): UserTier => {
+  const directTier = toUserTier(row.tier);
+  if (directTier === 'premium') {
+    return 'premium';
+  }
+
+  const status = typeof row.patreon_status === 'string' ? row.patreon_status.trim().toLowerCase() : '';
+  if (status === 'active' || status === 'premium') {
+    return 'premium';
+  }
+
+  if (row.can_share === true) {
+    return 'premium';
+  }
+
+  const maxAttributes = toNumericOrNull(row.max_attributes);
+  if (maxAttributes !== null && maxAttributes > 50) {
+    return 'premium';
+  }
+
+  const maxSystems = toNumericOrNull(row.max_systems);
+  if (maxSystems !== null && maxSystems > 2) {
+    return 'premium';
+  }
+
+  if (typeof row.premium_expires_at === 'string' && row.premium_expires_at.trim().length > 0) {
+    const expiresAt = Date.parse(row.premium_expires_at);
+    if (Number.isFinite(expiresAt) && expiresAt > Date.now()) {
+      return 'premium';
+    }
+  }
+
+  return 'free';
+};
+
+const loadAuthIdentityFromToken = async (): Promise<AuthIdentity | null> => {
+  const token = getAccessToken();
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const { data: userResult, error: userError } = await supabase.auth.getUser(token);
+    if (!userError && userResult?.user?.id) {
+      return {
+        id: userResult.user.id,
+        email: userResult.user.email?.trim().toLowerCase() ?? null,
+      };
+    }
+  } catch {
+  }
+
+  try {
+    const response = await window.fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'GET',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const user = (await response.json()) as { id?: unknown; email?: unknown };
+    if (typeof user.id !== 'string' || user.id.trim().length === 0) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      email: typeof user.email === 'string' ? user.email.trim().toLowerCase() : null,
+    };
+  } catch {
+    return null;
+  }
 };
 
 const setUserTier = (tier: UserTier) => {
   activeUserTier = tier;
   sessionStorage.setItem(SESSION_TIER_KEY, tier);
+  const snapshot: AuthStatusSnapshot = {
+    connected: !!getAccessToken(),
+    tier: activeUserTier,
+    premiumAuthorized: !!getAccessToken() && activeUserTier === 'premium',
+  };
+
+  authStatusListeners.forEach((listener) => {
+    try {
+      listener(snapshot);
+    } catch {
+    }
+  });
 };
 
 const restoreTierFromSessionStorage = () => {
   const storedTier = sessionStorage.getItem(SESSION_TIER_KEY);
-  activeUserTier = toUserTier(storedTier);
+  setUserTier(toUserTier(storedTier));
 };
 
 const loadUserTierFromProfile = async (): Promise<UserTier> => {
-  const { data: userResult, error: userError } = await supabase.auth.getUser();
+  const identity = await loadAuthIdentityFromToken();
 
-  if (userError || !userResult?.user) {
+  if (!identity) {
     return 'free';
   }
 
-  const userId = userResult.user.id;
-  const userEmail = userResult.user.email?.trim().toLowerCase() ?? null;
+  const userId = identity.id;
+  const userEmail = identity.email;
+
+  const entitlementSelect = 'tier,max_attributes,max_systems,can_share,patreon_status,premium_expires_at';
 
   const { data: byAuthId } = await supabase
     .from('users')
-    .select('tier')
+    .select(entitlementSelect)
     .eq('auth_id', userId)
     .limit(1)
     .maybeSingle();
 
   if (byAuthId && typeof byAuthId === 'object') {
-    return toUserTier((byAuthId as { tier?: unknown }).tier);
+    return resolveTierFromEntitlements(byAuthId as ProfileEntitlementsRow);
   }
 
   const { data: byId } = await supabase
     .from('users')
-    .select('tier')
+    .select(entitlementSelect)
     .eq('id', userId)
     .limit(1)
     .maybeSingle();
 
   if (byId && typeof byId === 'object') {
-    return toUserTier((byId as { tier?: unknown }).tier);
+    return resolveTierFromEntitlements(byId as ProfileEntitlementsRow);
   }
 
   if (userEmail) {
     const { data: byPatreonId } = await supabase
       .from('users')
-      .select('tier')
+      .select(entitlementSelect)
       .eq('patreon_id', userEmail)
       .limit(1)
       .maybeSingle();
 
     if (byPatreonId && typeof byPatreonId === 'object') {
-      return toUserTier((byPatreonId as { tier?: unknown }).tier);
+      return resolveTierFromEntitlements(byPatreonId as ProfileEntitlementsRow);
     }
   }
 
@@ -225,6 +353,23 @@ export const isConnected = (): boolean => {
 
 export const getUserTier = (): UserTier => {
   return activeUserTier;
+};
+
+export const getAuthStatusSnapshot = (): AuthStatusSnapshot => {
+  const connected = isConnected();
+  const tier = getUserTier();
+  return {
+    connected,
+    tier,
+    premiumAuthorized: connected && tier === 'premium',
+  };
+};
+
+export const subscribeAuthStatus = (listener: (status: AuthStatusSnapshot) => void): (() => void) => {
+  authStatusListeners.add(listener);
+  return () => {
+    authStatusListeners.delete(listener);
+  };
 };
 
 export const isPremiumAuthorized = (): boolean => {

@@ -63,8 +63,26 @@ export interface SystemAttribute {
   attr_abbr: string;
   attr_func: string | null;
   attr_name: string;
-  attr_type: 'text' | 'numb' | 'list' | 'bool';
+  attr_type: 'text' | 'numb' | 'list' | 'bool' | 'enum' | 'derived' | 'resource';
   attr_group: string;
+  attr_meta?: {
+    enum?: {
+      options?: string[];
+      allowCustom?: boolean;
+    };
+    derived?: {
+      formula?: string;
+      precision?: number;
+      displayMode?: 'number' | 'text' | 'percent';
+    };
+    resource?: {
+      defaultCurrent?: number;
+      defaultMax?: number;
+      showPips?: boolean;
+      pipCap?: number;
+    };
+    [key: string]: any;
+  };
 }
 
 /**

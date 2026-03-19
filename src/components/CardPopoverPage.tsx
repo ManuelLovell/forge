@@ -1269,8 +1269,23 @@ export const CardPopoverPage = () => {
       return 0;
     }
 
+    if (normalized === 'derived') {
+      return 0;
+    }
+
     if (normalized === 'bool') {
       return false;
+    }
+
+    if (normalized === 'enum') {
+      return '';
+    }
+
+    if (normalized === 'resource') {
+      return {
+        current: 0,
+        max: 0,
+      };
     }
 
     if (normalized === 'list') {

@@ -374,6 +374,17 @@ const formatAttributeValue = (value: unknown, attrType: string): string => {
     return value === true ? 'Yes' : value === false ? 'No' : '-';
   }
 
+   if (loweredType === 'resource') {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const current = Number((value as Record<string, unknown>).current);
+      const max = Number((value as Record<string, unknown>).max);
+      if (Number.isFinite(current) && Number.isFinite(max)) {
+        return `${Math.trunc(current)}/${Math.trunc(max)}`;
+      }
+    }
+    return '-';
+  }
+
   if (value === null || value === undefined || value === '') {
     return '-';
   }
@@ -577,7 +588,7 @@ const PartyHudPopoverPage = () => {
       .filter((attribute): attribute is SystemAttribute => attribute !== null)
       .filter((attribute) => {
         const type = String(attribute.attr_type || '').toLowerCase();
-        return type === 'text' || type === 'numb' || type === 'bool';
+        return type === 'text' || type === 'numb' || type === 'bool' || type === 'resource' || type === 'enum' || type === 'derived';
       });
   }, [attributes, extraAttrOne, extraAttrTwo]);
 

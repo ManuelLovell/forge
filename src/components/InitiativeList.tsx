@@ -150,6 +150,16 @@ interface ElevationBadgeImageLike {
   };
 }
 
+type RuntimeAttributeLike = SystemAttribute & {
+  bid?: string;
+  abbr?: string;
+  func?: string | null;
+  name?: string;
+  type?: 'text' | 'numb' | 'list' | 'bool' | 'enum' | 'derived' | 'resource';
+  group?: string;
+  meta?: SystemAttribute['attr_meta'];
+};
+
 const withAlpha = (color: string | undefined, alpha: number): string | undefined => {
   if (!color) return undefined;
 
@@ -585,6 +595,30 @@ const ValueInput = styled.input<{ $small?: boolean; $isRollable?: boolean; theme
   }
 `;
 
+const EnumSelect = styled.select<{ theme: ForgeTheme }>`
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid ${props => props.theme.BORDER};
+  border-radius: 4px;
+  color: ${props => props.theme.PRIMARY};
+  padding: 2px 4px;
+  font-size: 13px;
+  min-width: 72px;
+  max-width: 140px;
+  text-align: center;
+  text-align-last: center;
+  backdrop-filter: blur(12px);
+
+  &:focus {
+    outline: none;
+    border-color: ${props => props.theme.OFFSET};
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.75;
+  }
+`;
+
 const Divider = styled.span<{ theme: ForgeTheme }>`
   margin: 0 2px;
   color: ${props => props.theme.OFFSET};
@@ -652,6 +686,53 @@ const CheckboxInput = styled.input<{ theme: ForgeTheme }>`
   &:disabled {
     cursor: default;
     opacity: 0.75;
+  }
+`;
+
+const DerivedReadOnlyLabel = styled.span<{ theme: ForgeTheme }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  min-width: 54px;
+  border-radius: 6px;
+  border: 1px solid ${props => props.theme.BORDER};
+  background: ${props => rgbaFromHex(props.theme.PRIMARY, 0.75)};
+  color: ${props => rgbaFromHex(props.theme.OFFSET, 0.96)};
+  box-shadow: ${props => `0 4px 14px ${rgbaFromHex(props.theme.BACKGROUND, 0.65)}`};
+  text-shadow: ${props => `1px 1px 0 ${rgbaFromHex(props.theme.BACKGROUND, 0.95)}`};
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  font-style: italic;
+  text-align: center;
+`;
+
+const PipContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  width: 62px;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+`;
+
+const Pip = styled.button<{ $filled: boolean; theme: ForgeTheme }>`
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  min-height: 10px;
+  border-radius: 50%;
+  border: 1px solid ${props => props.theme.BORDER};
+  background: ${props => props.$filled ? props.theme.PRIMARY : 'transparent'};
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
   }
 `;
 
@@ -1655,20 +1736,50 @@ export const InitiativeList: React.FC = () => {
     });
   };
 
-  const resolveAttributeForBid = (bid: string) => {
-    return attributes.find((attribute) => attribute.attr_bid === bid) || null;
+  const getAttributeBid = (attribute: RuntimeAttributeLike | null | undefined): string => {
+    return String(attribute?.attr_bid ?? attribute?.bid ?? '').trim();
+  };
+
+  const getAttributeName = (attribute: RuntimeAttributeLike | null | undefined): string => {
+    return String(attribute?.attr_name ?? attribute?.name ?? '').trim();
+  };
+
+  const getAttributeAbbr = (attribute: RuntimeAttributeLike | null | undefined): string => {
+    return String(attribute?.attr_abbr ?? attribute?.abbr ?? '').trim();
+  };
+
+  const getAttributeType = (attribute: RuntimeAttributeLike | null | undefined): string => {
+    return String(attribute?.attr_type ?? attribute?.type ?? '').trim().toLowerCase();
+  };
+
+  const getAttributeFormula = (attribute: RuntimeAttributeLike | null | undefined): string => {
+    const formula = attribute?.attr_func ?? attribute?.func ?? '';
+    return typeof formula === 'string' ? formula.trim() : '';
+  };
+
+  const getAttributeMeta = (attribute: RuntimeAttributeLike | null | undefined): SystemAttribute['attr_meta'] => {
+    return attribute?.attr_meta ?? attribute?.meta ?? {};
+  };
+
+  const resolveAttributeForBid = (bid: string): RuntimeAttributeLike | null => {
+    return (attributes.find((attribute) => getAttributeBid(attribute as RuntimeAttributeLike) === bid) as RuntimeAttributeLike | undefined) || null;
   };
 
   const hasAttrFormula = (bid: string): boolean => {
     const attribute = resolveAttributeForBid(bid);
-    return typeof attribute?.attr_func === 'string' && attribute.attr_func.trim().length > 0;
+    return getAttributeFormula(attribute).length > 0;
   };
 
   const buildBidNumericValueMapForUnit = (unit: Unit): Record<string, number> => {
     const map: Record<string, number> = {};
 
     for (const attribute of attributes) {
-      const key = `${EXTENSION_ID}/${attribute.attr_bid}`;
+      const normalizedAttribute = attribute as RuntimeAttributeLike;
+      const attrBid = getAttributeBid(normalizedAttribute);
+      if (!attrBid) {
+        continue;
+      }
+      const key = `${EXTENSION_ID}/${attrBid}`;
       const rawValue = unit.attributes?.[key];
       if (rawValue === undefined || rawValue === null || rawValue === '') {
         continue;
@@ -1676,7 +1787,7 @@ export const InitiativeList: React.FC = () => {
 
       const parsedValue = Number(rawValue);
       if (Number.isFinite(parsedValue)) {
-        map[attribute.attr_bid] = parsedValue;
+        map[attrBid] = parsedValue;
       }
     }
 
@@ -1687,7 +1798,12 @@ export const InitiativeList: React.FC = () => {
     const map: Record<string, number> = {};
 
     for (const attribute of attributes) {
-      const key = `${EXTENSION_ID}/${attribute.attr_bid}`;
+      const normalizedAttribute = attribute as RuntimeAttributeLike;
+      const attrBid = getAttributeBid(normalizedAttribute);
+      if (!attrBid) {
+        continue;
+      }
+      const key = `${EXTENSION_ID}/${attrBid}`;
       const rawValue = unit.attributes?.[key];
       if (rawValue === undefined || rawValue === null || rawValue === '') {
         continue;
@@ -1698,12 +1814,14 @@ export const InitiativeList: React.FC = () => {
         continue;
       }
 
-      if (attribute.attr_name) {
-        map[attribute.attr_name] = parsedValue;
+      const attrName = getAttributeName(normalizedAttribute);
+      if (attrName) {
+        map[attrName] = parsedValue;
       }
 
-      if (attribute.attr_abbr) {
-        map[attribute.attr_abbr] = parsedValue;
+      const attrAbbr = getAttributeAbbr(normalizedAttribute);
+      if (attrAbbr) {
+        map[attrAbbr] = parsedValue;
       }
     }
 
@@ -1741,8 +1859,8 @@ export const InitiativeList: React.FC = () => {
 
   const resolveUnitBidNotation = (unit: Unit, bid: string): { notation: string; actionName: string } | null => {
     const attribute = resolveAttributeForBid(bid);
-    const formula = attribute?.attr_func;
-    if (typeof formula !== 'string' || formula.trim().length === 0) {
+    const formula = getAttributeFormula(attribute);
+    if (formula.length === 0) {
       return null;
     }
 
@@ -1763,8 +1881,56 @@ export const InitiativeList: React.FC = () => {
 
     return {
       notation: conversion.notation,
-      actionName: resolveAttributeForBid(bid)?.attr_name || bid,
+      actionName: getAttributeName(resolveAttributeForBid(bid)) || bid,
     };
+  };
+
+  const resolveDerivedDisplayValue = (unit: Unit, bid: string): string => {
+    const attribute = resolveAttributeForBid(bid);
+    const formulaFromMeta = getAttributeMeta(attribute)?.derived?.formula;
+    const formula = typeof formulaFromMeta === 'string' && formulaFromMeta.trim().length > 0
+      ? formulaFromMeta
+      : getAttributeFormula(attribute);
+
+    if (typeof formula !== 'string' || formula.trim().length === 0) {
+      return '-';
+    }
+
+    const conversion = toResolvedDiceNotation(formula, {
+      bidValueMap: buildBidNumericValueMapForUnit(unit),
+      nameValueMap: buildNameNumericValueMapForUnit(unit),
+      onMissingBid: 'error',
+    });
+
+    if (!conversion.valid || !conversion.notation) {
+      LOGGER.warn('Could not resolve derived formula for initiative list derived-column', {
+        unitId: unit.id,
+        bid,
+        error: conversion.error,
+      });
+      return '-';
+    }
+
+    const notation = conversion.notation.trim();
+    const parsedNumeric = Number(notation);
+    if (!Number.isFinite(parsedNumeric)) {
+      return notation || '-';
+    }
+
+    const precisionRaw = Number(getAttributeMeta(attribute)?.derived?.precision);
+    const precision = Number.isFinite(precisionRaw)
+      ? Math.max(0, Math.min(Math.trunc(precisionRaw), 8))
+      : 0;
+    const displayMode = getAttributeMeta(attribute)?.derived?.displayMode;
+    const numericDisplay = precision > 0
+      ? parsedNumeric.toFixed(precision)
+      : String(parsedNumeric);
+
+    if (displayMode === 'percent') {
+      return `${numericDisplay}%`;
+    }
+
+    return numericDisplay;
   };
 
   const handleNotationClick = async (unit: Unit, bid: string) => {
@@ -2606,8 +2772,8 @@ export const InitiativeList: React.FC = () => {
     if (col.type === 'card-column') return <FileText />;
     if (col.type === 'divider-column') return null;
 
-    if (col.useIcon && col.iconType) {
-      return getIcon(col.iconType);
+    if (col.useIcon) {
+      return getIcon(col.iconType || 'star');
     }
 
     return col.name || col.type;
@@ -3026,6 +3192,184 @@ export const InitiativeList: React.FC = () => {
             </ValueContainer>
           </DataCell>
         );
+
+      case 'derived-column': {
+        const bidList = col.styles?.bidList || [];
+        if (bidList.length === 0) return <DataCell theme={theme}>-</DataCell>;
+        return (
+          <DataCell theme={theme}>
+            <ValueContainer>
+              {bidList.map((bid, index) => (
+                <React.Fragment key={bid}>
+                  {index > 0 && <Divider theme={theme}>{col.styles?.dividers?.[index - 1] || '/'}</Divider>}
+                  <DerivedReadOnlyLabel theme={theme} title="Derived value (formula)">{resolveDerivedDisplayValue(unit, bid)}</DerivedReadOnlyLabel>
+                </React.Fragment>
+              ))}
+            </ValueContainer>
+          </DataCell>
+        );
+      }
+
+      case 'enum-column': {
+        const bidId = col.styles?.bidList?.[0];
+        if (!bidId) return <DataCell theme={theme}>-</DataCell>;
+        const enumAttribute = resolveAttributeForBid(bidId);
+        const rawEnumMeta = getAttributeMeta(enumAttribute) as { enum?: { options?: unknown[] } };
+        const enumOptions = Array.isArray(rawEnumMeta.enum?.options)
+          ? rawEnumMeta.enum.options
+            .map((option) => String(option || '').trim())
+            .filter((option) => option.length > 0)
+          : [];
+
+        const key = `${EXTENSION_ID}/${bidId}`;
+        const rawAttrValue = unit.attributes[key];
+        const normalizedAttrValue = typeof rawAttrValue === 'string' ? rawAttrValue.trim() : '';
+        const selectedValue = enumOptions.includes(normalizedAttrValue)
+          ? normalizedAttrValue
+          : (enumOptions[0] || '');
+
+        const commitEnum = (nextValue: string) => {
+          setUnits(prevUnits =>
+            prevUnits.map(u =>
+              u.id === unit.id
+                ? { ...u, attributes: { ...u.attributes, [key]: nextValue } }
+                : u
+            )
+          );
+          const updatedItems = items.map(item => {
+            if (item.id === unit.id) {
+              return { ...item, metadata: { ...item.metadata, [key]: nextValue } };
+            }
+            return item;
+          });
+          setItems(updatedItems);
+          OBR.scene.items.updateItems([unit.id], (items) => {
+            items[0].metadata[key] = nextValue;
+          });
+        };
+
+        return (
+          <DataCell theme={theme}>
+            <ValueContainer>
+              <EnumSelect
+                theme={theme}
+                disabled={!canInteract}
+                value={selectedValue}
+                onClick={(event) => event.stopPropagation()}
+                onChange={!canInteract ? undefined : (event) => {
+                  commitEnum(event.target.value);
+                }}
+              >
+                {enumOptions.length === 0 ? (
+                  <option value="">No options</option>
+                ) : (
+                  enumOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))
+                )}
+              </EnumSelect>
+            </ValueContainer>
+          </DataCell>
+        );
+      }
+
+      case 'resource-column': {
+        const bidId = col.styles?.bidList?.[0];
+        if (!bidId) return <DataCell theme={theme}>-</DataCell>;
+        const rawValue = unit.attributes[`${EXTENSION_ID}/${bidId}`];
+        const resourceAttribute = attributes.find(
+          (attr) => getAttributeBid(attr as RuntimeAttributeLike) === bidId && getAttributeType(attr as RuntimeAttributeLike) === 'resource'
+        );
+        const resourceObj = rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)
+          ? (rawValue as Record<string, unknown>)
+          : null;
+        const currentNum = resourceObj ? Number(resourceObj.current ?? 0) : 0;
+        const maxNum = resourceObj ? Number(resourceObj.max ?? 0) : 0;
+
+        const commitResource = (newCurrent: number, newMax: number) => {
+          const key = `${EXTENSION_ID}/${bidId}`;
+          const newValue = { current: newCurrent, max: newMax };
+          setUnits(prevUnits =>
+            prevUnits.map(u =>
+              u.id === unit.id
+                ? { ...u, attributes: { ...u.attributes, [key]: newValue } }
+                : u
+            )
+          );
+          const updatedItems = items.map(item => {
+            if (item.id === unit.id) {
+              return { ...item, metadata: { ...item.metadata, [key]: newValue } };
+            }
+            return item;
+          });
+          setItems(updatedItems);
+          OBR.scene.items.updateItems([unit.id], (items) => {
+            items[0].metadata[key] = newValue;
+          });
+        };
+
+        const showPips = !!getAttributeMeta(resourceAttribute as RuntimeAttributeLike)?.resource?.showPips;
+        if (showPips) {
+          const rawConfiguredPipCap = Number(getAttributeMeta(resourceAttribute as RuntimeAttributeLike)?.resource?.pipCap);
+          const configuredPipCap = Number.isFinite(rawConfiguredPipCap) && rawConfiguredPipCap > 0
+            ? Math.round(rawConfiguredPipCap)
+            : undefined;
+          const pipCapSource = configuredPipCap ?? maxNum;
+          if (pipCapSource <= 0) {
+            return <DataCell theme={theme}>-</DataCell>;
+          }
+          const pipCap = Math.max(1, Math.min(pipCapSource, 15));
+          const filledPips = Math.max(0, Math.min(currentNum, pipCap));
+          return (
+            <DataCell theme={theme}>
+              <PipContainer>
+                {Array.from({ length: pipCap }).map((_, i) => (
+                  <Pip
+                    key={i}
+                    theme={theme}
+                    $filled={i < filledPips}
+                    disabled={!canInteract}
+                    onClick={!canInteract ? undefined : () => {
+                      const newCurrent = (i + 1 === filledPips) ? i : i + 1;
+                      commitResource(newCurrent, maxNum);
+                    }}
+                  />
+                ))}
+              </PipContainer>
+            </DataCell>
+          );
+        }
+
+        return (
+          <DataCell theme={theme}>
+            <ValueContainer>
+              <ValueInput
+                theme={theme}
+                $isRollable={false}
+                value={String(currentNum)}
+                $small={false}
+                readOnly={!canInteract}
+                onChange={!canInteract ? undefined : (e) => {
+                  const parsed = Number(e.target.value);
+                  if (!isNaN(parsed)) commitResource(parsed, maxNum);
+                }}
+              />
+              <Divider theme={theme}>/</Divider>
+              <ValueInput
+                theme={theme}
+                $isRollable={false}
+                value={String(maxNum)}
+                $small={false}
+                readOnly={!canInteract}
+                onChange={!canInteract ? undefined : (e) => {
+                  const parsed = Number(e.target.value);
+                  if (!isNaN(parsed)) commitResource(currentNum, parsed);
+                }}
+              />
+            </ValueContainer>
+          </DataCell>
+        );
+      }
 
       case 'special-column':
         const specialIcon = getIcon(col.iconType);

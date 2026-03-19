@@ -55,9 +55,20 @@ type InlineNotationToken = {
 
 type FieldContextMenuState = {
   draftKey: string;
-  attribute: SystemAttribute;
+  attribute: RuntimeAttributeLike;
   input: HTMLInputElement | null;
   isRollable: boolean;
+};
+
+type RuntimeAttributeLike = SystemAttribute & {
+  id?: unknown;
+  bid?: string;
+  abbr?: string;
+  func?: string | null;
+  name?: string;
+  type?: string;
+  group?: string;
+  meta?: SystemAttribute['attr_meta'];
 };
 
 const CardShell = styled.div<{ $theme: CardLayoutTheme; $backgroundUrl?: string }>`
@@ -267,6 +278,119 @@ const TextValueInput = styled.input<{
 
   &::placeholder {
     color: ${props => rgbaFromHex(props.$theme.primary, 0.65)};
+  }
+`;
+
+const ValueSelect = styled.select<{
+  $theme: CardLayoutTheme;
+  $fontSize: string;
+  $align?: string;
+  $weight: number;
+  $fontStyle: 'normal' | 'italic';
+  $stretch?: boolean;
+}>`
+  width: 100%;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid ${props => props.$theme.border};
+  background: ${props => rgbaFromHex(props.$theme.background, 0.78)};
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  color: ${props => rgbaFromHex(props.$theme.primary, 0.9)};
+  padding: 0 8px;
+  box-sizing: border-box;
+  font-size: ${props => props.$fontSize};
+  font-weight: ${props => props.$weight};
+  font-style: ${props => props.$fontStyle};
+  letter-spacing: ${props => (props.$stretch ? '0.08em' : 'normal')};
+  text-align: ${props => props.$align || 'center'};
+  text-align-last: ${props => props.$align || 'center'};
+  line-height: 1;
+  align-self: center;
+
+  &:focus {
+    outline: none;
+    border-color: ${props => props.$theme.offset};
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.75;
+  }
+`;
+
+const ReadOnlyValue = styled.div<{
+  $theme: CardLayoutTheme;
+  $fontSize: string;
+  $align?: string;
+  $weight: number;
+  $fontStyle: 'normal' | 'italic';
+  $stretch?: boolean;
+}>`
+  width: 100%;
+  min-height: 28px;
+  border-radius: 4px;
+  border: 1px dashed ${props => props.$theme.border};
+  background: ${props => rgbaFromHex(props.$theme.background, 0.52)};
+  color: ${props => rgbaFromHex(props.$theme.primary, 0.92)};
+  padding: 4px 8px;
+  box-sizing: border-box;
+  font-size: ${props => props.$fontSize};
+  font-weight: ${props => props.$weight};
+  font-style: ${props => props.$fontStyle};
+  letter-spacing: ${props => (props.$stretch ? '0.08em' : 'normal')};
+  text-align: ${props => props.$align || 'center'};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const DerivedReadOnlyValue = styled(ReadOnlyValue)<{
+  $theme: CardLayoutTheme;
+}>`
+  border-style: solid;
+  background: ${props => rgbaFromHex(props.$theme.primary, 0.75)};
+  color: ${props => rgbaFromHex(props.$theme.offset, 0.96)};
+  box-shadow: ${props => `0 4px 14px ${rgbaFromHex(props.$theme.background, 0.65)}`};
+  text-shadow: ${props => `1px 1px 0 ${rgbaFromHex(props.$theme.background, 0.95)}`};
+  font-weight: 700;
+  font-style: italic;
+`;
+
+const ResourceValueRow = styled.div`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const ResourceDivider = styled.span<{ $theme: CardLayoutTheme }>`
+  color: ${props => rgbaFromHex(props.$theme.primary, 0.92)};
+  flex-shrink: 0;
+`;
+
+const ResourcePipWrap = styled.div`
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+`;
+
+const ResourcePip = styled.button<{ $theme: CardLayoutTheme; $filled: boolean }>`
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid ${props => props.$theme.border};
+  background: ${props => props.$filled ? props.$theme.primary : 'transparent'};
+  flex-shrink: 0;
+  padding: 0;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.65;
   }
 `;
 
@@ -749,29 +873,55 @@ const resolveTextAlign = (value: unknown, fallback: 'left' | 'center' | 'right' 
   return fallback;
 };
 
-const resolveAttribute = (attributes: SystemAttribute[], idOrBid?: string) => {
+const getAttributeBid = (attribute: RuntimeAttributeLike | null | undefined): string => {
+  return String(attribute?.attr_bid ?? attribute?.bid ?? '').trim();
+};
+
+const getAttributeAbbr = (attribute: RuntimeAttributeLike | null | undefined): string => {
+  return String(attribute?.attr_abbr ?? attribute?.abbr ?? '').trim();
+};
+
+const getAttributeName = (attribute: RuntimeAttributeLike | null | undefined): string => {
+  return String(attribute?.attr_name ?? attribute?.name ?? '').trim();
+};
+
+const getAttributeType = (attribute: RuntimeAttributeLike | null | undefined): string => {
+  return String(attribute?.attr_type ?? attribute?.type ?? '').trim().toLowerCase();
+};
+
+const getAttributeFormula = (attribute: RuntimeAttributeLike | null | undefined): string => {
+  const formula = attribute?.attr_func ?? attribute?.func ?? '';
+  return typeof formula === 'string' ? formula.trim() : '';
+};
+
+const getAttributeMeta = (attribute: RuntimeAttributeLike | null | undefined): SystemAttribute['attr_meta'] => {
+  return attribute?.attr_meta ?? attribute?.meta ?? {};
+};
+
+const resolveAttribute = (attributes: SystemAttribute[], idOrBid?: string): RuntimeAttributeLike | null => {
   if (!idOrBid) {
     return null;
   }
 
-  return attributes.find((attr) => {
-    const byBid = attr.attr_bid === idOrBid;
-    const byId = String((attr as { id?: unknown }).id ?? '') === String(idOrBid);
+  return (attributes.find((attr) => {
+    const normalized = attr as RuntimeAttributeLike;
+    const byBid = getAttributeBid(normalized) === idOrBid;
+    const byId = String(normalized.id ?? '') === String(idOrBid);
     return byBid || byId;
-  }) || null;
+  }) as RuntimeAttributeLike | undefined) || null;
 };
 
-const getLabelFromAttribute = (attribute: SystemAttribute | null, mode?: string) => {
+const getLabelFromAttribute = (attribute: RuntimeAttributeLike | null, mode?: string) => {
   if (!attribute) {
     return '';
   }
 
   if (mode === 'abbr') {
-    return attribute.attr_abbr;
+    return getAttributeAbbr(attribute);
   }
 
   if (mode === 'name' || !mode || mode === 'text') {
-    return attribute.attr_name;
+    return getAttributeName(attribute);
   }
 
   return '';
@@ -788,17 +938,17 @@ const validBidList = (attributes: SystemAttribute[], bids?: string[]) => {
 const boolBidList = (attributes: SystemAttribute[], bids?: string[]) => {
   return validBidList(attributes, bids).filter((bid) => {
     const attribute = resolveAttribute(attributes, bid);
-    return String(attribute?.attr_type || '').toLowerCase() === 'bool';
+    return getAttributeType(attribute) === 'bool';
   });
 };
 
 const resolveListTitle = (attributes: SystemAttribute[], rawId?: string): string => {
   const attribute = resolveAttribute(attributes, rawId);
-  if (!attribute || attribute.attr_type !== 'list') {
+  if (!attribute || getAttributeType(attribute) !== 'list') {
     return 'List Attribute';
   }
 
-  return attribute.attr_name;
+  return getAttributeName(attribute);
 };
 
 export const CardLayoutRenderer: React.FC<RendererProps> = ({
@@ -898,23 +1048,27 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     return draftValues[draftKey] ?? getMetadataStringValue(bid);
   };
 
-  const hasAttrFormula = (attribute: SystemAttribute | null): attribute is SystemAttribute & { attr_func: string } => {
-    const formula = attribute?.attr_func;
-    return typeof formula === 'string' && formula.trim().length > 0;
+  const hasAttrFormula = (attribute: RuntimeAttributeLike | null): boolean => {
+    return getAttributeFormula(attribute).length > 0;
   };
 
   const bidNumericValueMap = useMemo(() => {
     const map: Record<string, number> = {};
 
     for (const attribute of attributes) {
-      const rawValue = getMetadataStringValue(attribute.attr_bid).trim();
+      const normalized = attribute as RuntimeAttributeLike;
+      const bid = getAttributeBid(normalized);
+      if (!bid) {
+        continue;
+      }
+      const rawValue = getMetadataStringValue(bid).trim();
       if (!rawValue) {
         continue;
       }
 
       const parsedValue = Number(rawValue);
       if (Number.isFinite(parsedValue)) {
-        map[attribute.attr_bid] = parsedValue;
+        map[bid] = parsedValue;
       }
     }
 
@@ -925,7 +1079,12 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     const map: Record<string, number> = {};
 
     for (const attribute of attributes) {
-      const rawValue = getMetadataStringValue(attribute.attr_bid).trim();
+      const normalized = attribute as RuntimeAttributeLike;
+      const bid = getAttributeBid(normalized);
+      if (!bid) {
+        continue;
+      }
+      const rawValue = getMetadataStringValue(bid).trim();
       if (!rawValue) {
         continue;
       }
@@ -935,21 +1094,23 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
         continue;
       }
 
-      if (attribute.attr_name) {
-        map[attribute.attr_name] = parsedValue;
+      const attrName = getAttributeName(normalized);
+      if (attrName) {
+        map[attrName] = parsedValue;
       }
 
-      if (attribute.attr_abbr) {
-        map[attribute.attr_abbr] = parsedValue;
+      const attrAbbr = getAttributeAbbr(normalized);
+      if (attrAbbr) {
+        map[attrAbbr] = parsedValue;
       }
     }
 
     return map;
   }, [attributes, unitItem.metadata]);
 
-  const buildResolvedNotation = (attribute: SystemAttribute | null): string | null => {
-    const formula = attribute?.attr_func;
-    if (typeof formula !== 'string' || formula.trim().length === 0) {
+  const buildResolvedNotation = (attribute: RuntimeAttributeLike | null): string | null => {
+    const formula = getAttributeFormula(attribute);
+    if (!formula) {
       return null;
     }
 
@@ -960,7 +1121,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     });
 
     if (!conversion.valid || !conversion.notation) {
-      LOGGER.warn(`[FORGE] Could not convert attr_func for ${attribute?.attr_bid || 'unknown'}: ${conversion.error || 'Unknown conversion error'}`);
+      LOGGER.warn(`[FORGE] Could not convert attr_func for ${getAttributeBid(attribute) || 'unknown'}: ${conversion.error || 'Unknown conversion error'}`);
       return null;
     }
 
@@ -989,7 +1150,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     }
   };
 
-  const handleNotationClick = async (attribute: SystemAttribute | null) => {
+  const handleNotationClick = async (attribute: RuntimeAttributeLike | null) => {
     if (!attribute) {
       return;
     }
@@ -999,7 +1160,67 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       return;
     }
 
-    await sendNotationRoll(notation, attribute.attr_name || attribute.attr_bid || 'Roll');
+    await sendNotationRoll(notation, getAttributeName(attribute) || getAttributeBid(attribute) || 'Roll');
+  };
+
+  const getMetadataRawValue = (bid: string): unknown => {
+    return unitItem.metadata?.[getMetadataKeyForBid(bid)];
+  };
+
+  const readResourceValue = (bid: string, attribute: RuntimeAttributeLike | null) => {
+    const raw = getMetadataRawValue(bid);
+    const value = raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? raw as Record<string, unknown>
+      : null;
+    const resourceMeta = getAttributeMeta(attribute)?.resource;
+    return {
+      current: value ? Number(value.current ?? resourceMeta?.defaultCurrent ?? 0) : Number(resourceMeta?.defaultCurrent ?? 0),
+      max: value ? Number(value.max ?? resourceMeta?.defaultMax ?? 0) : Number(resourceMeta?.defaultMax ?? 0),
+    };
+  };
+
+  const updateAttributeRawValue = async (bid: string, value: unknown) => {
+    await onUpdateMetadata({
+      [getMetadataKeyForBid(bid)]: value,
+    });
+  };
+
+  const resolveDerivedDisplayValue = (attribute: RuntimeAttributeLike | null): string => {
+    const formulaFromMeta = getAttributeMeta(attribute)?.derived?.formula;
+    const formula = typeof formulaFromMeta === 'string' && formulaFromMeta.trim().length > 0
+      ? formulaFromMeta.trim()
+      : getAttributeFormula(attribute);
+
+    if (!formula) {
+      return '-';
+    }
+
+    const conversion = toResolvedDiceNotation(formula, {
+      bidValueMap: bidNumericValueMap,
+      nameValueMap: nameNumericValueMap,
+      onMissingBid: 'error',
+    });
+
+    if (!conversion.valid || !conversion.notation) {
+      return '-';
+    }
+
+    const notation = conversion.notation.trim();
+    const parsedNumeric = Number(notation);
+    if (!Number.isFinite(parsedNumeric)) {
+      return notation || '-';
+    }
+
+    const precisionRaw = Number(getAttributeMeta(attribute)?.derived?.precision);
+    const precision = Number.isFinite(precisionRaw) ? Math.max(0, Math.min(Math.trunc(precisionRaw), 8)) : 0;
+    const displayMode = getAttributeMeta(attribute)?.derived?.displayMode;
+    const numericDisplay = precision > 0 ? parsedNumeric.toFixed(precision) : String(parsedNumeric);
+
+    if (displayMode === 'percent') {
+      return `${numericDisplay}%`;
+    }
+
+    return numericDisplay;
   };
 
   const ADVANTAGE_DICE_PATTERN = /(\d+)d(\d+)([kd][hl]\d+|!)?/ig;
@@ -1270,7 +1491,18 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
   };
 
   const renderComponent = (component: CardLayoutComponent) => {
-    const type = component.type as string;
+    const rawType = component.type as string;
+    const type = (() => {
+      if (rawType === 'derived-value' || rawType === 'enum-value' || rawType === 'resource') {
+        return 'text-value';
+      }
+
+      if (rawType === 'column-derived') {
+        return 'column-value';
+      }
+
+      return rawType;
+    })();
     const style = component.styles || {};
     const attr = resolveAttribute(attributes, style.attributeId);
     const textAlign = resolveTextAlign(style.textAlign ?? style.align, 'center');
@@ -1311,7 +1543,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     if (type === 'text') {
       const fontSize = sizeMapTitle[(style.fontSize as keyof typeof sizeMapTitle) || 'md'];
       const title = getLabelFromAttribute(attr, style.labelMode) || 'Title Header';
-      const contextDraftKey = `text:${component.id}:${attr?.attr_bid || 'none'}`;
+      const contextDraftKey = `text:${component.id}:${getAttributeBid(attr) || 'none'}`;
 
       return (
         <BaseCell
@@ -1344,84 +1576,245 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       const textValueAlign = resolveTextAlign(style.textAlign ?? style.align, 'center');
       const fontWeight = style.fontWeight === 'bold' ? 700 : 400;
       const fontStyle = style.fontStyle === 'italic' ? 'italic' : 'normal';
-      const bid = attr?.attr_bid;
+      const bid = getAttributeBid(attr);
+      const attrType = getAttributeType(attr);
       const isRollableInput = hasAttrFormula(attr);
       const draftKey = `text-value:${component.id}:${bid || 'none'}`;
       const isEditingRollableInput = isRollableInput && isRollableEditing(draftKey);
-      const inputElement = (
-        <TextValueInput
-          $theme={systemTheme}
-          $fontSize={fontSize}
-          $align={textValueAlign}
-          $weight={fontWeight}
-          $fontStyle={fontStyle}
-          $stretch={stretch}
-          $isRollable={isRollableInput}
-          type="text"
-          readOnly={isRollableInput && !isEditingRollableInput}
-          value={bid ? getDraftOrValue(draftKey, bid) : ''}
-          onChange={isRollableInput && !isEditingRollableInput ? undefined : (event) => {
-            if (!bid) return;
-            const nextValue = event.target.value;
-            setDraftValues((prev) => ({
-              ...prev,
-              [draftKey]: nextValue,
-            }));
-          }}
-          onBlur={isRollableInput && !isEditingRollableInput ? undefined : async (event) => {
-            if (!bid) return;
-            const nextValue = event.target.value;
-            await updateAttributeValue(bid, nextValue);
-            setDraftValues((prev) => {
-              const { [draftKey]: _removed, ...rest } = prev;
-              return rest;
-            });
-            if (isRollableInput) {
-              disableRollableEditMode(draftKey);
-            }
-          }}
-          onClick={isRollableInput ? () => {
-            if (isEditingRollableInput) {
-              return;
-            }
-
-            if (shouldSuppressRollClick(draftKey)) {
-              return;
-            }
-
-            void handleNotationClick(attr);
-          } : undefined}
-          onContextMenu={attr ? (event) => {
-            event.preventDefault();
-            openFieldContextMenu(draftKey, attr, event.currentTarget, isRollableInput);
-          } : undefined}
-          onTouchStart={isRollableInput ? (event) => {
-            if (isEditingRollableInput) {
-              return;
-            }
-            startLongPressEditMode(draftKey, event.currentTarget);
-          } : undefined}
-          onTouchEnd={isRollableInput ? () => {
-            cancelLongPressEditMode(draftKey);
-          } : undefined}
-          onTouchCancel={isRollableInput ? () => {
-            cancelLongPressEditMode(draftKey);
-          } : undefined}
-          onKeyDown={(event) => {
-            if (isRollableInput && !isEditingRollableInput && (event.key === 'Enter' || event.key === ' ')) {
+      let inputElement: React.ReactNode;
+      if (attrType === 'derived') {
+        const formula = getAttributeMeta(attr)?.derived?.formula || getAttributeFormula(attr) || 'Derived formula';
+        inputElement = (
+          <DerivedReadOnlyValue
+            $theme={systemTheme}
+            $fontSize={fontSize}
+            $align={textValueAlign}
+            $weight={fontWeight}
+            $fontStyle={fontStyle}
+            $stretch={stretch}
+            title={`Formula: ${formula}`}
+            onContextMenu={attr ? (event) => {
               event.preventDefault();
+              openFieldContextMenu(draftKey, attr, null, false);
+            } : undefined}
+          >
+            {resolveDerivedDisplayValue(attr)}
+          </DerivedReadOnlyValue>
+        );
+      } else if (attrType === 'enum') {
+        const enumOptions = Array.isArray(getAttributeMeta(attr)?.enum?.options)
+          ? (getAttributeMeta(attr)?.enum?.options || []).map((option) => String(option || '').trim()).filter((option) => option.length > 0)
+          : [];
+        const selectedValue = enumOptions.includes(bid ? getMetadataStringValue(bid).trim() : '')
+          ? getMetadataStringValue(bid).trim()
+          : (enumOptions[0] || '');
+        inputElement = (
+          <ValueSelect
+            $theme={systemTheme}
+            $fontSize={fontSize}
+            $align={textValueAlign}
+            $weight={fontWeight}
+            $fontStyle={fontStyle}
+            $stretch={stretch}
+            value={selectedValue}
+            disabled={!bid}
+            onContextMenu={attr ? (event) => {
+              event.preventDefault();
+              openFieldContextMenu(draftKey, attr, null, false);
+            } : undefined}
+            onChange={bid ? async (event) => {
+              await updateAttributeRawValue(bid, event.target.value);
+            } : undefined}
+          >
+            {enumOptions.length === 0 ? <option value="">No options</option> : enumOptions.map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </ValueSelect>
+        );
+      } else if (attrType === 'resource') {
+        const resourceMeta = getAttributeMeta(attr)?.resource;
+        const showPips = typeof resourceMeta?.showPips === 'boolean'
+          ? resourceMeta.showPips
+          : !!style.showPips;
+        const resourceValue = bid ? readResourceValue(bid, attr) : { current: 0, max: 0 };
+        const pipCapSource = Number(resourceMeta?.pipCap ?? resourceValue.max ?? 0);
+        const pipCap = Number.isFinite(pipCapSource) ? Math.max(0, Math.min(Math.round(pipCapSource), 15)) : 0;
+
+        if (showPips && pipCap > 0) {
+          inputElement = (
+            <ResourcePipWrap
+              onContextMenu={attr ? (event) => {
+                event.preventDefault();
+                openFieldContextMenu(draftKey, attr, null, false);
+              } : undefined}
+            >
+              {Array.from({ length: pipCap }).map((_, index) => (
+                <ResourcePip
+                  key={`text-resource-pip-${index}`}
+                  $theme={systemTheme}
+                  $filled={index < Math.max(0, Math.min(resourceValue.current, pipCap))}
+                  type="button"
+                  disabled={!bid}
+                  onClick={!bid ? undefined : async () => {
+                    const currentClamped = Math.max(0, Math.min(resourceValue.current, pipCap));
+                    const nextCurrent = (index + 1 === currentClamped) ? index : index + 1;
+                    await updateAttributeRawValue(bid, {
+                      current: nextCurrent,
+                      max: resourceValue.max,
+                    });
+                  }}
+                />
+              ))}
+            </ResourcePipWrap>
+          );
+        } else if (showPips) {
+          inputElement = (
+            <ReadOnlyValue
+              $theme={systemTheme}
+              $fontSize={fontSize}
+              $align={textValueAlign}
+              $weight={fontWeight}
+              $fontStyle={fontStyle}
+              $stretch={stretch}
+            >
+              -
+            </ReadOnlyValue>
+          );
+        } else {
+          const currentDraftKey = `${draftKey}:current`;
+          const maxDraftKey = `${draftKey}:max`;
+          inputElement = (
+            <ResourceValueRow>
+              <TextValueInput
+                $theme={systemTheme}
+                $fontSize={fontSize}
+                $align="center"
+                $weight={fontWeight}
+                $fontStyle={fontStyle}
+                $stretch={stretch}
+                type="text"
+                value={draftValues[currentDraftKey] ?? String(resourceValue.current)}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setDraftValues((prev) => ({ ...prev, [currentDraftKey]: nextValue }));
+                }}
+                onBlur={async (event) => {
+                  if (!bid) return;
+                  const nextCurrent = Number(event.target.value);
+                  const resolvedCurrent = Number.isFinite(nextCurrent) ? nextCurrent : resourceValue.current;
+                  await updateAttributeRawValue(bid, { current: resolvedCurrent, max: resourceValue.max });
+                  setDraftValues((prev) => {
+                    const { [currentDraftKey]: _removed, ...rest } = prev;
+                    return rest;
+                  });
+                }}
+                placeholder="0"
+              />
+              <ResourceDivider $theme={systemTheme}>/</ResourceDivider>
+              <TextValueInput
+                $theme={systemTheme}
+                $fontSize={fontSize}
+                $align="center"
+                $weight={fontWeight}
+                $fontStyle={fontStyle}
+                $stretch={stretch}
+                type="text"
+                value={draftValues[maxDraftKey] ?? String(resourceValue.max)}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setDraftValues((prev) => ({ ...prev, [maxDraftKey]: nextValue }));
+                }}
+                onBlur={async (event) => {
+                  if (!bid) return;
+                  const nextMax = Number(event.target.value);
+                  const resolvedMax = Number.isFinite(nextMax) ? nextMax : resourceValue.max;
+                  await updateAttributeRawValue(bid, { current: resourceValue.current, max: resolvedMax });
+                  setDraftValues((prev) => {
+                    const { [maxDraftKey]: _removed, ...rest } = prev;
+                    return rest;
+                  });
+                }}
+                placeholder="0"
+              />
+            </ResourceValueRow>
+          );
+        }
+      } else {
+        inputElement = (
+          <TextValueInput
+            $theme={systemTheme}
+            $fontSize={fontSize}
+            $align={textValueAlign}
+            $weight={fontWeight}
+            $fontStyle={fontStyle}
+            $stretch={stretch}
+            $isRollable={isRollableInput}
+            type="text"
+            readOnly={isRollableInput && !isEditingRollableInput}
+            value={bid ? getDraftOrValue(draftKey, bid) : ''}
+            onChange={isRollableInput && !isEditingRollableInput ? undefined : (event) => {
+              if (!bid) return;
+              const nextValue = event.target.value;
+              setDraftValues((prev) => ({
+                ...prev,
+                [draftKey]: nextValue,
+              }));
+            }}
+            onBlur={isRollableInput && !isEditingRollableInput ? undefined : async (event) => {
+              if (!bid) return;
+              const nextValue = event.target.value;
+              await updateAttributeValue(bid, nextValue);
+              setDraftValues((prev) => {
+                const { [draftKey]: _removed, ...rest } = prev;
+                return rest;
+              });
+              if (isRollableInput) {
+                disableRollableEditMode(draftKey);
+              }
+            }}
+            onClick={isRollableInput ? () => {
+              if (isEditingRollableInput) {
+                return;
+              }
+
+              if (shouldSuppressRollClick(draftKey)) {
+                return;
+              }
+
               void handleNotationClick(attr);
-              return;
-            }
-
-            if ((isEditingRollableInput || !isRollableInput) && event.key === 'Enter') {
+            } : undefined}
+            onContextMenu={attr ? (event) => {
               event.preventDefault();
-              event.currentTarget.blur();
-            }
-          }}
-          placeholder="..."
-        />
-      );
+              openFieldContextMenu(draftKey, attr, event.currentTarget, isRollableInput);
+            } : undefined}
+            onTouchStart={isRollableInput ? (event) => {
+              if (isEditingRollableInput) {
+                return;
+              }
+              startLongPressEditMode(draftKey, event.currentTarget);
+            } : undefined}
+            onTouchEnd={isRollableInput ? () => {
+              cancelLongPressEditMode(draftKey);
+            } : undefined}
+            onTouchCancel={isRollableInput ? () => {
+              cancelLongPressEditMode(draftKey);
+            } : undefined}
+            onKeyDown={(event) => {
+              if (isRollableInput && !isEditingRollableInput && (event.key === 'Enter' || event.key === ' ')) {
+                event.preventDefault();
+                void handleNotationClick(attr);
+                return;
+              }
+
+              if ((isEditingRollableInput || !isRollableInput) && event.key === 'Enter') {
+                event.preventDefault();
+                event.currentTarget.blur();
+              }
+            }}
+            placeholder="..."
+          />
+        );
+      }
       const labelElement = hasLabel ? (
         <TextValueLabel
           $theme={systemTheme}
@@ -1570,6 +1963,8 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     if (type === 'column-value') {
       const fontSize = sizeMapColumn[(style.fontSize as keyof typeof sizeMapColumn) || 'md'];
       const bids = validBidList(attributes, style.bidList);
+      const fontWeight = style.fontWeight === 'bold' ? 700 : 400;
+      const fontStyle = style.fontStyle === 'italic' ? 'italic' : 'normal';
       if (bids.length === 0) {
         return null;
       }
@@ -1579,11 +1974,156 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
           <HorizontalGroup>
             {bids.map((bid) => {
               const columnAttr = resolveAttribute(attributes, bid);
+              const attrType = getAttributeType(columnAttr);
               const isRollableInput = hasAttrFormula(columnAttr);
               const draftKey = `column-value:${component.id}:${bid}`;
               const isEditingRollableInput = isRollableInput && isRollableEditing(draftKey);
-              return (
-                <ColumnInputTrack key={bid}>
+              let content: React.ReactNode;
+
+              if (attrType === 'derived') {
+                const formula = getAttributeMeta(columnAttr)?.derived?.formula || getAttributeFormula(columnAttr) || 'Derived formula';
+                content = (
+                  <DerivedReadOnlyValue
+                    $theme={systemTheme}
+                    $fontSize={fontSize}
+                    $align="center"
+                    $weight={fontWeight}
+                    $fontStyle={fontStyle}
+                    $stretch={stretch}
+                    title={`Formula: ${formula}`}
+                    onContextMenu={columnAttr ? (event) => {
+                      event.preventDefault();
+                      openFieldContextMenu(draftKey, columnAttr, null, false);
+                    } : undefined}
+                  >
+                    {resolveDerivedDisplayValue(columnAttr)}
+                  </DerivedReadOnlyValue>
+                );
+              } else if (attrType === 'enum') {
+                const enumOptions = Array.isArray(getAttributeMeta(columnAttr)?.enum?.options)
+                  ? (getAttributeMeta(columnAttr)?.enum?.options || []).map((option) => String(option || '').trim()).filter((option) => option.length > 0)
+                  : [];
+                const currentValue = getMetadataStringValue(bid).trim();
+                const selectedValue = enumOptions.includes(currentValue) ? currentValue : (enumOptions[0] || '');
+                content = (
+                  <ValueSelect
+                    $theme={systemTheme}
+                    $fontSize={fontSize}
+                    $align="center"
+                    $weight={fontWeight}
+                    $fontStyle={fontStyle}
+                    $stretch={stretch}
+                    value={selectedValue}
+                    onContextMenu={columnAttr ? (event) => {
+                      event.preventDefault();
+                      openFieldContextMenu(draftKey, columnAttr, null, false);
+                    } : undefined}
+                    onChange={async (event) => {
+                      await updateAttributeRawValue(bid, event.target.value);
+                    }}
+                  >
+                    {enumOptions.length === 0 ? <option value="">No options</option> : enumOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </ValueSelect>
+                );
+              } else if (attrType === 'resource') {
+                const resourceMeta = getAttributeMeta(columnAttr)?.resource;
+                const showPips = typeof resourceMeta?.showPips === 'boolean'
+                  ? resourceMeta.showPips
+                  : !!style.showPips;
+                const resourceValue = readResourceValue(bid, columnAttr);
+                const pipCapSource = Number(resourceMeta?.pipCap ?? resourceValue.max ?? 0);
+                const pipCap = Number.isFinite(pipCapSource) ? Math.max(0, Math.min(Math.round(pipCapSource), 15)) : 0;
+
+                if (showPips && pipCap > 0) {
+                  content = (
+                    <ResourcePipWrap
+                      onContextMenu={columnAttr ? (event) => {
+                        event.preventDefault();
+                        openFieldContextMenu(draftKey, columnAttr, null, false);
+                      } : undefined}
+                    >
+                      {Array.from({ length: pipCap }).map((_, index) => (
+                        <ResourcePip
+                          key={`column-resource-pip-${bid}-${index}`}
+                          $theme={systemTheme}
+                          $filled={index < Math.max(0, Math.min(resourceValue.current, pipCap))}
+                          type="button"
+                          onClick={async () => {
+                            const currentClamped = Math.max(0, Math.min(resourceValue.current, pipCap));
+                            const nextCurrent = (index + 1 === currentClamped) ? index : index + 1;
+                            await updateAttributeRawValue(bid, {
+                              current: nextCurrent,
+                              max: resourceValue.max,
+                            });
+                          }}
+                        />
+                      ))}
+                    </ResourcePipWrap>
+                  );
+                } else if (showPips) {
+                  content = (
+                    <ReadOnlyValue
+                      $theme={systemTheme}
+                      $fontSize={fontSize}
+                      $align="center"
+                      $weight={fontWeight}
+                      $fontStyle={fontStyle}
+                      $stretch={stretch}
+                    >
+                      -
+                    </ReadOnlyValue>
+                  );
+                } else {
+                  const currentDraftKey = `${draftKey}:current`;
+                  const maxDraftKey = `${draftKey}:max`;
+                  content = (
+                    <ResourceValueRow>
+                      <DisabledInput
+                        $theme={systemTheme}
+                        $fontSize={fontSize}
+                        $align="center"
+                        value={draftValues[currentDraftKey] ?? String(resourceValue.current)}
+                        onChange={(event) => {
+                          const nextValue = event.target.value;
+                          setDraftValues((prev) => ({ ...prev, [currentDraftKey]: nextValue }));
+                        }}
+                        onBlur={async (event) => {
+                          const nextCurrent = Number(event.target.value);
+                          const resolvedCurrent = Number.isFinite(nextCurrent) ? nextCurrent : resourceValue.current;
+                          await updateAttributeRawValue(bid, { current: resolvedCurrent, max: resourceValue.max });
+                          setDraftValues((prev) => {
+                            const { [currentDraftKey]: _removed, ...rest } = prev;
+                            return rest;
+                          });
+                        }}
+                      />
+                      <ResourceDivider $theme={systemTheme}>/</ResourceDivider>
+                      <DisabledInput
+                        $theme={systemTheme}
+                        $fontSize={fontSize}
+                        $align="center"
+                        value={draftValues[maxDraftKey] ?? String(resourceValue.max)}
+                        onChange={(event) => {
+                          const nextValue = event.target.value;
+                          setDraftValues((prev) => ({ ...prev, [maxDraftKey]: nextValue }));
+                        }}
+                        onBlur={async (event) => {
+                          const nextMax = Number(event.target.value);
+                          const resolvedMax = Number.isFinite(nextMax) ? nextMax : resourceValue.max;
+                          await updateAttributeRawValue(bid, { current: resourceValue.current, max: resolvedMax });
+                          setDraftValues((prev) => {
+                            const { [maxDraftKey]: _removed, ...rest } = prev;
+                            return rest;
+                          });
+                        }}
+                      />
+                    </ResourceValueRow>
+                  );
+                }
+              } else {
+                content = (
                   <DisabledInput
                     $theme={systemTheme}
                     $fontSize={fontSize}
@@ -1650,6 +2190,11 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     }}
                     placeholder="..."
                   />
+                );
+              }
+              return (
+                <ColumnInputTrack key={bid}>
+                  {content}
                 </ColumnInputTrack>
               );
             })}
@@ -1660,7 +2205,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
     if (type === 'action-list') {
       const listAttr = resolveAttribute(attributes, style.attributeId || style.bidList?.[0]);
-      const listBid = listAttr?.attr_bid;
+      const listBid = getAttributeBid(listAttr);
       const listTitle = resolveListTitle(attributes, style.attributeId || style.bidList?.[0]);
       const actionEntries = listBid ? readActionList(listBid) : [];
 
@@ -1791,7 +2336,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
     if (type === 'item-list') {
       const listAttr = resolveAttribute(attributes, style.attributeId || style.bidList?.[0]);
-      const listBid = listAttr?.attr_bid;
+      const listBid = getAttributeBid(listAttr);
       const listTitle = resolveListTitle(attributes, style.attributeId || style.bidList?.[0]);
       const itemEntries = listBid ? readItemList(listBid) : [];
 
@@ -1983,10 +2528,10 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
           <RollableModalContainer $theme={systemTheme} onClick={(event) => event.stopPropagation()}>
             <RollableModalTitleRow>
               <RollableModalTitle $theme={systemTheme}>
-                {fieldContextMenu.attribute.attr_name || 'Attribute'}
+                {getAttributeName(fieldContextMenu.attribute) || 'Attribute'}
               </RollableModalTitle>
               <RollableModalBid $theme={systemTheme}>
-                [{fieldContextMenu.attribute.attr_bid}]
+                [{getAttributeBid(fieldContextMenu.attribute)}]
               </RollableModalBid>
             </RollableModalTitleRow>
             <RollableMenuActions>
@@ -2028,7 +2573,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                         closeFieldContextMenu();
                         void sendNotationRoll(
                           advantageNotation,
-                          `${fieldContextMenu.attribute.attr_name || fieldContextMenu.attribute.attr_bid || 'Roll'} (Advantage)`
+                          `${getAttributeName(fieldContextMenu.attribute) || getAttributeBid(fieldContextMenu.attribute) || 'Roll'} (Advantage)`
                         );
                       }}
                     >
@@ -2041,7 +2586,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                         closeFieldContextMenu();
                         void sendNotationRoll(
                           disadvantageNotation,
-                          `${fieldContextMenu.attribute.attr_name || fieldContextMenu.attribute.attr_bid || 'Roll'} (Disadvantage)`
+                          `${getAttributeName(fieldContextMenu.attribute) || getAttributeBid(fieldContextMenu.attribute) || 'Roll'} (Disadvantage)`
                         );
                       }}
                     >

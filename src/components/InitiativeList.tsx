@@ -6,7 +6,7 @@ import { useForgeTheme } from '../helpers/ThemeContext';
 import { useSceneStore } from '../helpers/BSCache';
 import { EXTENSION_ID } from '../helpers/MockData';
 import { SettingsConstants, UnitConstants, getPerPlayerSettingKey } from '../interfaces/MetadataKeys';
-import { ListLayoutComponent } from '../interfaces/SystemResponse';
+import { ListLayoutComponent, SystemAttribute } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import {
   Anchor,

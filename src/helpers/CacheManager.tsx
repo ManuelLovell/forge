@@ -150,6 +150,7 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
                 roomMetadata,
                 gridDpi,
                 players,
+                playerSelection,
                 playerColor,
                 playerRole,
                 playerConnectionId,
@@ -163,6 +164,7 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
                 OBR.room.getMetadata(),
                 OBR.scene.grid.getDpi(),
                 OBR.party.getPlayers(),
+                OBR.player.getSelection(),
                 OBR.player.getColor(),
                 OBR.player.getRole(),
                 OBR.player.getConnectionId(),
@@ -183,6 +185,7 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
                 connectionId: playerConnectionId,
                 role: playerRole,
                 color: playerColor,
+                selection: playerSelection,
                 metadata: playerMetadata,
             } as Player);
             setPartyData(players);

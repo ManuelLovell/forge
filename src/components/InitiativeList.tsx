@@ -128,6 +128,14 @@ type RollableContextMenuState = {
   input: HTMLInputElement | null;
 };
 
+type ListNotationContextMenuState = {
+  notation: string;
+  actionName: string;
+  tokenName: string;
+  senderId: string;
+  senderColor: string;
+};
+
 interface RoleLike {
   role?: unknown;
 }
@@ -540,7 +548,7 @@ const InitiativeInput = styled.input<{ theme: ForgeTheme; $isRollable?: boolean 
   }
 `;
 
-const NameCell = styled(DataCell) <{ theme: ForgeTheme; $outlineColor?: string }>`
+const NameCell = styled(DataCell) <{ theme: ForgeTheme; $outlineColor?: string; $isSelected?: boolean }>`
   text-align: left;
   font-weight: 500;
   min-width: 120px;
@@ -552,6 +560,7 @@ const NameCell = styled(DataCell) <{ theme: ForgeTheme; $outlineColor?: string }
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;
+  color: ${props => props.$isSelected ? props.theme.OFFSET : props.theme.PRIMARY};
   text-shadow: ${props =>
     props.$outlineColor
       ? `
@@ -1144,6 +1153,7 @@ export const InitiativeList: React.FC = () => {
   const [listReferenceModal, setListReferenceModal] = useState<ListReferenceModalState | null>(null);
   const [rollableEditMode, setRollableEditMode] = useState<Record<string, boolean>>({});
   const [rollableContextMenu, setRollableContextMenu] = useState<RollableContextMenuState | null>(null);
+  const [listNotationContextMenu, setListNotationContextMenu] = useState<ListNotationContextMenuState | null>(null);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isListCompact, setIsListCompact] = useState(false);
@@ -1165,6 +1175,11 @@ export const InitiativeList: React.FC = () => {
       window.removeEventListener('resize', onResize);
     };
   }, []);
+
+  const selectedTokenIds = useMemo(() => {
+    const selection = Array.isArray(playerData?.selection) ? playerData.selection : [];
+    return new Set(selection);
+  }, [playerData?.selection]);
 
   // Control for setting the data to Room or to Scene
   const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
@@ -1979,6 +1994,29 @@ export const InitiativeList: React.FC = () => {
     });
   };
 
+  const handleListNotationClickWithMode = async (
+    context: ListNotationContextMenuState,
+    mode: 'normal' | 'advantage' | 'disadvantage'
+  ) => {
+    const notation = mode === 'normal'
+      ? context.notation
+      : resolveAdvantageDisadvantageNotation(context.notation, mode);
+
+    if (!notation) {
+      return;
+    }
+
+    const modeSuffix = mode === 'normal' ? '' : mode === 'advantage' ? ' (Advantage)' : ' (Disadvantage)';
+
+    await sendNotationRoll({
+      notation,
+      actionName: `${context.actionName}${modeSuffix}`,
+      tokenName: context.tokenName,
+      senderId: context.senderId,
+      senderColor: context.senderColor,
+    });
+  };
+
   useEffect(() => {
     return () => {
       Object.values(longPressTimersRef.current).forEach((timerId) => {
@@ -1988,13 +2026,14 @@ export const InitiativeList: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!rollableContextMenu) {
+    if (!rollableContextMenu && !listNotationContextMenu) {
       return;
     }
 
     const handleEscapeKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setRollableContextMenu(null);
+        setListNotationContextMenu(null);
       }
     };
 
@@ -2002,7 +2041,7 @@ export const InitiativeList: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleEscapeKey);
     };
-  }, [rollableContextMenu]);
+  }, [rollableContextMenu, listNotationContextMenu]);
 
   const getRollableFieldKey = (unitId: string, bid: string): string => `value-column:${unitId}:${bid}`;
   const getValueDraftKey = (unitId: string, bid: string): string => `${unitId}:${bid}`;
@@ -2029,6 +2068,10 @@ export const InitiativeList: React.FC = () => {
 
   const closeRollableContextMenu = () => {
     setRollableContextMenu(null);
+  };
+
+  const closeListNotationContextMenu = () => {
+    setListNotationContextMenu(null);
   };
 
   const disableRollableEditMode = (fieldKey: string) => {
@@ -2922,11 +2965,13 @@ export const InitiativeList: React.FC = () => {
         );
 
       case 'name':
+        const isSelectedByPlayer = selectedTokenIds.has(unit.id);
         return (
           <NameCell
             theme={theme}
             title="Right-click to assign owner"
             $outlineColor={unit.ownerNameOutlineColor}
+            $isSelected={isSelectedByPlayer}
             onDoubleClick={() => handleUnitNameDoubleClick(unit.id)}
             onContextMenu={canInteract ? (event) => handleUnitContextMenu(event, unit.id) : undefined}
           >
@@ -3838,6 +3883,19 @@ export const InitiativeList: React.FC = () => {
                                 senderColor: listOwner?.color || playerData?.color || '#ffffff',
                               });
                             }}
+                            onContextMenu={(event) => {
+                              event.preventDefault();
+                              const listOwner = selectedListReferenceUnit?.createdUserId
+                                ? partyData.find((player) => player.id === selectedListReferenceUnit.createdUserId)
+                                : null;
+                              setListNotationContextMenu({
+                                notation,
+                                actionName: entry.name || selectedListAttribute?.attr_name || 'List Roll',
+                                tokenName: selectedListReferenceUnit?.name || 'Unknown',
+                                senderId: selectedListReferenceUnit?.createdUserId || playerData?.id || 'unknown',
+                                senderColor: listOwner?.color || playerData?.color || '#ffffff',
+                              });
+                            }}
                             title={notation}
                           >
                             {notation}
@@ -3851,6 +3909,61 @@ export const InitiativeList: React.FC = () => {
             </ListReferenceItems>
           )}
         </ListReferenceSection>
+      </PopupModal>
+
+      <PopupModal
+        isOpen={!!listNotationContextMenu}
+        title={listNotationContextMenu?.actionName || 'Roll Options'}
+        onClose={closeListNotationContextMenu}
+        maxWidth="460px"
+        zIndexBase={12000}
+      >
+        <OwnerPickerHint theme={theme}>
+          Choose a roll mode for this notation.
+        </OwnerPickerHint>
+        <OwnerPickerList>
+          {(() => {
+            if (!listNotationContextMenu) {
+              return null;
+            }
+
+            const advantageNotation = resolveAdvantageDisadvantageNotation(listNotationContextMenu.notation, 'advantage');
+            const disadvantageNotation = resolveAdvantageDisadvantageNotation(listNotationContextMenu.notation, 'disadvantage');
+
+            if (!advantageNotation || !disadvantageNotation) {
+              return null;
+            }
+
+            return (
+              <>
+                <OwnerPickerButton
+                  theme={theme}
+                  onClick={() => {
+                    if (!listNotationContextMenu) {
+                      return;
+                    }
+                    closeListNotationContextMenu();
+                    void handleListNotationClickWithMode(listNotationContextMenu, 'advantage');
+                  }}
+                >
+                  Roll with Advantage
+                </OwnerPickerButton>
+                <OwnerPickerButton
+                  theme={theme}
+                  onClick={() => {
+                    if (!listNotationContextMenu) {
+                      return;
+                    }
+                    closeListNotationContextMenu();
+                    void handleListNotationClickWithMode(listNotationContextMenu, 'disadvantage');
+                  }}
+                >
+                  Roll with Disadvantage
+                </OwnerPickerButton>
+              </>
+            );
+          })()}
+        </OwnerPickerList>
       </PopupModal>
     </ListContainer>
   );

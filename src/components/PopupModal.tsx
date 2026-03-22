@@ -12,19 +12,20 @@ interface PopupModalProps {
   closeOnOverlayClick?: boolean;
   minWidth?: string;
   maxWidth?: string;
+  zIndexBase?: number;
 }
 
-const ModalOverlay = styled.div`
+const ModalOverlay = styled.div<{ $zIndexBase: number }>`
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.7);
-  z-index: 9999;
+  z-index: ${props => props.$zIndexBase};
 `;
 
-const ModalContainer = styled.div<{ theme: ForgeTheme; $minWidth?: string; $maxWidth?: string }>`
+const ModalContainer = styled.div<{ theme: ForgeTheme; $minWidth?: string; $maxWidth?: string; $zIndexBase: number }>`
   position: fixed;
   top: 50%;
   left: 50%;
@@ -33,7 +34,7 @@ const ModalContainer = styled.div<{ theme: ForgeTheme; $minWidth?: string; $maxW
   border: 3px solid ${props => props.theme.BORDER};
   border-radius: 8px;
   padding: 25px;
-  z-index: 10000;
+  z-index: ${props => props.$zIndexBase + 1};
   min-width: ${props => props.$minWidth || '200px'};
   max-width: ${props => props.$maxWidth || '500px'};
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
@@ -64,6 +65,7 @@ export const PopupModal: React.FC<PopupModalProps> = ({
   closeOnOverlayClick = true,
   minWidth,
   maxWidth,
+  zIndexBase = 9999,
 }) => {
   const { theme } = useForgeTheme();
 
@@ -73,11 +75,15 @@ export const PopupModal: React.FC<PopupModalProps> = ({
 
   return (
     <>
-      <ModalOverlay onClick={closeOnOverlayClick ? onClose : undefined} />
+      <ModalOverlay
+        $zIndexBase={zIndexBase}
+        onClick={closeOnOverlayClick ? onClose : undefined}
+      />
       <ModalContainer
         theme={theme}
         $minWidth={minWidth}
         $maxWidth={maxWidth}
+        $zIndexBase={zIndexBase}
         onClick={(e) => e.stopPropagation()}
       >
         {title && <ModalTitle theme={theme}>{title}</ModalTitle>}

@@ -309,26 +309,38 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                     update[UnitConstants.UNIT_NAME] = preferredUnitName;
                                 }
                                 update[UnitConstants.FABRICATED] = true;
-                                if (useDescriptiveDuplicates) {
-                                    const baseUnitName = String(update[UnitConstants.UNIT_NAME] || itemName || item.name).trim();
-                                    let resolvedUnitName = baseUnitName;
-                                    let normalizedResolvedName = normalizeLookupName(resolvedUnitName);
+                            }
 
-                                    if (normalizedResolvedName) {
-                                        let guard = 0;
-                                        while (usedUnitNames.has(normalizedResolvedName) && guard < 20) {
-                                            resolvedUnitName = AddOrReplaceAdjective(resolvedUnitName);
-                                            normalizedResolvedName = normalizeLookupName(resolvedUnitName);
-                                            guard += 1;
-                                        }
+                            if (useDescriptiveDuplicates) {
+                                const existingUnitName = typeof item.metadata[UnitConstants.UNIT_NAME] === 'string'
+                                    ? String(item.metadata[UnitConstants.UNIT_NAME]).trim()
+                                    : '';
+                                const fallbackItemName = getSearchNameFromItem(textItem.text?.plainText || item.name).trim();
+                                const baseUnitName = String(
+                                    update[UnitConstants.UNIT_NAME]
+                                    || existingUnitName
+                                    || preferredUnitName
+                                    || fallbackItemName
+                                    || item.name
+                                ).trim();
 
-                                        if (normalizedResolvedName) {
-                                            usedUnitNames.add(normalizedResolvedName);
-                                        }
+                                let resolvedUnitName = baseUnitName;
+                                let normalizedResolvedName = normalizeLookupName(resolvedUnitName);
+
+                                if (normalizedResolvedName) {
+                                    let guard = 0;
+                                    while (usedUnitNames.has(normalizedResolvedName) && guard < 20) {
+                                        resolvedUnitName = AddOrReplaceAdjective(resolvedUnitName);
+                                        normalizedResolvedName = normalizeLookupName(resolvedUnitName);
+                                        guard += 1;
                                     }
 
-                                    update[UnitConstants.UNIT_NAME] = resolvedUnitName;
+                                    if (normalizedResolvedName) {
+                                        usedUnitNames.add(normalizedResolvedName);
+                                    }
                                 }
+
+                                update[UnitConstants.UNIT_NAME] = resolvedUnitName;
                             }
 
                             if (typeof update[UnitConstants.UNIT_NAME] !== 'string' || !String(update[UnitConstants.UNIT_NAME]).trim()) {

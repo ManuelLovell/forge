@@ -60,6 +60,12 @@ type FieldContextMenuState = {
   isRollable: boolean;
 };
 
+type InlineNotationContextMenuState = {
+  notation: string;
+  actionName: string;
+  title: string;
+};
+
 type RuntimeAttributeLike = SystemAttribute & {
   id?: unknown;
   bid?: string;
@@ -962,6 +968,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [rollableEditMode, setRollableEditMode] = useState<Record<string, boolean>>({});
   const [fieldContextMenu, setFieldContextMenu] = useState<FieldContextMenuState | null>(null);
+  const [inlineNotationContextMenu, setInlineNotationContextMenu] = useState<InlineNotationContextMenuState | null>(null);
   const longPressTimersRef = useRef<Record<string, number>>({});
   const suppressNextClickRef = useRef<Record<string, boolean>>({});
   const LONG_PRESS_MS = 500;
@@ -1288,14 +1295,23 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     setFieldContextMenu(null);
   };
 
+  const openInlineNotationContextMenu = (state: InlineNotationContextMenuState) => {
+    setInlineNotationContextMenu(state);
+  };
+
+  const closeInlineNotationContextMenu = () => {
+    setInlineNotationContextMenu(null);
+  };
+
   useEffect(() => {
-    if (!fieldContextMenu) {
+    if (!fieldContextMenu && !inlineNotationContextMenu) {
       return;
     }
 
     const handleEscapeKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setFieldContextMenu(null);
+        setInlineNotationContextMenu(null);
       }
     };
 
@@ -1303,7 +1319,26 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     return () => {
       window.removeEventListener('keydown', handleEscapeKey);
     };
-  }, [fieldContextMenu]);
+  }, [fieldContextMenu, inlineNotationContextMenu]);
+
+  const handleInlineNotationClickWithMode = async (
+    mode: 'normal' | 'advantage' | 'disadvantage'
+  ) => {
+    if (!inlineNotationContextMenu) {
+      return;
+    }
+
+    const notation = mode === 'normal'
+      ? inlineNotationContextMenu.notation
+      : resolveAdvantageDisadvantageNotation(inlineNotationContextMenu.notation, mode);
+
+    if (!notation) {
+      return;
+    }
+
+    const modeSuffix = mode === 'normal' ? '' : mode === 'advantage' ? ' (Advantage)' : ' (Disadvantage)';
+    await sendNotationRoll(notation, `${inlineNotationContextMenu.actionName}${modeSuffix}`);
+  };
 
   const enableRollableEditMode = (draftKey: string, input?: HTMLInputElement | null) => {
     setRollableEditMode((prev) => ({
@@ -2317,6 +2352,14 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                               onClick={() => {
                                 void sendNotationRoll(token.notation, entry.name || 'Action');
                               }}
+                              onContextMenu={(event) => {
+                                event.preventDefault();
+                                openInlineNotationContextMenu({
+                                  notation: token.notation,
+                                  actionName: entry.name || 'Action',
+                                  title: entry.name || 'Action Roll',
+                                });
+                              }}
                               title={token.notation}
                             >
                               {token.notation}
@@ -2468,6 +2511,14 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                               onClick={() => {
                                 void sendNotationRoll(token.notation, entry.name || 'Item');
                               }}
+                              onContextMenu={(event) => {
+                                event.preventDefault();
+                                openInlineNotationContextMenu({
+                                  notation: token.notation,
+                                  actionName: entry.name || 'Item',
+                                  title: entry.name || 'Item Roll',
+                                });
+                              }}
                               title={token.notation}
                             >
                               {token.notation}
@@ -2588,6 +2639,53 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                           disadvantageNotation,
                           `${getAttributeName(fieldContextMenu.attribute) || getAttributeBid(fieldContextMenu.attribute) || 'Roll'} (Disadvantage)`
                         );
+                      }}
+                    >
+                      Roll with Disadvantage
+                    </RollableMenuButton>
+                  </>
+                );
+              })()}
+            </RollableMenuActions>
+          </RollableModalContainer>
+        </>
+      ) : null}
+
+      {inlineNotationContextMenu ? (
+        <>
+          <RollableModalOverlay onClick={closeInlineNotationContextMenu} />
+          <RollableModalContainer $theme={systemTheme} onClick={(event) => event.stopPropagation()}>
+            <RollableModalTitleRow>
+              <RollableModalTitle $theme={systemTheme}>{inlineNotationContextMenu.title}</RollableModalTitle>
+              <RollableModalBid $theme={systemTheme}>[{inlineNotationContextMenu.notation}]</RollableModalBid>
+            </RollableModalTitleRow>
+            <RollableMenuActions>
+              {(() => {
+                const advantageNotation = resolveAdvantageDisadvantageNotation(inlineNotationContextMenu.notation, 'advantage');
+                const disadvantageNotation = resolveAdvantageDisadvantageNotation(inlineNotationContextMenu.notation, 'disadvantage');
+
+                if (!advantageNotation || !disadvantageNotation) {
+                  return null;
+                }
+
+                return (
+                  <>
+                    <RollableMenuButton
+                      type="button"
+                      $theme={systemTheme}
+                      onClick={() => {
+                        closeInlineNotationContextMenu();
+                        void handleInlineNotationClickWithMode('advantage');
+                      }}
+                    >
+                      Roll with Advantage
+                    </RollableMenuButton>
+                    <RollableMenuButton
+                      type="button"
+                      $theme={systemTheme}
+                      onClick={() => {
+                        closeInlineNotationContextMenu();
+                        void handleInlineNotationClickWithMode('disadvantage');
                       }}
                     >
                       Roll with Disadvantage

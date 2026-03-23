@@ -263,7 +263,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                         // Metadata updates is the batch to apply at the end
                         const metadataUpdates: { id: string, metadata: Metadata }[] = [];
                         const contextItemIds = new Set(context.items.map((item) => item.id));
-                        const useDescriptiveDuplicates = storageContainer[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] !== undefined;
+                        const useDescriptiveDuplicates = storageContainer[SettingsConstants.USE_DESCRIPTIVE_DUPLICATES] === true;
                         const usedUnitNames = new Set(
                             sceneItems
                                 .filter((sceneItem) => {

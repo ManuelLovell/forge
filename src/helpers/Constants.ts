@@ -1,5 +1,5 @@
 
-export const DATA_STORED_IN_ROOM = false;
+export const DATA_STORED_IN_ROOM = true;
 
 export enum Constants
 {

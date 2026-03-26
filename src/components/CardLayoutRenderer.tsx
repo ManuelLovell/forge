@@ -1,6 +1,53 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { Plus, X } from 'lucide-react';
+import {
+  Anchor,
+  Aperture,
+  Award,
+  BatteryCharging,
+  Book,
+  Calendar,
+  Clock,
+  CloudLightning,
+  Drama,
+  Carrot,
+  Bone,
+  Compass,
+  DollarSign,
+  Feather,
+  Eye,
+  Heart,
+  Moon,
+  Music,
+  Shield,
+  Star,
+  Sun,
+  Target,
+  Users,
+  Wind,
+  Zap,
+  Sword,
+  Swords,
+  Axe,
+  BowArrow,
+  Coins,
+  Wand,
+  Flower,
+  Skull,
+  Castle,
+  Cross,
+  TestTubeDiagonal,
+  Squirrel,
+  Snowflake,
+  Shell,
+  Pickaxe,
+  HeartPlus,
+  HeartCrack,
+  Fan,
+  Plus,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import OBR, { type Item } from '@owlbear-rodeo/sdk';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
@@ -235,6 +282,9 @@ const TextValueLabel = styled.span<{
   font-style: ${props => props.$fontStyle};
   letter-spacing: ${props => (props.$stretch ? '0.08em' : 'normal')};
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-left: 4px;
   margin-right: 4px;
   align-self: center;
@@ -770,6 +820,9 @@ const TextCheckboxLabel = styled.span<{
   font-style: ${props => props.$fontStyle};
   letter-spacing: ${props => (props.$stretch ? '0.08em' : 'normal')};
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const TextCheckboxInputs = styled.div<{ $fullWidth: boolean }>`
@@ -853,6 +906,52 @@ const sizeMapColumn = { sm: '14px', md: '16px', lg: '18px' };
 const sizeMapTextValueRow = { sm: '14px', md: '16px', lg: '18px' };
 const IMAGE_ROW_UNIT_HEIGHT = 40;
 
+const ICON_COMPONENTS: Record<string, LucideIcon> = {
+  anchor: Anchor,
+  aperture: Aperture,
+  award: Award,
+  'battery-charging': BatteryCharging,
+  book: Book,
+  calendar: Calendar,
+  clock: Clock,
+  'cloud-lightning': CloudLightning,
+  compass: Compass,
+  'dollar-sign': DollarSign,
+  feather: Feather,
+  eye: Eye,
+  heart: Heart,
+  moon: Moon,
+  music: Music,
+  shield: Shield,
+  star: Star,
+  sun: Sun,
+  target: Target,
+  users: Users,
+  wind: Wind,
+  zap: Zap,
+  drama: Drama,
+  carrot: Carrot,
+  bone: Bone,
+  sword: Sword,
+  swords: Swords,
+  axe: Axe,
+  'bow-arrow': BowArrow,
+  coins: Coins,
+  wand: Wand,
+  flower: Flower,
+  skull: Skull,
+  castle: Castle,
+  cross: Cross,
+  'test-tube-diagonal': TestTubeDiagonal,
+  squirrel: Squirrel,
+  snowflake: Snowflake,
+  shell: Shell,
+  pickaxe: Pickaxe,
+  'heart-plus': HeartPlus,
+  'heart-crack': HeartCrack,
+  fan: Fan,
+};
+
 const clampInt = (value: unknown, min: number, max: number, fallback: number): number => {
   const numeric = typeof value === 'number'
     ? value
@@ -917,7 +1016,7 @@ const resolveAttribute = (attributes: SystemAttribute[], idOrBid?: string): Runt
   }) as RuntimeAttributeLike | undefined) || null;
 };
 
-const getLabelFromAttribute = (attribute: RuntimeAttributeLike | null, mode?: string) => {
+const getLabelFromAttribute = (attribute: RuntimeAttributeLike | null, mode?: string): string => {
   if (!attribute) {
     return '';
   }
@@ -931,6 +1030,28 @@ const getLabelFromAttribute = (attribute: RuntimeAttributeLike | null, mode?: st
   }
 
   return '';
+};
+
+const hasLabelContent = (attribute: RuntimeAttributeLike | null, mode?: string): boolean => {
+  if (mode === 'icon') {
+    return true;
+  }
+
+  return getLabelFromAttribute(attribute, mode).length > 0;
+};
+
+const renderLabelContent = (
+  attribute: RuntimeAttributeLike | null,
+  mode?: string,
+  iconType?: string,
+  iconSize = 16
+): React.ReactNode => {
+  if (mode === 'icon') {
+    const IconComponent = ICON_COMPONENTS[String(iconType || '').trim().toLowerCase()] || Star;
+    return <IconComponent size={iconSize} aria-hidden="true" />;
+  }
+
+  return getLabelFromAttribute(attribute, mode);
 };
 
 const validBidList = (attributes: SystemAttribute[], bids?: string[]) => {
@@ -1577,7 +1698,8 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
     if (type === 'text') {
       const fontSize = sizeMapTitle[(style.fontSize as keyof typeof sizeMapTitle) || 'md'];
-      const title = getLabelFromAttribute(attr, style.labelMode) || 'Title Header';
+      const hasTitle = hasLabelContent(attr, style.labelMode);
+      const title = hasTitle ? renderLabelContent(attr, style.labelMode, style.labelIcon, 18) : 'Title Header';
       const contextDraftKey = `text:${component.id}:${getAttributeBid(attr) || 'none'}`;
 
       return (
@@ -1605,8 +1727,8 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
     if (type === 'text-value') {
       const fontSize = sizeMapTextValueRow[(style.fontSize as keyof typeof sizeMapTextValueRow) || 'md'];
-      const label = getLabelFromAttribute(attr, style.labelMode);
-      const hasLabel = !!label;
+      const hasLabel = hasLabelContent(attr, style.labelMode);
+      const labelContent = renderLabelContent(attr, style.labelMode, style.labelIcon, 18);
       const labelPosition = style.labelPosition === 'right' ? 'right' : 'left';
       const textValueAlign = resolveTextAlign(style.textAlign ?? style.align, 'center');
       const fontWeight = style.fontWeight === 'bold' ? 700 : 400;
@@ -1858,7 +1980,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
           $weight={fontWeight}
           $fontStyle={fontStyle}
         >
-          {label}
+          {labelContent}
         </TextValueLabel>
       ) : null;
 
@@ -1882,12 +2004,13 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
         normalizedBoolBids.push('');
       }
       const labelAttribute = resolveAttribute(attributes, normalizedBoolBids[0] || style.attributeId);
-      const label = getLabelFromAttribute(labelAttribute, style.labelMode);
+      const hasLabel = hasLabelContent(labelAttribute, style.labelMode);
+      const labelContent = renderLabelContent(labelAttribute, style.labelMode, style.labelIcon, 16);
       const isSlider = style.inputType === 'slider';
       const labelPosition = style.labelPosition === 'right' ? 'right' : 'left';
       const fontWeight = style.fontWeight === 'bold' ? 700 : 400;
       const fontStyle = style.fontStyle === 'italic' ? 'italic' : 'normal';
-      const labelElement = label ? (
+      const labelElement = hasLabel ? (
         <TextCheckboxLabel
           $theme={systemTheme}
           $fontSize={fontSize}
@@ -1895,7 +2018,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
           $weight={fontWeight}
           $fontStyle={fontStyle}
         >
-          {label}
+          {labelContent}
         </TextCheckboxLabel>
       ) : null;
 
@@ -1967,8 +2090,10 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
           <HorizontalGroup>
             {bids.map((bid) => {
               const columnAttr = resolveAttribute(attributes, bid);
-              const columnLabel = getLabelFromAttribute(columnAttr, style.labelMode || 'name');
-              if (!columnLabel) {
+              const labelMode = style.labelMode || 'name';
+              const hasColumnLabel = hasLabelContent(columnAttr, labelMode);
+              const columnLabel = renderLabelContent(columnAttr, labelMode, style.labelIcon, 16);
+              if (!hasColumnLabel) {
                 return null;
               }
               return (

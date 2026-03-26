@@ -24,7 +24,8 @@ interface CardComponentInfo
     labelPosition?: "left" | "right"; // If the labels appears on left or right
 
     attributeId?: string; // ID of the linked attribute from the system
-    labelMode?: "name" | "abbr" | "blank"; // Display Name, Abbr., or hide label
+    labelMode?: "name" | "abbr" | "blank" | "icon"; // Display Name, Abbr., icon, or hide label
+    labelIcon?: string; // Icon type used when labelMode is icon
 
     inputType?: "checkbox" | "slider"; // This is the style of checkbox - slider or box
     checkboxCount?: number; // This is the amount of checkboxes in a component

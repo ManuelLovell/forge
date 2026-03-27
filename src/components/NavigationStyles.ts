@@ -51,7 +51,7 @@ export const MenuSubText = styled.div<{ theme: ForgeTheme }>`
 `;
 
 export const MenuTitle = styled.h2<{ theme: ForgeTheme }>`
-  ${tw`m-0 mb-2 text-lg`}
+  ${tw`m-0 mb-2 font-bold text-2xl`}
   color: ${props => props.theme.PRIMARY};
 `;
 

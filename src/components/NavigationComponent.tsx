@@ -46,11 +46,15 @@ export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate, canAcces
             {/* Top Section - General Info */}
             <MenuHeader theme={theme}>
               <MenuTitle theme={theme}>Forge!</MenuTitle>
-              <MenuInfo theme={theme}>Beta Testing!</MenuInfo>
             </MenuHeader>
             <MenuSubText theme={theme}>
-              Thanks for checking it out!  Please report any bugs/issues to the  
-              <a href="https://discord.gg/Kh9hbHAZnX" target="_blank" rel="noreferrer"> Battle-System Discord</a>.
+              Good Luck!
+              <br/>
+              <br/>
+              Questions?  
+              <a href="https://discord.gg/Kh9hbHAZnX" target="_blank" rel="noreferrer"><br/>Battle-System<br/>Discord</a>.
+              <br/>
+              <a href="https://www.patreon.com/c/battlesystem" target="_blank" rel="noreferrer"><br/>Patreon</a>.
             </MenuSubText>
 
             {/* Navigation Links - Bottom Section */}

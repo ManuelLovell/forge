@@ -321,6 +321,7 @@ export const SystemPage = () => {
   const { theme, updateThemeFromSystem } = useForgeTheme();
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
+  const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
   const runtimeSystemData = useSceneStore((state) => state.systemData);
   const setRuntimeSystemData = useSceneStore((state) => state.setSystemData);
   const [isPremiumAuth, setIsPremiumAuth] = useState<boolean>(() => getAuthStatusSnapshot().premiumAuthorized);
@@ -400,10 +401,10 @@ export const SystemPage = () => {
       }
 
       if (runtimeSystemData) {
-        const configuredCurrentHpBid = sceneMetadata[SettingsConstants.HP_CURRENT_BID] as string | undefined;
-        const configuredMaxHpBid = sceneMetadata[SettingsConstants.HP_MAX_BID] as string | undefined;
-        const configuredBuffVisualPreset = sceneMetadata[SettingsConstants.BUFF_VISUAL_PRESET];
-        const configuredDebuffVisualPreset = sceneMetadata[SettingsConstants.DEBUFF_VISUAL_PRESET];
+        const configuredCurrentHpBid = storageContainer[SettingsConstants.HP_CURRENT_BID] as string | undefined;
+        const configuredMaxHpBid = storageContainer[SettingsConstants.HP_MAX_BID] as string | undefined;
+        const configuredBuffVisualPreset = storageContainer[SettingsConstants.BUFF_VISUAL_PRESET];
+        const configuredDebuffVisualPreset = storageContainer[SettingsConstants.DEBUFF_VISUAL_PRESET];
 
         setCurrentSystemName(runtimeSystemData.systemName);
         setCurrentImportDate(runtimeSystemData.importDate);
@@ -418,10 +419,10 @@ export const SystemPage = () => {
 
       const roomSystemName = roomMetadata[SystemKeys.SYSTEM_NAME] as string | undefined;
       const roomImportDate = roomMetadata[SystemKeys.IMPORT_DATE] as string | undefined;
-      const configuredCurrentHpBid = sceneMetadata[SettingsConstants.HP_CURRENT_BID] as string | undefined;
-      const configuredMaxHpBid = sceneMetadata[SettingsConstants.HP_MAX_BID] as string | undefined;
-      const configuredBuffVisualPreset = sceneMetadata[SettingsConstants.BUFF_VISUAL_PRESET];
-      const configuredDebuffVisualPreset = sceneMetadata[SettingsConstants.DEBUFF_VISUAL_PRESET];
+      const configuredCurrentHpBid = storageContainer[SettingsConstants.HP_CURRENT_BID] as string | undefined;
+      const configuredMaxHpBid = storageContainer[SettingsConstants.HP_MAX_BID] as string | undefined;
+      const configuredBuffVisualPreset = storageContainer[SettingsConstants.BUFF_VISUAL_PRESET];
+      const configuredDebuffVisualPreset = storageContainer[SettingsConstants.DEBUFF_VISUAL_PRESET];
 
       setCurrentSystemName(roomSystemName || defaultGameSystem.name);
       setCurrentImportDate(roomImportDate || null);

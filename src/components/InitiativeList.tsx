@@ -1201,22 +1201,28 @@ export const InitiativeList: React.FC = () => {
   const listCompactSettingKey = getPerPlayerSettingKey(SettingsConstants.INITIATIVE_LIST_COMPACT, currentPlayerId);
 
   useEffect(() => {
-    const perPlayerValue = sceneMetadata[listCompactSettingKey];
-    const fallbackValue = sceneMetadata[SettingsConstants.INITIATIVE_LIST_COMPACT];
+    const perPlayerValue = storageContainer[listCompactSettingKey];
+    const fallbackValue = storageContainer[SettingsConstants.INITIATIVE_LIST_COMPACT];
     const resolved = typeof perPlayerValue === 'boolean'
       ? perPlayerValue
       : (typeof fallbackValue === 'boolean' ? fallbackValue : false);
     setIsListCompact(resolved);
-  }, [sceneMetadata, listCompactSettingKey]);
+  }, [storageContainer, listCompactSettingKey]);
 
   const handleToggleListSize = async () => {
     const nextMode = !isListCompact;
     setIsListCompact(nextMode);
 
     try {
-      await OBR.scene.setMetadata({
-        [listCompactSettingKey]: nextMode,
-      });
+      if (DATA_STORED_IN_ROOM) {
+        await OBR.room.setMetadata({
+          [listCompactSettingKey]: nextMode,
+        });
+      } else {
+        await OBR.scene.setMetadata({
+          [listCompactSettingKey]: nextMode,
+        });
+      }
     } catch (error) {
       LOGGER.error('Failed to persist initiative list compact mode', error);
       setIsListCompact(!nextMode);

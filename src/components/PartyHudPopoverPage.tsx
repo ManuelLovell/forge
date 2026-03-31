@@ -46,9 +46,6 @@ const HUD_ROW_CARD_WIDTH_PX = 190;
 const HUD_ROW_CARD_HEIGHT_PX = 90;
 const HUD_COLUMN_CARD_WIDTH_PX = 120;
 const HUD_COLUMN_CARD_HEIGHT_PX = 150;
-const HUD_DESKTOP_MIN_WIDTH_PX = 1024;
-const HUD_AUTO_SCALE_MEMBER_THRESHOLD = 6;
-
 const Root = styled.div<{ $theme: ThemeData }>`
   position: fixed;
   inset: 0;
@@ -651,12 +648,10 @@ const PartyHudPopoverPage = () => {
     const availableWidth = Math.max(1, viewportSize.width - (hudViewportInsetPx * 2));
     const availableHeight = Math.max(1, viewportSize.height - (hudViewportInsetPx * 2));
 
-    const shouldAutoScale = viewportSize.width >= HUD_DESKTOP_MIN_WIDTH_PX
-      && partyItems.length >= HUD_AUTO_SCALE_MEMBER_THRESHOLD;
-
     const widthScale = availableWidth / contentWidth;
     const heightScale = availableHeight / contentHeight;
-    const scale = shouldAutoScale ? Math.min(1, widthScale, heightScale) : 1;
+    const exceedsViewportBounds = contentWidth > availableWidth || contentHeight > availableHeight;
+    const scale = exceedsViewportBounds ? Math.min(1, widthScale, heightScale) : 1;
 
     return {
       contentWidth,

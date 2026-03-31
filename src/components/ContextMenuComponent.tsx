@@ -358,7 +358,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                 const forUnit = metadataUpdates.find(update => update.id === item.id);
                                 if (forUnit) {
                                     Object.assign(item.metadata, forUnit.metadata);
-                                    if (sceneMetadata[SettingsConstants.SHOW_NAMES] === true) {
+                                    if (storageContainer[SettingsConstants.SHOW_NAMES] === true) {
                                         const textItem = item as typeof item & { text?: { plainText?: string } };
                                         const resolvedUnitName = typeof forUnit.metadata[UnitConstants.UNIT_NAME] === 'string'
                                             && String(forUnit.metadata[UnitConstants.UNIT_NAME]).trim().length > 0
@@ -511,7 +511,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                             const item = items[0];
                             Object.assign(item.metadata, update);
 
-                            if (sceneMetadata[SettingsConstants.SHOW_NAMES] === true) {
+                            if (storageContainer[SettingsConstants.SHOW_NAMES] === true) {
                                 const writableItem = item as typeof item & { text?: { plainText?: string } };
                                 const resolvedUnitName = typeof update[UnitConstants.UNIT_NAME] === 'string'
                                     && String(update[UnitConstants.UNIT_NAME]).trim().length > 0
@@ -589,7 +589,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                                 const item = items[0];
                                 Object.assign(item.metadata, update);
 
-                                if (sceneMetadata[SettingsConstants.SHOW_NAMES] === true) {
+                                if (storageContainer[SettingsConstants.SHOW_NAMES] === true) {
                                     const writableItem = item as typeof item & { text?: { plainText?: string } };
                                     const resolvedUnitName = typeof update[UnitConstants.UNIT_NAME] === 'string'
                                         && String(update[UnitConstants.UNIT_NAME]).trim().length > 0

@@ -4,7 +4,6 @@ import {
   MenuOverlay,
   MenuHeader,
   MenuTitle,
-  MenuInfo,
   MenuNav,
   NavButton,
   Backdrop,

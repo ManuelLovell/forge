@@ -1,6 +1,6 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import OBR, { isImage } from '@owlbear-rodeo/sdk';
+import OBR, { isImage, Item } from '@owlbear-rodeo/sdk';
 import styled from 'styled-components';
 import { useSceneStore } from '../helpers/BSCache';
 import { useForgeTheme } from '../helpers/ThemeContext';
@@ -13,6 +13,13 @@ import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { closePartyHudModal, openPartyHudModal } from '../helpers/partyHudModal';
 
 type PartyHudOrientation = 'bottom' | 'left' | 'top' | 'right';
+
+const PARTY_SAVE_KEY = 'forge:party_save';
+
+interface PartySaveData {
+  savedAt: string;
+  items: Item[];
+}
 
 const PartyList = styled.div<{ theme: ForgeTheme }>`
   display: flex;
@@ -159,6 +166,14 @@ const EmptyState = styled.p<{ theme: ForgeTheme }>`
   margin: 0;
 `;
 
+const SaveTimestamp = styled.span<{ theme: ForgeTheme }>`
+  display: block;
+  font-size: 10px;
+  color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.55)};
+  text-align: center;
+  margin-top: 4px;
+`;
+
 const getNextOrientation = (current: PartyHudOrientation): PartyHudOrientation => {
   switch (current) {
     case 'bottom':
@@ -179,6 +194,7 @@ const isPartyHudOrientation = (value: unknown): value is PartyHudOrientation => 
 
 export const PartyPage = () => {
   const isHudModalOpenRef = useRef(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
   const { theme } = useForgeTheme();
   const { attributes } = useSystemData();
   const items = useSceneStore((state) => state.items);
@@ -206,6 +222,73 @@ export const PartyPage = () => {
 
   const partyItems = items.filter((item) => item.metadata[UnitConstants.IN_PARTY] === true);
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PARTY_SAVE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as PartySaveData;
+        setLastSaved(parsed.savedAt ?? null);
+      }
+    } catch {
+      // ignore malformed save
+    }
+  }, []);
+
+  const handleSaveParty = () => {
+    const saveData: PartySaveData = {
+      savedAt: new Date().toISOString(),
+      items: partyItems,
+    };
+    localStorage.setItem(PARTY_SAVE_KEY, JSON.stringify(saveData));
+    setLastSaved(saveData.savedAt);
+  };
+
+  const handleLoadParty = async () => {
+    const raw = localStorage.getItem(PARTY_SAVE_KEY);
+    if (!raw) return;
+    try {
+      const saveData = JSON.parse(raw) as PartySaveData;
+      if (!saveData.items.length) return;
+
+      // Remove any currently existing scene items that share an ID with the saved ones.
+      const savedIds = new Set(saveData.items.map((i) => i.id));
+      const conflictingIds = items
+        .filter((item) => savedIds.has(item.id))
+        .map((item) => item.id);
+
+      if (conflictingIds.length > 0) {
+        await OBR.scene.items.deleteItems(conflictingIds);
+      }
+
+      // Convert the anchor screen point to scene coordinates, then stagger each token.
+      const [vpWidth, vpHeight] = await Promise.all([
+        OBR.viewport.getWidth(),
+        OBR.viewport.getHeight(),
+      ]);
+
+      const anchorScreen = { x: vpWidth * 0.75, y: vpHeight * 0.60 };
+      const anchorScene = await OBR.viewport.inverseTransformPoint(anchorScreen);
+
+      // Determine stagger distance in scene units by converting a screen offset.
+      const offsetScreen = { x: anchorScreen.x - 75, y: anchorScreen.y - 75 };
+      const offsetScene = await OBR.viewport.inverseTransformPoint(offsetScreen);
+      const stepX = offsetScene.x - anchorScene.x;
+      const stepY = offsetScene.y - anchorScene.y;
+
+      const repositionedItems = saveData.items.map((item, index) => ({
+        ...item,
+        position: {
+          x: anchorScene.x + stepX * index,
+          y: anchorScene.y + stepY * index,
+        },
+      }));
+
+      await OBR.scene.items.addItems(repositionedItems);
+    } catch {
+      // ignore malformed save
+    }
+  };
+
   const allowedAttributes = useMemo(() => {
     return attributes.filter((attribute) => {
       const type = String(attribute.attr_type || '').toLowerCase();
@@ -220,6 +303,15 @@ export const PartyPage = () => {
     }
 
     await OBR.scene.setMetadata({ [key]: value });
+  };
+
+  const savePartySettings = async (values: Record<string, unknown>) => {
+    if (DATA_STORED_IN_ROOM) {
+      await OBR.room.setMetadata(values);
+      return;
+    }
+
+    await OBR.scene.setMetadata(values);
   };
 
   const handleToggleHudOpen = async () => {
@@ -285,10 +377,14 @@ export const PartyPage = () => {
                     isOn={showPartyHudHpBars}
                     onChange={(next) => {
                       if (!isCurrentUserGm) return;
-                      void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_BARS, next);
                       if (next) {
-                        void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS, false);
+                        void savePartySettings({
+                          [SettingsConstants.PARTY_HUD_SHOW_HP_BARS]: true,
+                          [SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS]: false,
+                        });
+                        return;
                       }
+                      void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_BARS, false);
                     }}
                   />
                 </ToggleRow>
@@ -299,10 +395,14 @@ export const PartyPage = () => {
                     isOn={showPartyHudHpNumbers}
                     onChange={(next) => {
                       if (!isCurrentUserGm) return;
-                      void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS, next);
                       if (next) {
-                        void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_BARS, false);
+                        void savePartySettings({
+                          [SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS]: true,
+                          [SettingsConstants.PARTY_HUD_SHOW_HP_BARS]: false,
+                        });
+                        return;
                       }
+                      void savePartySetting(SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS, false);
                     }}
                   />
                 </ToggleRow>
@@ -356,6 +456,30 @@ export const PartyPage = () => {
               </ControlHint>
             </>
           )}
+        </PartyControls>
+
+        <PartyControls theme={theme}>
+          <CenteredControlRow>
+            <ControlButton
+              theme={theme}
+              onClick={handleSaveParty}
+              disabled={partyItems.length === 0}
+            >
+              Save Party
+            </ControlButton>
+            <ControlButton
+              theme={theme}
+              onClick={() => void handleLoadParty()}
+              disabled={lastSaved === null}
+            >
+              Load Party
+            </ControlButton>
+          </CenteredControlRow>
+          <SaveTimestamp theme={theme}>
+            {lastSaved
+              ? `Last saved: ${new Date(lastSaved).toLocaleString()}`
+              : 'No save available.'}
+          </SaveTimestamp>
         </PartyControls>
 
         {partyItems.length === 0 ? (

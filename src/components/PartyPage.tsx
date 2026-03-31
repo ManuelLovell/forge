@@ -458,29 +458,31 @@ export const PartyPage = () => {
           )}
         </PartyControls>
 
-        <PartyControls theme={theme}>
-          <CenteredControlRow>
-            <ControlButton
-              theme={theme}
-              onClick={handleSaveParty}
-              disabled={partyItems.length === 0}
-            >
-              Save Party
-            </ControlButton>
-            <ControlButton
-              theme={theme}
-              onClick={() => void handleLoadParty()}
-              disabled={lastSaved === null}
-            >
-              Load Party
-            </ControlButton>
-          </CenteredControlRow>
-          <SaveTimestamp theme={theme}>
-            {lastSaved
-              ? `Last saved: ${new Date(lastSaved).toLocaleString()}`
-              : 'No save available.'}
-          </SaveTimestamp>
-        </PartyControls>
+        {isCurrentUserGm && (
+          <PartyControls theme={theme}>
+            <CenteredControlRow>
+              <ControlButton
+                theme={theme}
+                onClick={handleSaveParty}
+                disabled={partyItems.length === 0}
+              >
+                Save Party
+              </ControlButton>
+              <ControlButton
+                theme={theme}
+                onClick={() => void handleLoadParty()}
+                disabled={lastSaved === null}
+              >
+                Load Party
+              </ControlButton>
+            </CenteredControlRow>
+            <SaveTimestamp theme={theme}>
+              {lastSaved
+                ? `Last saved: ${new Date(lastSaved).toLocaleString()}`
+                : 'No save available.'}
+            </SaveTimestamp>
+          </PartyControls>
+        )}
 
         {partyItems.length === 0 ? (
           <EmptyState theme={theme}>

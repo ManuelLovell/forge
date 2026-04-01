@@ -30,6 +30,7 @@ import {
   isBuffVisualPreset,
   isDebuffVisualPreset,
 } from '../helpers/EffectVisualPresets';
+import type { BuffVisualPreset, DebuffVisualPreset } from '../helpers/EffectVisualPresets';
 
 const EXTENSION_ID = OwlbearIds.EXTENSIONID;
 const BACKUP_KEY_PREFIX = 'com.battle-system.forge';
@@ -340,6 +341,10 @@ export const SystemPage = () => {
   const [hpMaxBid, setHpMaxBid] = useState('');
   const [buffVisualPreset, setBuffVisualPreset] = useState(DEFAULT_BUFF_VISUAL_PRESET);
   const [debuffVisualPreset, setDebuffVisualPreset] = useState(DEFAULT_DEBUFF_VISUAL_PRESET);
+  const [isUpdatingBuffVisualPreset, setIsUpdatingBuffVisualPreset] = useState(false);
+  const [isUpdatingDebuffVisualPreset, setIsUpdatingDebuffVisualPreset] = useState(false);
+  const [pendingBuffVisualPreset, setPendingBuffVisualPreset] = useState<BuffVisualPreset | null>(null);
+  const [pendingDebuffVisualPreset, setPendingDebuffVisualPreset] = useState<DebuffVisualPreset | null>(null);
 
   // Backup management
   const [backups, setBackups] = useState<SystemBackup[]>([]);
@@ -388,6 +393,14 @@ export const SystemPage = () => {
           border: defaultGameSystem.theme_border,
           background_url: defaultGameSystem.background_url,
         };
+        const configuredBuffVisualPreset = storageContainer[SettingsConstants.BUFF_VISUAL_PRESET];
+        const configuredDebuffVisualPreset = storageContainer[SettingsConstants.DEBUFF_VISUAL_PRESET];
+        const resolvedBuffPreset = isBuffVisualPreset(configuredBuffVisualPreset)
+          ? configuredBuffVisualPreset
+          : DEFAULT_BUFF_VISUAL_PRESET;
+        const resolvedDebuffPreset = isDebuffVisualPreset(configuredDebuffVisualPreset)
+          ? configuredDebuffVisualPreset
+          : DEFAULT_DEBUFF_VISUAL_PRESET;
 
         setCurrentSystemName(defaultGameSystem.name);
         setCurrentImportDate(null);
@@ -395,8 +408,8 @@ export const SystemPage = () => {
         setSystemAttributes(defaultGameSystem.attributes as SystemAttribute[]);
         setHpCurrentBid(DEFAULT_HP_BID_KEYS.currentHpBid);
         setHpMaxBid(DEFAULT_HP_BID_KEYS.maxHpBid);
-        setBuffVisualPreset(DEFAULT_BUFF_VISUAL_PRESET);
-        setDebuffVisualPreset(DEFAULT_DEBUFF_VISUAL_PRESET);
+        setBuffVisualPreset(resolvedBuffPreset);
+        setDebuffVisualPreset(resolvedDebuffPreset);
         return;
       }
 
@@ -405,6 +418,8 @@ export const SystemPage = () => {
         const configuredMaxHpBid = storageContainer[SettingsConstants.HP_MAX_BID] as string | undefined;
         const configuredBuffVisualPreset = storageContainer[SettingsConstants.BUFF_VISUAL_PRESET];
         const configuredDebuffVisualPreset = storageContainer[SettingsConstants.DEBUFF_VISUAL_PRESET];
+        const resolvedBuffPreset = isBuffVisualPreset(configuredBuffVisualPreset) ? configuredBuffVisualPreset : null;
+        const resolvedDebuffPreset = isDebuffVisualPreset(configuredDebuffVisualPreset) ? configuredDebuffVisualPreset : null;
 
         setCurrentSystemName(runtimeSystemData.systemName);
         setCurrentImportDate(runtimeSystemData.importDate);
@@ -412,8 +427,26 @@ export const SystemPage = () => {
         setSystemAttributes(runtimeSystemData.attributes);
         setHpCurrentBid(configuredCurrentHpBid || '');
         setHpMaxBid(configuredMaxHpBid || '');
-        setBuffVisualPreset(isBuffVisualPreset(configuredBuffVisualPreset) ? configuredBuffVisualPreset : DEFAULT_BUFF_VISUAL_PRESET);
-        setDebuffVisualPreset(isDebuffVisualPreset(configuredDebuffVisualPreset) ? configuredDebuffVisualPreset : DEFAULT_DEBUFF_VISUAL_PRESET);
+        if (pendingBuffVisualPreset && resolvedBuffPreset === pendingBuffVisualPreset) {
+          setPendingBuffVisualPreset(null);
+        }
+        if (pendingDebuffVisualPreset && resolvedDebuffPreset === pendingDebuffVisualPreset) {
+          setPendingDebuffVisualPreset(null);
+        }
+        if (!isUpdatingBuffVisualPreset && !pendingBuffVisualPreset) {
+          setBuffVisualPreset((prev) => (
+            resolvedBuffPreset
+              ? resolvedBuffPreset
+              : prev
+          ));
+        }
+        if (!isUpdatingDebuffVisualPreset && !pendingDebuffVisualPreset) {
+          setDebuffVisualPreset((prev) => (
+            resolvedDebuffPreset
+              ? resolvedDebuffPreset
+              : prev
+          ));
+        }
         return;
       }
 
@@ -423,6 +456,8 @@ export const SystemPage = () => {
       const configuredMaxHpBid = storageContainer[SettingsConstants.HP_MAX_BID] as string | undefined;
       const configuredBuffVisualPreset = storageContainer[SettingsConstants.BUFF_VISUAL_PRESET];
       const configuredDebuffVisualPreset = storageContainer[SettingsConstants.DEBUFF_VISUAL_PRESET];
+      const resolvedBuffPreset = isBuffVisualPreset(configuredBuffVisualPreset) ? configuredBuffVisualPreset : null;
+      const resolvedDebuffPreset = isDebuffVisualPreset(configuredDebuffVisualPreset) ? configuredDebuffVisualPreset : null;
 
       setCurrentSystemName(roomSystemName || defaultGameSystem.name);
       setCurrentImportDate(roomImportDate || null);
@@ -436,8 +471,26 @@ export const SystemPage = () => {
       setSystemAttributes(defaultGameSystem.attributes as SystemAttribute[]);
       setHpCurrentBid(configuredCurrentHpBid || '');
       setHpMaxBid(configuredMaxHpBid || '');
-      setBuffVisualPreset(isBuffVisualPreset(configuredBuffVisualPreset) ? configuredBuffVisualPreset : DEFAULT_BUFF_VISUAL_PRESET);
-      setDebuffVisualPreset(isDebuffVisualPreset(configuredDebuffVisualPreset) ? configuredDebuffVisualPreset : DEFAULT_DEBUFF_VISUAL_PRESET);
+      if (pendingBuffVisualPreset && resolvedBuffPreset === pendingBuffVisualPreset) {
+        setPendingBuffVisualPreset(null);
+      }
+      if (pendingDebuffVisualPreset && resolvedDebuffPreset === pendingDebuffVisualPreset) {
+        setPendingDebuffVisualPreset(null);
+      }
+      if (!isUpdatingBuffVisualPreset && !pendingBuffVisualPreset) {
+        setBuffVisualPreset((prev) => (
+          resolvedBuffPreset
+            ? resolvedBuffPreset
+            : prev
+        ));
+      }
+      if (!isUpdatingDebuffVisualPreset && !pendingDebuffVisualPreset) {
+        setDebuffVisualPreset((prev) => (
+          resolvedDebuffPreset
+            ? resolvedDebuffPreset
+            : prev
+        ));
+      }
 
     } catch (err) {
       LOGGER.error('Error loading system from cache:', err);
@@ -976,7 +1029,13 @@ export const SystemPage = () => {
                       return;
                     }
                     setBuffVisualPreset(value);
-                    await saveHpAttributeMapping(SettingsConstants.BUFF_VISUAL_PRESET, value);
+                    setPendingBuffVisualPreset(value);
+                    setIsUpdatingBuffVisualPreset(true);
+                    try {
+                      await saveHpAttributeMapping(SettingsConstants.BUFF_VISUAL_PRESET, value);
+                    } finally {
+                      setIsUpdatingBuffVisualPreset(false);
+                    }
                   }}
                 >
                   {BUFF_VISUAL_PRESET_OPTIONS.map((option) => (
@@ -997,7 +1056,13 @@ export const SystemPage = () => {
                       return;
                     }
                     setDebuffVisualPreset(value);
-                    await saveHpAttributeMapping(SettingsConstants.DEBUFF_VISUAL_PRESET, value);
+                    setPendingDebuffVisualPreset(value);
+                    setIsUpdatingDebuffVisualPreset(true);
+                    try {
+                      await saveHpAttributeMapping(SettingsConstants.DEBUFF_VISUAL_PRESET, value);
+                    } finally {
+                      setIsUpdatingDebuffVisualPreset(false);
+                    }
                   }}
                 >
                   {DEBUFF_VISUAL_PRESET_OPTIONS.map((option) => (

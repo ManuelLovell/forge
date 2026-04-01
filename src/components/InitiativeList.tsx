@@ -3479,7 +3479,8 @@ export const InitiativeList: React.FC = () => {
   }
 
   const useCompactTurnControls = isListCompact || isCompactControlLayout;
-  const roundLabel = isListCompact ? `R: ${currentRound}` : `Round: ${currentRound}`;
+  const roundLabel = useCompactTurnControls ? `R:${currentRound}` : `Round: ${currentRound}`;
+  const shouldInlineUtilityControls = !isListCompact && useCompactTurnControls;
 
   return (
     <ListContainer>
@@ -3525,8 +3526,8 @@ export const InitiativeList: React.FC = () => {
           </TableBody>
         </Table>
       </TableWrapper>
-      <ControlWrapper theme={theme} $compactMode={isListCompact}>
-        <ControlCenter $compactMode={isListCompact}>
+      <ControlWrapper theme={theme} $compactMode={useCompactTurnControls}>
+        <ControlCenter $compactMode={useCompactTurnControls}>
           {isListCompact ? (
             <>
               {isCurrentUserGm && (
@@ -3550,7 +3551,7 @@ export const InitiativeList: React.FC = () => {
               >
                 End Turn
               </ControlButton>
-              <RoundDisplay theme={theme} $compactMode={isListCompact}>
+              <RoundDisplay theme={theme} $compactMode={useCompactTurnControls}>
                 {roundLabel}
               </RoundDisplay>
               <ControlButton
@@ -3570,13 +3571,36 @@ export const InitiativeList: React.FC = () => {
                   <ArrowLeft />
                 </ControlButton>
               )}
-              <RoundDisplay theme={theme} $compactMode={isListCompact}>
+              <RoundDisplay theme={theme} $compactMode={useCompactTurnControls}>
                 {roundLabel}
               </RoundDisplay>
               {isCurrentUserGm && (
                 <ControlButton theme={theme} $compact={true} onClick={handleNext}>
                   <ArrowRight />
                 </ControlButton>
+              )}
+            </>
+          )}
+          {shouldInlineUtilityControls && (
+            <>
+              <CompactResizeButton
+                theme={theme}
+                onClick={() => {
+                  void handleToggleListSize();
+                }}
+                title="Switch to Compact list"
+              >
+                <Minimize2 />
+              </CompactResizeButton>
+              {isCurrentUserGm && (
+                <CompactResizeButton
+                  theme={theme}
+                  onClick={() => setIsResetModalOpen(true)}
+                  disabled={isResetting}
+                  title="Reset round/turn state"
+                >
+                  <OctagonX />
+                </CompactResizeButton>
               )}
             </>
           )}
@@ -3592,7 +3616,7 @@ export const InitiativeList: React.FC = () => {
             </CompactResizeButton>
           )}
         </ControlCenter>
-        {!isListCompact && (
+        {!isListCompact && !shouldInlineUtilityControls && (
           <FullResizeButton
             theme={theme}
             $hasReset={isCurrentUserGm}
@@ -3604,7 +3628,7 @@ export const InitiativeList: React.FC = () => {
             <Minimize2 />
           </FullResizeButton>
         )}
-        {isCurrentUserGm && !isListCompact && (
+        {isCurrentUserGm && !isListCompact && !shouldInlineUtilityControls && (
           <ResetButton
             theme={theme}
             onClick={() => setIsResetModalOpen(true)}

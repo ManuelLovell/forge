@@ -65,6 +65,7 @@ export class SettingsConstants {
   static PARTY_HUD_ATTR_TWO = `${EXTENSION_ID}/phudat2`;
   static PARTY_HUD_SHOW_HP_BARS = `${EXTENSION_ID}/phudhpb`;
   static PARTY_HUD_SHOW_HP_NUMBERS = `${EXTENSION_ID}/phudhpn`;
+  static PARTY_HUD_BORDER_STYLE = `${EXTENSION_ID}/phudbdr`;
 
   // Dice Controls
   static ENABLE_RUMBLE = `${EXTENSION_ID}/enabrumb`;

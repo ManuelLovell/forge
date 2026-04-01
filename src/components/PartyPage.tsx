@@ -13,6 +13,7 @@ import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { closePartyHudModal, openPartyHudModal } from '../helpers/partyHudModal';
 
 type PartyHudOrientation = 'bottom' | 'left' | 'top' | 'right';
+type PartyHudBorderStyle = 'default' | 'plate' | 'tech';
 
 const PARTY_SAVE_KEY = 'forge:party_save';
 
@@ -192,6 +193,22 @@ const isPartyHudOrientation = (value: unknown): value is PartyHudOrientation => 
   return value === 'bottom' || value === 'left' || value === 'top' || value === 'right';
 };
 
+const isPartyHudBorderStyle = (value: unknown): value is PartyHudBorderStyle => {
+  return value === 'default' || value === 'plate' || value === 'tech' || value === 'deco';
+};
+
+const normalizePartyHudBorderStyle = (value: unknown): PartyHudBorderStyle => {
+  if (value === 'deco') {
+    return 'plate';
+  }
+
+  if (value === 'tech') {
+    return 'tech';
+  }
+
+  return value === 'plate' ? 'plate' : 'default';
+};
+
 export const PartyPage = () => {
   const isHudModalOpenRef = useRef(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
@@ -219,6 +236,10 @@ export const PartyPage = () => {
   const showPartyHudHpBars = storageContainer[SettingsConstants.PARTY_HUD_SHOW_HP_BARS] === true;
   const showPartyHudHpNumbers = storageContainer[SettingsConstants.PARTY_HUD_SHOW_HP_NUMBERS] === true
     && !showPartyHudHpBars;
+  const storedPartyHudBorderStyle = storageContainer[SettingsConstants.PARTY_HUD_BORDER_STYLE];
+  const partyHudBorderStyle: PartyHudBorderStyle = isPartyHudBorderStyle(storedPartyHudBorderStyle)
+    ? normalizePartyHudBorderStyle(storedPartyHudBorderStyle)
+    : 'default';
 
   const partyItems = items.filter((item) => item.metadata[UnitConstants.IN_PARTY] === true);
 
@@ -444,6 +465,21 @@ export const PartyPage = () => {
                       {(attribute.attr_name || attribute.attr_bid)}
                     </option>
                   ))}
+                </ControlSelect>
+
+                <ControlSelect
+                  theme={theme}
+                  disabled={!isCurrentUserGm}
+                  value={partyHudBorderStyle}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (!isPartyHudBorderStyle(value)) return;
+                    void savePartySetting(SettingsConstants.PARTY_HUD_BORDER_STYLE, value);
+                  }}
+                >
+                  <option value="default">Portrait Border: Default</option>
+                  <option value="plate">Portrait Border: Plate</option>
+                  <option value="tech">Portrait Border: Tech</option>
                 </ControlSelect>
               </CenteredControlRow>
 

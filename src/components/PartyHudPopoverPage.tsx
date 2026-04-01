@@ -11,6 +11,7 @@ import type { SystemAttribute } from '../interfaces/SystemResponse';
 import { supabase } from '../supabase/supabaseClient';
 
 type PartyHudOrientation = 'bottom' | 'left' | 'top' | 'right';
+type PartyHudBorderStyle = 'default' | 'plate' | 'tech';
 
 type CacheState = {
   sceneMetadata: Record<string, unknown>;
@@ -104,9 +105,34 @@ const HudContainer = styled.div<{ $orientation: PartyHudOrientation }>`
     : 'flex-direction: row;'}
 `;
 
-const MemberCard = styled.div<{ $theme: ThemeData; $orientation: PartyHudOrientation }>`
-  border: 2px solid ${props => props.$theme.border};
-  border-radius: 10px;
+const TechBorderOverlay = styled.svg<{ $theme: ThemeData }>`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 6;
+
+  path {
+    fill: none;
+    stroke: ${props => rgbaFromHex(props.$theme.border, 0.98)};
+    stroke-width: 5;
+    stroke-linejoin: miter;
+    stroke-linecap: square;
+    vector-effect: non-scaling-stroke;
+    filter:
+      drop-shadow(0 0 3px ${props => rgbaFromHex(props.$theme.border, 0.48)})
+      drop-shadow(0 0 1px ${props => rgbaFromHex(props.$theme.primary, 0.3)});
+  }
+`;
+
+const MemberCard = styled.div<{ $theme: ThemeData; $orientation: PartyHudOrientation; $borderStyle: PartyHudBorderStyle }>`
+  border: ${props => props.$borderStyle === 'plate'
+    ? `1px solid ${rgbaFromHex(props.$theme.border, 0.7)}`
+    : props.$borderStyle === 'tech'
+      ? `1px solid ${rgbaFromHex(props.$theme.offset, 0.65)}`
+    : `2px solid ${props.$theme.border}`};
+  border-radius: ${props => props.$borderStyle === 'tech' ? '0' : '10px'};
   background: ${props => rgbaFromHex(props.$theme.background, 0.58)};
   position: relative;
   display: flex;
@@ -121,6 +147,119 @@ const MemberCard = styled.div<{ $theme: ThemeData; $orientation: PartyHudOrienta
   height: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? `${HUD_COLUMN_CARD_HEIGHT_PX}px` : `${HUD_ROW_CARD_HEIGHT_PX}px`};
   min-height: ${props => (props.$orientation === 'left' || props.$orientation === 'right') ? `${HUD_COLUMN_CARD_HEIGHT_PX}px` : `${HUD_ROW_CARD_HEIGHT_PX}px`};
   overflow: hidden;
+
+  ${props => props.$borderStyle === 'plate' && `
+    box-shadow:
+      inset 0 0 0 1px ${rgbaFromHex(props.$theme.offset, 0.28)},
+      0 0 0 1px ${rgbaFromHex(props.$theme.border, 0.3)};
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      border-radius: 8px;
+      pointer-events: none;
+      z-index: 5;
+      background:
+        linear-gradient(90deg, ${rgbaFromHex(props.$theme.offset, 0.7)} 0 24px, transparent 24px calc(100% - 24px), ${rgbaFromHex(props.$theme.offset, 0.7)} calc(100% - 24px) 100%),
+        linear-gradient(0deg, ${rgbaFromHex(props.$theme.offset, 0.7)} 0 24px, transparent 24px calc(100% - 24px), ${rgbaFromHex(props.$theme.offset, 0.7)} calc(100% - 24px) 100%);
+      mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      padding: 1px;
+      mask-composite: exclude;
+      -webkit-mask-composite: xor;
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      z-index: 4;
+      background:
+        radial-gradient(circle at 12px 12px, ${rgbaFromHex(props.$theme.primary, 0.42)} 0 2px, transparent 2px),
+        radial-gradient(circle at calc(100% - 12px) 12px, ${rgbaFromHex(props.$theme.primary, 0.42)} 0 2px, transparent 2px),
+        radial-gradient(circle at 12px calc(100% - 12px), ${rgbaFromHex(props.$theme.primary, 0.42)} 0 2px, transparent 2px),
+        radial-gradient(circle at calc(100% - 12px) calc(100% - 12px), ${rgbaFromHex(props.$theme.primary, 0.42)} 0 2px, transparent 2px);
+    }
+  `}
+
+  ${props => props.$borderStyle === 'tech' && `
+    border: none;
+    box-shadow: none;
+    clip-path: polygon(
+      10px 0,
+      calc(62% - 8px) 0,
+      62% 8px,
+      100% 8px,
+      100% 100%,
+      calc(36% + 8px) 100%,
+      36% calc(100% - 8px),
+      0 calc(100% - 8px),
+      0 10px
+    );
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background: ${rgbaFromHex(props.$theme.offset, 0.9)};
+      clip-path: polygon(
+        10px 0,
+        calc(62% - 8px) 0,
+        62% 8px,
+        100% 8px,
+        100% 100%,
+        calc(36% + 8px) 100%,
+        36% calc(100% - 8px),
+        0 calc(100% - 8px),
+        0 10px
+      );
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 5px;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        repeating-linear-gradient(90deg,
+          transparent 0 18px,
+          ${rgbaFromHex(props.$theme.primary, 0.95)} 18px 19px,
+          transparent 19px 44px
+        ),
+        repeating-linear-gradient(0deg,
+          transparent 0 16px,
+          ${rgbaFromHex(props.$theme.primary, 0.95)} 16px 17px,
+          transparent 17px 40px
+        ),
+        linear-gradient(135deg,
+          transparent 0 58%,
+          ${rgbaFromHex(props.$theme.primary, 0.95)} 58% 59%,
+          transparent 59% 100%
+        ),
+        linear-gradient(180deg, ${rgbaFromHex(props.$theme.background, 0.8)} 0%, ${rgbaFromHex(props.$theme.background, 0.64)} 100%);
+      clip-path: polygon(
+        8px 0,
+        calc(62% - 8px) 0,
+        62% 8px,
+        100% 8px,
+        100% 100%,
+        calc(36% + 8px) 100%,
+        36% calc(100% - 8px),
+        0 calc(100% - 8px),
+        0 8px
+      );
+    }
+  `}
 `;
 
 const CurrentTurnSheenOverlay = styled.div<{ $theme: ThemeData }>`
@@ -165,10 +304,10 @@ const CurrentTurnSheenOverlay = styled.div<{ $theme: ThemeData }>`
       background-position: 125% 0;
     }
     55% {
-      background-position: -130% 0;
+      background-position: -110% 0;
     }
     100% {
-      background-position: -130% 0;
+      background-position: -110% 0;
     }
   }
 
@@ -363,6 +502,22 @@ const getHpBidKeys = (attributes: SystemAttribute[]) => {
 
 const isOrientation = (value: unknown): value is PartyHudOrientation => {
   return value === 'bottom' || value === 'left' || value === 'top' || value === 'right';
+};
+
+const isPartyHudBorderStyle = (value: unknown): value is PartyHudBorderStyle => {
+  return value === 'default' || value === 'plate' || value === 'tech' || value === 'deco';
+};
+
+const normalizePartyHudBorderStyle = (value: unknown): PartyHudBorderStyle => {
+  if (value === 'deco') {
+    return 'plate';
+  }
+
+  if (value === 'tech') {
+    return 'tech';
+  }
+
+  return value === 'plate' ? 'plate' : 'default';
 };
 
 const formatAttributeValue = (value: unknown, attrType: string): string => {
@@ -577,6 +732,10 @@ const PartyHudPopoverPage = () => {
   const shouldUsePartyHudHpDefault = !hasPartyHudHpBarsSetting && !hasPartyHudHpNumbersSetting;
   const showPartyHudHpBars = shouldUsePartyHudHpDefault ? true : partyHudHpBarsEnabled;
   const showPartyHudHpNumbers = shouldUsePartyHudHpDefault ? false : partyHudHpNumbersEnabled;
+  const storedBorderStyle = storage[SettingsConstants.PARTY_HUD_BORDER_STYLE];
+  const partyHudBorderStyle: PartyHudBorderStyle = isPartyHudBorderStyle(storedBorderStyle)
+    ? normalizePartyHudBorderStyle(storedBorderStyle)
+    : 'default';
 
   const extraAttributes = useMemo(() => {
     const bids = [extraAttrOne, extraAttrTwo].filter((bid, index, list) => bid && list.indexOf(bid) === index);
@@ -696,7 +855,17 @@ const PartyHudPopoverPage = () => {
                   const isCurrentTurn = item.id === currentTurnId;
 
                   return (
-                    <MemberCard key={item.id} $theme={theme} $orientation={orientation}>
+                    <MemberCard
+                      key={item.id}
+                      $theme={theme}
+                      $orientation={orientation}
+                      $borderStyle={partyHudBorderStyle}
+                    >
+                      {partyHudBorderStyle === 'tech' && (
+                        <TechBorderOverlay $theme={theme} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                          <path d="M5.263 0H57.789L62 8.889H100V100H40.211L36 91.111H0V11.111L5.263 0Z" />
+                        </TechBorderOverlay>
+                      )}
                       <PortraitStack $orientation={orientation}>
                         <Portrait src={portrait} alt={unitName} $theme={theme} $orientation={orientation} />
                       </PortraitStack>

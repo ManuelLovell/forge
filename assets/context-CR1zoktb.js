@@ -1,4 +1,4 @@
-import{C as e,F as t,N as n,O as r,R as i,S as a,T as o,_ as s,o as c,s as l,t as u,w as d,y as f}from"./defaultgamesystem-Dpv8RqCc.js";import{n as p}from"./MockData-DTzuSraw.js";var m=i(n(),1),h=t(),g=o(),_={SNAPSHOT_PUBLIC_ID:`${e.EXTENSIONID}/SnapshotPublicId`},v={primary:u.theme_primary,offset:u.theme_offset,background:u.theme_background,border:u.theme_border,background_url:u.background_url},y=l.div`
+import{C as e,F as t,N as n,O as r,R as i,S as a,T as o,_ as s,o as c,s as l,t as u,w as d,y as f}from"./defaultgamesystem-CWetXqo_.js";import{n as p}from"./MockData-DTzuSraw.js";var m=i(n(),1),h=t(),g=o(),_={SNAPSHOT_PUBLIC_ID:`${e.EXTENSIONID}/SnapshotPublicId`},v={primary:u.theme_primary,offset:u.theme_offset,background:u.theme_background,border:u.theme_border,background_url:u.background_url},y=l.div`
   width: 100%;
   height: 100%;
   min-height: 50px;

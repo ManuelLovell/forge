@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import OBR from '@owlbear-rodeo/sdk';
 import { Sun } from 'lucide-react';
 import { EXTENSION_ID } from '../helpers/MockData';
+import { OwlbearIds } from '../helpers/Constants';
 import { UnitConstants } from '../interfaces/MetadataKeys';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import LOGGER from '../helpers/Logger';
@@ -41,6 +42,12 @@ interface SceneItemLike {
 
 interface PlayerLike {
   role?: string;
+}
+
+interface MarkedTransmitData {
+  TokenId: string;
+  LabelName: string;
+  Show?: boolean;
 }
 
 const EffectsSection = styled.div`
@@ -359,6 +366,18 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
     }
   };
 
+  const notifyMarkedEffectUpdate = async (payload: MarkedTransmitData[]) => {
+    if (payload.length === 0) {
+      return;
+    }
+
+    try {
+      await OBR.broadcast.sendMessage(OwlbearIds.MARKCONNECT, payload, { destination: 'LOCAL' });
+    } catch (error) {
+      LOGGER.error('Failed to broadcast marked effect update', error);
+    }
+  };
+
   const processEffectsForTurnEvent = async (eventTiming: EffectEndTiming, unitId: string) => {
     const isGm = String(playerData?.role || '').toUpperCase() === 'GM';
     if (!isGm) {
@@ -367,6 +386,7 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
 
     const updates: Array<{ unitId: string; effects: TrackedEffect[] }> = [];
     const notifications: string[] = [];
+    const markedExpiredPayload: MarkedTransmitData[] = [];
 
     items.forEach((item) => {
       if (item.metadata?.[UnitConstants.ON_LIST] !== true) {
@@ -395,6 +415,7 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
 
         if (nextRemaining <= 0) {
           notifications.push(`${item.name || 'Unit'}: ${effect.name} expired`);
+          markedExpiredPayload.push({ LabelName: effect.name, TokenId: item.id, Show: false });
           return;
         }
 
@@ -412,6 +433,8 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
     for (const update of updates) {
       await updateUnitEffects(update.unitId, update.effects);
     }
+
+    await notifyMarkedEffectUpdate(markedExpiredPayload);
 
     if (notifications.length > 0) {
       for (const message of notifications) {
@@ -488,6 +511,7 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
     };
 
     await updateUnitEffects(effectsModalUnitId, [...effects, newEffect]);
+    await notifyMarkedEffectUpdate([{ LabelName: newEffect.name, TokenId: effectsModalUnitId, Show: true }]);
     setEffectsModalError(null);
     setEffectNameInput('');
     setEffectDurationInput('1');
@@ -504,8 +528,14 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
       return;
     }
 
-    const effects = getEffectsForUnit(effectsModalUnitId).filter((effect) => effect.id !== effectId);
+    const currentEffects = getEffectsForUnit(effectsModalUnitId);
+    const deletedEffect = currentEffects.find((effect) => effect.id === effectId);
+    const effects = currentEffects.filter((effect) => effect.id !== effectId);
     await updateUnitEffects(effectsModalUnitId, effects);
+
+    if (deletedEffect) {
+      await notifyMarkedEffectUpdate([{ LabelName: deletedEffect.name, TokenId: effectsModalUnitId, Show: false }]);
+    }
   };
 
   useEffect(() => {

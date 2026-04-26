@@ -72,7 +72,7 @@ const ALLOWED_FUNCTIONS = new Set([
 const OPERATORS = new Set(['+', '-', '*', '/']);
 
 // Valid die sizes
-const VALID_DIE_SIZES = new Set([4, 6, 8, 10, 12, 20, 100]);
+const VALID_DIE_SIZES = new Set([2, 4, 6, 8, 10, 12, 20, 100]);
 
 // Dice modifiers
 const DICE_MODIFIERS = new Set(['kh', 'kl', 'dh', 'dl', '!']);

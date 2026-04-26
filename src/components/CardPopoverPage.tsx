@@ -36,6 +36,7 @@ import {
   searchSharedUnitCollection,
   upsertRemoteUnitFromMetadata as upsertPremiumRemoteUnit,
 } from '../helpers/unitCollectionRemote';
+import { useTranslation } from '../i18n/Translation';
 
 const SYSTEM_KEYS = {
   SNAPSHOT_PUBLIC_ID: `${OwlbearIds.EXTENSIONID}/SnapshotPublicId`,
@@ -600,6 +601,7 @@ const isFabricatedTrue = (raw: unknown): boolean => {
 };
 
 export const CardPopoverPage = () => {
+  const { t } = useTranslation();
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(() => readUnitIdFromQuery());
   const isPinned = useMemo(() => readPinnedFromQuery(), []);
   const [cache, setCache] = useState<CardCache>({ metadata: {}, items: [] });
@@ -832,7 +834,7 @@ export const CardPopoverPage = () => {
       return item.name;
     }
 
-    return 'Unknown';
+    return t('card.unknownUnit');
   };
 
   const selectableUnits = useMemo(() => {
@@ -1055,7 +1057,7 @@ export const CardPopoverPage = () => {
 
   const handleTrayPinClick = async () => {
     if (!selectedUnitId) {
-      await OBR.notification.show('No unit selected to pin.', 'ERROR');
+      await OBR.notification.show(t('card.noUnitSelectedToPin'), 'ERROR');
       return;
     }
 
@@ -1131,7 +1133,7 @@ export const CardPopoverPage = () => {
 
     const liveUnitItem = await getSelectedUnitItemFromScene();
     if (!liveUnitItem) {
-      await OBR.notification.show('No unit selected to save.', 'ERROR');
+      await OBR.notification.show(t('card.noUnitSelectedToSave'), 'ERROR');
       return;
     }
 
@@ -1154,18 +1156,20 @@ export const CardPopoverPage = () => {
           isFavoriteEnabled,
         );
       await loadCollectionRecords();
-      const target = isPremiumAuthorized() ? 'online Collection' : 'Collection';
-      await OBR.notification.show(status === 'created' ? `Unit saved to ${target}.` : `Unit updated in ${target}.`);
+      const target = isPremiumAuthorized() ? t('card.collectionTargetOnline') : t('card.collectionTargetLocal');
+      await OBR.notification.show(status === 'created'
+        ? t('card.unitSavedToTarget', { target })
+        : t('card.unitUpdatedInTarget', { target }));
     } catch (error) {
       LOGGER.log('Collection save failed', error);
-      await OBR.notification.show('Could not save this unit to Collection.', 'ERROR');
+      await OBR.notification.show(t('card.couldNotSaveToCollection'), 'ERROR');
     }
   };
 
   const handleTrayImportClick = async () => {
     const liveUnitItem = await getSelectedUnitItemFromScene();
     if (!liveUnitItem) {
-      await OBR.notification.show('No unit selected to import into.', 'ERROR');
+      await OBR.notification.show(t('card.noUnitSelectedToImportInto'), 'ERROR');
       return;
     }
 
@@ -1177,7 +1181,7 @@ export const CardPopoverPage = () => {
   const handleTrayExportClick = async () => {
     const liveUnitItem = await getSelectedUnitItemFromScene();
     if (!liveUnitItem) {
-      await OBR.notification.show('No unit selected to export.', "ERROR");
+      await OBR.notification.show(t('card.noUnitSelectedToExport'), 'ERROR');
       return;
     }
 
@@ -1187,11 +1191,11 @@ export const CardPopoverPage = () => {
       const unitName = typeof unitNameRaw === 'string' ? unitNameRaw.trim() : '';
 
       if (!unitName) {
-        await OBR.notification.show('Current unit has no valid unit name to export.', "ERROR");
+        await OBR.notification.show(t('card.unitMissingValidName'), 'ERROR');
         return;
       }
 
-      const author = (await OBR.player.getName()).trim() || 'Unknown';
+      const author = (await OBR.player.getName()).trim() || t('card.unknownAuthor');
       const payload: UnitMetadataTransferPayload = {
         name: unitName,
         author,
@@ -1199,10 +1203,10 @@ export const CardPopoverPage = () => {
       };
 
       await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-      await OBR.notification.show('Unit data copied to clipboard.');
+      await OBR.notification.show(t('card.unitDataCopied'));
     } catch (error) {
       LOGGER.log('Unit export failed', error);
-      await OBR.notification.show('Could not copy unit data to clipboard.', "ERROR");
+      await OBR.notification.show(t('card.couldNotCopyUnitData'), 'ERROR');
     }
   };
 
@@ -1215,7 +1219,7 @@ export const CardPopoverPage = () => {
   const parseImportPayload = (raw: string): Record<string, unknown> => {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('Import data must be a JSON object.');
+      throw new Error(t('card.importDataMustBeJsonObject'));
     }
 
     const maybePayload = parsed as Partial<UnitMetadataTransferPayload>;
@@ -1224,7 +1228,7 @@ export const CardPopoverPage = () => {
       : parsed;
 
     if (!rawMetadata || typeof rawMetadata !== 'object' || Array.isArray(rawMetadata)) {
-      throw new Error('Import data must include a metadata object.');
+      throw new Error(t('card.importDataMustIncludeMetadata'));
     }
 
     const extensionMetadata = filterExtensionMetadata(rawMetadata as Record<string, unknown>);
@@ -1232,7 +1236,7 @@ export const CardPopoverPage = () => {
     const safeName = typeof importedName === 'string' ? importedName.trim() : '';
 
     if (!safeName) {
-      throw new Error('Imported metadata must include a valid unit name.');
+      throw new Error(t('card.importedMetadataMissingName'));
     }
 
     return extensionMetadata;
@@ -1241,13 +1245,13 @@ export const CardPopoverPage = () => {
   const handleImportModalApply = async () => {
     const liveUnitItem = await getSelectedUnitItemFromScene();
     if (!liveUnitItem) {
-      setImportError('No unit selected to import into.');
+      setImportError(t('card.noUnitSelectedToImportInto'));
       return;
     }
 
     const raw = importText.trim();
     if (!raw) {
-      setImportError('Paste JSON data before importing.');
+      setImportError(t('card.pasteJsonBeforeImport'));
       return;
     }
 
@@ -1256,9 +1260,9 @@ export const CardPopoverPage = () => {
       await replaceUnitExtensionMetadata(extensionMetadata);
       setIsFavoriteEnabled(false);
       handleImportModalClose();
-      await OBR.notification.show('Unit data imported successfully.');
+      await OBR.notification.show(t('card.unitDataImported'));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Import failed.';
+      const message = error instanceof Error ? error.message : t('card.importFailed');
       setImportError(message);
     }
   };
@@ -1293,8 +1297,8 @@ export const CardPopoverPage = () => {
       return [
         {
           id: 'example-list-001',
-          name: 'Example List Entry',
-          description: `Describe the effect here. Dice chips can be embedded like [1d20+${bidRef}]`,
+          name: t('card.aiExampleListEntryName'),
+          description: t('card.aiExampleListEntryDescription', { bidRef }),
         },
       ];
     }
@@ -1316,7 +1320,7 @@ export const CardPopoverPage = () => {
     });
 
     const exampleMetadata: Record<string, unknown> = {
-      [UnitConstants.UNIT_NAME]: 'Example Unit Name',
+      [UnitConstants.UNIT_NAME]: t('card.aiExampleUnitName'),
     };
 
     for (const attribute of attributes) {
@@ -1327,14 +1331,14 @@ export const CardPopoverPage = () => {
 
     const listEntryExample = {
       id: 'example-list-001',
-      name: 'Example Action Name',
-      description: `Example description with chips like [1d20+${firstNumericAttributeBid ? `@${firstNumericAttributeBid}` : '@BID'}] and [2d6+3].`,
+      name: t('card.aiExampleActionName'),
+      description: t('card.aiExampleActionDescription', { bidRef: firstNumericAttributeBid ? `@${firstNumericAttributeBid}` : '@BID' }),
     };
 
     const itemListEntryExample = {
       id: 'example-item-001',
-      name: 'Example Item Name',
-      description: 'Item details go here.',
+      name: t('card.aiExampleItemName'),
+      description: t('card.aiExampleItemDescription'),
       inUse: false,
     };
 
@@ -1347,35 +1351,35 @@ export const CardPopoverPage = () => {
       : `${OwlbearIds.EXTENSIONID}/<LIST_BID>`;
 
     return [
-      'You are generating Forge unit import JSON metadata for this game system.',
+      t('card.aiPromptIntro'),
       '',
-      'Requirements:',
-      '1. Output valid JSON only (no markdown, no comments).',
-      '2. Output the metadata object directly (key/value pairs), not prose.',
-      '3. Use provided metadata keys exactly as listed.',
-      '4. Include a valid unit name using the unit-name metadata key.',
-      '5. Match value types exactly: numb -> number, bool -> boolean, list -> array of objects, text -> string.',
-      '6. Do not add keys outside this extension mapping unless explicitly asked.',
+      t('card.aiPromptRequirementsHeader'),
+      t('card.aiRequirement1'),
+      t('card.aiRequirement2'),
+      t('card.aiRequirement3'),
+      t('card.aiRequirement4'),
+      t('card.aiRequirement5'),
+      t('card.aiRequirement6'),
       '',
-      `Extension ID: ${OwlbearIds.EXTENSIONID}`,
-      `Unit Name Metadata Key: ${UnitConstants.UNIT_NAME}`,
+      t('card.aiExtensionIdLabel', { value: OwlbearIds.EXTENSIONID }),
+      t('card.aiUnitNameMetadataLabel', { value: UnitConstants.UNIT_NAME }),
       '',
-      'Attribute Dictionary (required mapping):',
+      t('card.aiAttributeDictionaryHeader'),
       dictionaryJson,
       '',
-      'List Entry Structure Examples:',
-      'Standard/action-style list entry object:',
+      t('card.aiListExamplesHeader'),
+      t('card.aiStandardListEntryHeader'),
       listEntryExampleJson,
       '',
-      'Item-style list entry object (optional inUse flag):',
+      t('card.aiItemListEntryHeader'),
       itemListEntryExampleJson,
       '',
-      `If a metadata key is list-type (for example ${listKeyHint}), its value should be an array of objects in one of the above shapes.`,
+      t('card.aiListKeyHint', { key: listKeyHint }),
       '',
-      'Output JSON in this metadata shape:',
+      t('card.aiOutputShapeHeader'),
       exampleMetadataJson,
       '',
-      'Now generate a [CREATURE/UNIT YOU WANT] metadata JSON object in that exact structure.',
+      t('card.aiFinalInstruction'),
     ].join('\n');
   };
 
@@ -1383,10 +1387,10 @@ export const CardPopoverPage = () => {
     try {
       const template = buildAiImportTemplate();
       await navigator.clipboard.writeText(template);
-      await OBR.notification.show('AI template copied to clipboard.');
+      await OBR.notification.show(t('card.aiTemplateCopied'));
     } catch (error) {
       LOGGER.log('AI template copy failed', error);
-      await OBR.notification.show('Could not copy AI template to clipboard.', 'ERROR');
+      await OBR.notification.show(t('card.aiTemplateCopyFailed'), 'ERROR');
     }
   };
 
@@ -1412,13 +1416,13 @@ export const CardPopoverPage = () => {
       .catch(async (error) => {
         LOGGER.log('Supabase collection search failed', error);
         setRemoteCollectionRecords([]);
-        await OBR.notification.show('Could not search online collection.', 'ERROR');
+        await OBR.notification.show(t('card.onlineSearchFailed'), 'ERROR');
       });
   };
 
   const handleCollectionRecordImport = async (record: CollectionSearchRecord) => {
     if (!unitItem) {
-      await OBR.notification.show('No unit selected to import into.', 'ERROR');
+      await OBR.notification.show(t('card.noUnitSelectedToImportInto'), 'ERROR');
       return;
     }
 
@@ -1426,11 +1430,11 @@ export const CardPopoverPage = () => {
       await replaceUnitExtensionMetadata(record.metadata);
       setIsFavoriteEnabled(false);
       await OBR.notification.show(record.source !== 'local'
-        ? `Imported ${record.name} from online collection.`
-        : `Imported ${record.name}.`);
+        ? t('card.recordImportedOnline', { name: record.name })
+        : t('card.recordImportedLocal', { name: record.name }));
     } catch (error) {
       LOGGER.log('Collection record import failed', error);
-      await OBR.notification.show('Could not import collection record.', 'ERROR');
+      await OBR.notification.show(t('card.recordImportFailed'), 'ERROR');
     }
   };
 
@@ -1447,10 +1451,10 @@ export const CardPopoverPage = () => {
       } else {
         return;
       }
-      await OBR.notification.show(`Deleted ${record.name} from Collection.`);
+      await OBR.notification.show(t('card.recordDeleted', { name: record.name }));
     } catch (error) {
       LOGGER.log('Collection record delete failed', error);
-      await OBR.notification.show('Could not delete collection record.', 'ERROR');
+      await OBR.notification.show(t('card.recordDeleteFailed'), 'ERROR');
     }
   };
 
@@ -1481,7 +1485,7 @@ export const CardPopoverPage = () => {
           <CardControls>
             <UnitSelect
               $theme={theme}
-              aria-label="Choose Unit"
+              aria-label={t('card.chooseUnitAria')}
               value=""
               onChange={(event) => {
                 const nextUnitId = event.target.value;
@@ -1492,7 +1496,7 @@ export const CardPopoverPage = () => {
                 setSelectedUnitId(nextUnitId);
               }}
             >
-              <option value="">Choose Unit</option>
+              <option value="">{t('card.chooseUnitOption')}</option>
               {selectableUnits.map((unit) => (
                 <option key={unit.id} value={unit.id}>{unit.name}</option>
               ))}
@@ -1500,7 +1504,7 @@ export const CardPopoverPage = () => {
             <CloseButton
               type="button"
               $theme={theme}
-              aria-label="Close Card"
+              aria-label={t('card.closeCardAria')}
               onClick={async () => {
                 await OBR.popover.close(isPinned ? PINNED_CARD_POPOVER_ID : OwlbearIds.CARDSID);
               }}
@@ -1511,11 +1515,11 @@ export const CardPopoverPage = () => {
         </FloatingCardControls>
 
         {!isReady ? (
-          <Message $theme={theme}>Loading card…</Message>
+          <Message $theme={theme}>{t('card.loading')}</Message>
         ) : !selectedUnitId ? (
-          <Message $theme={theme}>No unit id supplied in URL.</Message>
+          <Message $theme={theme}>{t('card.noUnitId')}</Message>
         ) : !unitItem ? (
-          <Message $theme={theme}>Unit not found in current scene.</Message>
+          <Message $theme={theme}>{t('card.unitNotFound')}</Message>
         ) : (
           <CardLayoutRenderer
             systemTheme={theme}
@@ -1534,12 +1538,12 @@ export const CardPopoverPage = () => {
             <TrayActionButton
               type="button"
               $theme={theme}
-              aria-label="Pin"
+              aria-label={t('card.pinAria')}
               onClick={() => {
                 void handleTrayPinClick();
               }}
             >
-              <SettingsTooltip theme={tooltipTheme} text="Pin/Unpin card popover">
+              <SettingsTooltip theme={tooltipTheme} text={t('card.pinTooltip')}>
                 <Pin size={16} />
               </SettingsTooltip>
             </TrayActionButton>
@@ -1547,11 +1551,11 @@ export const CardPopoverPage = () => {
               type="button"
               $theme={theme}
               $active={isFavoriteEnabled}
-              aria-label="Favorite"
+              aria-label={t('card.favoriteAria')}
               disabled={!isCurrentUserGm}
               onClick={handleTrayFavoriteClick}
             >
-              <SettingsTooltip theme={tooltipTheme} text="Mark next save as favorite">
+              <SettingsTooltip theme={tooltipTheme} text={t('card.favoriteTooltip')}>
                 <Star size={16} fill={isFavoriteEnabled ? 'currentColor' : 'none'} />
               </SettingsTooltip>
             </FavoriteActionButton>
@@ -1559,11 +1563,11 @@ export const CardPopoverPage = () => {
             <TrayActionButton
               type="button"
               $theme={theme}
-              aria-label="CollectionSave"
+              aria-label={t('card.collectionSaveAria')}
               disabled={!isCurrentUserGm}
               onClick={handleTrayCollectionSaveClick}
             >
-              <SettingsTooltip theme={tooltipTheme} text="Save current unit to Collection">
+              <SettingsTooltip theme={tooltipTheme} text={t('card.collectionSaveTooltip')}>
                 <BookMarked size={16} />
               </SettingsTooltip>
             </TrayActionButton>
@@ -1573,32 +1577,32 @@ export const CardPopoverPage = () => {
             <TrayActionButton
               type="button"
               $theme={theme}
-              aria-label="Import"
+              aria-label={t('card.importAria')}
               onClick={handleTrayImportClick}
             >
-              <SettingsTooltip theme={tooltipTheme} text="Import unit data from JSON">
+              <SettingsTooltip theme={tooltipTheme} text={t('card.importTooltip')}>
                 <Download size={16} />
               </SettingsTooltip>
             </TrayActionButton>
             <TrayActionButton
               type="button"
               $theme={theme}
-              aria-label="Export"
+              aria-label={t('card.exportAria')}
               onClick={handleTrayExportClick}
             >
-              <SettingsTooltip theme={tooltipTheme} text="Export current unit data to clipboard">
+              <SettingsTooltip theme={tooltipTheme} text={t('card.exportTooltip')}>
                 <Upload size={16} />
               </SettingsTooltip>
             </TrayActionButton>
             <TrayActionButton
               type="button"
               $theme={theme}
-              aria-label="Card Help"
+              aria-label={t('card.helpAria')}
               onClick={() => {
                 setIsHelpModalOpen(true);
               }}
             >
-              <SettingsTooltip theme={tooltipTheme} text="Help with BIDs and dice notation">
+              <SettingsTooltip theme={tooltipTheme} text={t('card.helpTooltip')}>
                 <CircleQuestionMark size={16} />
               </SettingsTooltip>
             </TrayActionButton>
@@ -1606,11 +1610,11 @@ export const CardPopoverPage = () => {
         </TrayPeekActions>
 
         <TrayHandleBuffer $theme={theme}>
-          <SettingsTooltip theme={tooltipTheme} text={isTrayOpen ? 'Close collection tray' : 'Open collection tray'}>
+          <SettingsTooltip theme={tooltipTheme} text={isTrayOpen ? t('card.closeTrayTooltip') : t('card.openTrayTooltip')}>
             <TrayHandleButton
               type="button"
               $theme={theme}
-              aria-label={isTrayOpen ? 'Close Tray' : 'Open Tray'}
+              aria-label={isTrayOpen ? t('card.closeTrayAria') : t('card.openTrayAria')}
               onClick={() => {
                 setIsTrayOpen((prev) => !prev);
               }}
@@ -1625,7 +1629,7 @@ export const CardPopoverPage = () => {
               <SearchWindow $theme={theme}>
                 <CollectionList>
                   {visibleCollectionRecords.length === 0 ? (
-                    <Message $theme={theme}>No collection records found.</Message>
+                    <Message $theme={theme}>{t('card.noCollectionRecords')}</Message>
                   ) : visibleCollectionRecords.map((record) => (
                     <CollectionRow key={`${record.source}:${record.id}`} $theme={theme}>
                       <CollectionInfo>
@@ -1640,7 +1644,7 @@ export const CardPopoverPage = () => {
                           </AuthorName>
                           <SourceTag
                             $theme={theme}
-                            title={record.source === 'local' ? 'Local' : (record.source === 'remote-user' ? 'My Cloud' : 'Shared')}
+                            title={record.source === 'local' ? t('card.localSource') : (record.source === 'remote-user' ? t('card.myCloudSource') : t('card.sharedSource'))}
                           >
                             {record.source === 'local' ? <HardDrive size={11} /> : null}
                             {record.source === 'remote-user' ? <Cloudy size={11} /> : null}
@@ -1657,7 +1661,7 @@ export const CardPopoverPage = () => {
                             handleCollectionRecordImport(record);
                           }}
                         >
-                          Import
+                          {t('card.importAction')}
                         </CollectionActionButton>
                         {record.source !== 'remote-shared' ? (
                           <CollectionActionButton
@@ -1668,7 +1672,7 @@ export const CardPopoverPage = () => {
                               handleCollectionRecordDelete(record);
                             }}
                           >
-                            X
+                            {t('card.deleteAction')}
                           </CollectionActionButton>
                         ) : null}
                       </CollectionActions>
@@ -1681,7 +1685,7 @@ export const CardPopoverPage = () => {
                   $theme={theme}
                   type="text"
                   value={trayQuery}
-                  placeholder="Enter query..."
+                  placeholder={t('card.searchPlaceholder')}
                   onChange={(event) => {
                     setTrayQuery(event.target.value);
                   }}
@@ -1695,7 +1699,7 @@ export const CardPopoverPage = () => {
                 <TraySearchButton
                   type="button"
                   $theme={theme}
-                  aria-label="Search"
+                  aria-label={t('card.searchAria')}
                   onClick={handleTraySearchClick}
                 >
                   <Search size={16} />
@@ -1715,11 +1719,11 @@ export const CardPopoverPage = () => {
               event.stopPropagation();
             }}
           >
-            <LocalModalTitle $theme={theme}>Import Unit Data</LocalModalTitle>
+            <LocalModalTitle $theme={theme}>{t('card.importUnitDataTitle')}</LocalModalTitle>
             <ImportTextArea
               $theme={theme}
               value={importText}
-              placeholder="Paste exported unit JSON here"
+              placeholder={t('card.importPlaceholder')}
               onChange={(event) => {
                 setImportText(event.target.value);
                 if (importError) {
@@ -1736,14 +1740,14 @@ export const CardPopoverPage = () => {
                   void handleCopyAiTemplate();
                 }}
               >
-                AI Template
+                {t('card.aiTemplate')}
               </ModalActionButtonLeft>
               <ModalActionButton
                 type="button"
                 $theme={theme}
                 onClick={handleImportModalClose}
               >
-                Cancel
+                {t('card.cancel')}
               </ModalActionButton>
               <ModalActionButton
                 type="button"
@@ -1751,7 +1755,7 @@ export const CardPopoverPage = () => {
                 $variant="primary"
                 onClick={handleImportModalApply}
               >
-                Import
+                {t('card.importAction')}
               </ModalActionButton>
             </LocalModalActions>
           </LocalModalContainer>
@@ -1769,29 +1773,29 @@ export const CardPopoverPage = () => {
               event.stopPropagation();
             }}
           >
-            <LocalModalTitle $theme={theme}>Card Help</LocalModalTitle>
+            <LocalModalTitle $theme={theme}>{t('card.helpTitle')}</LocalModalTitle>
             <HelpModalContent $theme={theme}>
-              <HelpSectionTitle $theme={theme}>Rollable Values</HelpSectionTitle>
+              <HelpSectionTitle $theme={theme}>{t('card.helpRollableValuesTitle')}</HelpSectionTitle>
               <HelpList>
-                <li>Right-click a value on the card to open the field menu.</li>
-                <li>The menu shows the field name and BID in brackets, like <strong>[Z017]</strong>.</li>
-                <li>For rollable fields, use that menu to choose <strong>Edit value</strong>, <strong>Roll with Advantage</strong>, or <strong>Roll with Disadvantage</strong>.</li>
+                <li>{t('card.helpRollableValuesItem1')}</li>
+                <li>{t('card.helpRollableValuesItem2')}</li>
+                <li>{t('card.helpRollableValuesItem3')}</li>
               </HelpList>
 
-              <HelpSectionTitle $theme={theme}>Dice Chips in Text</HelpSectionTitle>
+              <HelpSectionTitle $theme={theme}>{t('card.helpDiceChipsTitle')}</HelpSectionTitle>
               <HelpList>
-                <li>Wrap a formula in square brackets to create a clickable dice chip.</li>
-                <li>You can also use fl(floor) to round down or ce(ceil) to round up. Ex; [1d20+fl(@Strength/2)]</li>
+                <li>{t('card.helpDiceChipsItem1')}</li>
+                <li>{t('card.helpDiceChipsItem2')}</li>
               </HelpList>
-              <HelpCode $theme={theme}>Melee attack: [1d20+5] to hit.</HelpCode>
+              <HelpCode $theme={theme}>{t('card.helpMeleeAttackExample')}</HelpCode>
 
-              <HelpSectionTitle $theme={theme}>Using Attributes in Formulas</HelpSectionTitle>
+              <HelpSectionTitle $theme={theme}>{t('card.helpUsingAttributesTitle')}</HelpSectionTitle>
               <HelpList>
-                <li>Reference by BID with <strong>@BID</strong>.</li>
-                <li>Reference by attribute name with <strong>@NAME</strong>. Swap spaces with underscores.</li>
+                <li>{t('card.helpUsingAttributesItem1')}</li>
+                <li>{t('card.helpUsingAttributesItem2')}</li>
               </HelpList>
-              <HelpCode $theme={theme}>Damage: [2d8+@Z017]</HelpCode>
-              <HelpCode $theme={theme}>Damage: [2d8+@Strength]</HelpCode>
+              <HelpCode $theme={theme}>{t('card.helpDamageBidExample')}</HelpCode>
+              <HelpCode $theme={theme}>{t('card.helpDamageNameExample')}</HelpCode>
             </HelpModalContent>
             <LocalModalActions>
               <ModalActionButton
@@ -1802,7 +1806,7 @@ export const CardPopoverPage = () => {
                   setIsHelpModalOpen(false);
                 }}
               >
-                Close
+                {t('card.close')}
               </ModalActionButton>
             </LocalModalActions>
           </LocalModalContainer>

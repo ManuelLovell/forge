@@ -8,6 +8,7 @@ import { EXTENSION_ID } from '../helpers/MockData';
 import { SettingsConstants, UnitConstants, getPerPlayerSettingKey } from '../interfaces/MetadataKeys';
 import { ListLayoutComponent, SystemAttribute } from '../interfaces/SystemResponse';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
+import { useTranslation } from '../i18n/Translation';
 import {
   Anchor,
   Aperture,
@@ -1095,11 +1096,12 @@ const ObscuredValueInputMask = styled.div<{ theme: ForgeTheme; $small?: boolean 
 // Deserialization function
 const deserializeListLayout = (
   layout: ListLayoutComponent[],
-  showCardColumn: boolean
+  showCardColumn: boolean,
+  t: ReturnType<typeof useTranslation>['t']
 ): ListColumn[] => {
   const defaultColumns: ListColumn[] = [
-    { id: crypto.randomUUID(), type: 'initiative', description: 'Initiative value used for turn order. Can be edited via Right-Click or rolled with Click.' },
-    { id: crypto.randomUUID(), type: 'name', description: 'Name of the unit or character.' }
+    { id: crypto.randomUUID(), type: 'initiative', description: t('initiative.defaultInitiativeDescription') },
+    { id: crypto.randomUUID(), type: 'name', description: t('initiative.defaultNameDescription') }
   ];
 
   const cardColumn: ListColumn[] = showCardColumn
@@ -1128,6 +1130,7 @@ const deserializeListLayout = (
 };
 
 export const InitiativeList: React.FC = () => {
+  const { t } = useTranslation();
   const { theme } = useForgeTheme();
   const { listLayout, attributes, isLoading } = useSystemData();
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
@@ -1989,7 +1992,7 @@ export const InitiativeList: React.FC = () => {
     }
 
     const owner = partyData.find((player) => player.id === unit.createdUserId);
-    const modeSuffix = mode === 'normal' ? '' : mode === 'advantage' ? ' (Advantage)' : ' (Disadvantage)';
+    const modeSuffix = mode === 'normal' ? '' : mode === 'advantage' ? t('initiative.modeSuffixAdvantage') : t('initiative.modeSuffixDisadvantage');
 
     await sendNotationRoll({
       notation,
@@ -2012,7 +2015,7 @@ export const InitiativeList: React.FC = () => {
       return;
     }
 
-    const modeSuffix = mode === 'normal' ? '' : mode === 'advantage' ? ' (Advantage)' : ' (Disadvantage)';
+    const modeSuffix = mode === 'normal' ? '' : mode === 'advantage' ? t('initiative.modeSuffixAdvantage') : t('initiative.modeSuffixDisadvantage');
 
     await sendNotationRoll({
       notation,
@@ -2159,7 +2162,7 @@ export const InitiativeList: React.FC = () => {
   // Deserialize list layout on mount or when listLayout changes
   useEffect(() => {
     if (!isLoading) {
-      const columns = deserializeListLayout(listLayout, showCardColumn);
+      const columns = deserializeListLayout(listLayout, showCardColumn, t);
       setListColumns(columns);
     }
   }, [listLayout, isLoading, showCardColumn]);
@@ -2416,7 +2419,7 @@ export const InitiativeList: React.FC = () => {
 
     const targetItem = items.find((item) => item.id === ownerModalUnitId);
     if (!targetItem) {
-      setOwnerModalError('Token not found in scene cache.');
+      setOwnerModalError(t('initiative.tokenNotFoundInCache'));
       return;
     }
 
@@ -2438,7 +2441,7 @@ export const InitiativeList: React.FC = () => {
       setOwnerModalUnitId(null);
     } catch (error) {
       LOGGER.error('Failed to reassign token owner', ownerModalUnitId, playerId, error);
-      setOwnerModalError('Unable to assign token owner. Ensure you have permission to edit this token.');
+      setOwnerModalError(t('initiative.assignOwnerPermissionError'));
     } finally {
       setIsAssigningOwner(false);
     }
@@ -2451,7 +2454,7 @@ export const InitiativeList: React.FC = () => {
 
     const targetItem = items.find((item) => item.id === ownerModalUnitId);
     if (!targetItem) {
-      setOwnerModalError('Token not found in scene cache.');
+      setOwnerModalError(t('initiative.tokenNotFoundInCache'));
       return;
     }
 
@@ -2466,7 +2469,7 @@ export const InitiativeList: React.FC = () => {
       }).length;
 
       if (existingBossCount >= 2) {
-        setOwnerModalError('A maximum of 2 bosses can be enabled at once.');
+        setOwnerModalError(t('initiative.maxBossesError'));
         return;
       }
     }
@@ -2497,7 +2500,7 @@ export const InitiativeList: React.FC = () => {
       setItems(updatedItems);
     } catch (error) {
       LOGGER.error('Failed to toggle boss mode', ownerModalUnitId, error);
-      setOwnerModalError('Unable to update boss mode for this token.');
+      setOwnerModalError(t('initiative.updateBossModeError'));
     } finally {
       setIsUpdatingBossMode(false);
     }
@@ -2510,7 +2513,7 @@ export const InitiativeList: React.FC = () => {
 
     const targetItem = items.find((item) => item.id === ownerModalUnitId);
     if (!targetItem) {
-      setOwnerModalError('Token not found in scene cache.');
+      setOwnerModalError(t('initiative.tokenNotFoundInCache'));
       return;
     }
 
@@ -2544,7 +2547,7 @@ export const InitiativeList: React.FC = () => {
       setOwnerModalUnitId(null);
     } catch (error) {
       LOGGER.error('Failed to remove token from initiative list', ownerModalUnitId, error);
-      setOwnerModalError('Unable to remove token from initiative list.');
+      setOwnerModalError(t('initiative.removeUnitError'));
     } finally {
       setIsRemovingUnit(false);
     }
@@ -2817,7 +2820,7 @@ export const InitiativeList: React.FC = () => {
   const renderHeader = (col: ListColumn) => {
     if (col.type === 'initiative') return <Users />;
     if (col.type === 'roller') return null;
-    if (col.type === 'name') return 'Name';
+    if (col.type === 'name') return t('initiative.nameHeader');
     if (col.type === 'card-column') return <FileText />;
     if (col.type === 'divider-column') return null;
 
@@ -2975,7 +2978,7 @@ export const InitiativeList: React.FC = () => {
         return (
           <NameCell
             theme={theme}
-            title="Right-click to assign owner"
+            title={t('initiative.rightClickAssignOwner')}
             $outlineColor={unit.ownerNameOutlineColor}
             $isSelected={isSelectedByPlayer}
             onDoubleClick={() => handleUnitNameDoubleClick(unit.id)}
@@ -2998,9 +3001,9 @@ export const InitiativeList: React.FC = () => {
                 }
                 handleRollInitiative(unit.id);
               }}
-              title={`Roll initiative (1-${getDiceSides(diceRange)})`}
+              title={t('initiative.rollInitiativeTitle', { max: getDiceSides(diceRange) })}
             >
-              <RollerIcon src="/dice.svg" alt="Roll" />
+              <RollerIcon src="/dice.svg" alt={t('initiative.rollIconAlt')} />
             </RollerButton>
           </RollerCell>
         );
@@ -3019,7 +3022,7 @@ export const InitiativeList: React.FC = () => {
                 }
                 void handleOpenCardPopover(e.currentTarget.id, unit.id);
               }}
-              title={`Open card for ${unit.name}`}
+              title={t('initiative.openCardTitle', { unit: unit.name })}
             >
               <ArrowRightCircle />
             </ActionButton>
@@ -3162,7 +3165,7 @@ export const InitiativeList: React.FC = () => {
                   bid: bidId,
                 });
               }}
-              title="Open list reference"
+              title={t('initiative.openListReference')}
             >
               <BookOpen />
             </ActionButton>
@@ -3253,7 +3256,7 @@ export const InitiativeList: React.FC = () => {
               {bidList.map((bid, index) => (
                 <React.Fragment key={bid}>
                   {index > 0 && <Divider theme={theme}>{col.styles?.dividers?.[index - 1] || '/'}</Divider>}
-                  <DerivedReadOnlyLabel theme={theme} title="Derived value (formula)">{resolveDerivedDisplayValue(unit, bid)}</DerivedReadOnlyLabel>
+                  <DerivedReadOnlyLabel theme={theme} title={t('initiative.derivedValueFormula')}>{resolveDerivedDisplayValue(unit, bid)}</DerivedReadOnlyLabel>
                 </React.Fragment>
               ))}
             </ValueContainer>
@@ -3560,7 +3563,7 @@ export const InitiativeList: React.FC = () => {
                 onClick={handleNewRound}
                 disabled={completedUnits.size < sortedUnits.length}
               >
-                {useCompactTurnControls ? <ArrowRight /> : 'Next'}
+                {useCompactTurnControls ? <ArrowRight /> : t('initiative.next')}
               </ControlButton>
             </>
           ) : (
@@ -3588,7 +3591,7 @@ export const InitiativeList: React.FC = () => {
                 onClick={() => {
                   void handleToggleListSize();
                 }}
-                title="Switch to Compact list"
+                title={t('initiative.switchToCompactList')}
               >
                 <Minimize2 />
               </CompactResizeButton>
@@ -3597,7 +3600,7 @@ export const InitiativeList: React.FC = () => {
                   theme={theme}
                   onClick={() => setIsResetModalOpen(true)}
                   disabled={isResetting}
-                  title="Reset round/turn state"
+                  title={t('initiative.resetRoundTurnState')}
                 >
                   <OctagonX />
                 </CompactResizeButton>
@@ -3610,7 +3613,7 @@ export const InitiativeList: React.FC = () => {
               onClick={() => {
                 void handleToggleListSize();
               }}
-              title="Switch to Fullsize list"
+              title={t('initiative.switchToFullsizeList')}
             >
               <Maximize2 />
             </CompactResizeButton>
@@ -3623,7 +3626,7 @@ export const InitiativeList: React.FC = () => {
             onClick={() => {
               void handleToggleListSize();
             }}
-            title="Switch to Compact list"
+            title={t('initiative.switchToCompactList')}
           >
             <Minimize2 />
           </FullResizeButton>
@@ -3633,7 +3636,7 @@ export const InitiativeList: React.FC = () => {
             theme={theme}
             onClick={() => setIsResetModalOpen(true)}
             disabled={isResetting}
-            title="Reset round/turn state"
+            title={t('initiative.resetRoundTurnState')}
           >
             <OctagonX />
           </ResetButton>
@@ -3654,7 +3657,7 @@ export const InitiativeList: React.FC = () => {
       )}
       <PopupModal
         isOpen={!!ownerModalUnitId}
-        title={selectedOwnerUnit ? `Unit: ${selectedOwnerUnit.name}` : 'Unit'}
+        title={selectedOwnerUnit ? t('initiative.unitTitle', { unit: selectedOwnerUnit.name }) : t('initiative.unitFallbackTitle')}
         onClose={() => {
           if (isAssigningOwner || isUpdatingBossMode || isRemovingUnit) return;
           setOwnerModalUnitId(null);
@@ -3664,7 +3667,7 @@ export const InitiativeList: React.FC = () => {
         maxWidth="520px"
       >
         <OwnerPickerHint theme={theme}>
-          Select a player to become the owner.
+          {t('initiative.selectOwnerHint')}
         </OwnerPickerHint>
 
         <OwnerPickerList>
@@ -3677,7 +3680,7 @@ export const InitiativeList: React.FC = () => {
               disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit}
             >
               {player.name}
-              {selectedOwnerItem?.createdUserId === player.id ? ' (current)' : ''}
+              {selectedOwnerItem?.createdUserId === player.id ? t('initiative.currentSuffix') : ''}
             </OwnerPickerButton>
           ))}
           <OwnerPickerButton
@@ -3687,7 +3690,7 @@ export const InitiativeList: React.FC = () => {
             }}
             disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit}
           >
-            {isRemovingUnit ? 'Removing...' : 'Remove Unit from List'}
+            {isRemovingUnit ? t('initiative.removing') : t('initiative.removeUnitFromList')}
           </OwnerPickerButton>
         </OwnerPickerList>
 
@@ -3695,8 +3698,8 @@ export const InitiativeList: React.FC = () => {
 
         <BossModeSection theme={theme}>
           <div>
-            <BossModeLabel theme={theme}>Boss Mode</BossModeLabel>
-            <BossModeHint theme={theme}>Shows a large encounter HP bar in scene (max 2 bosses).</BossModeHint>
+            <BossModeLabel theme={theme}>{t('initiative.bossMode')}</BossModeLabel>
+            <BossModeHint theme={theme}>{t('initiative.bossModeHint')}</BossModeHint>
           </div>
           <BossModeToggleWrap>
             <BossModeToggle
@@ -3704,7 +3707,7 @@ export const InitiativeList: React.FC = () => {
               theme={theme}
               $active={selectedOwnerIsBoss}
               disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit}
-              aria-label="Toggle boss mode"
+              aria-label={t('initiative.toggleBossModeAria')}
               aria-pressed={selectedOwnerIsBoss}
               onClick={() => {
                 void handleToggleBossMode();
@@ -3719,14 +3722,14 @@ export const InitiativeList: React.FC = () => {
         isOpen={!!rollableContextMenu}
         title={
           rollableContextMenu?.kind === 'initiative'
-            ? `Initiative: ${selectedRollableMenuUnit?.name || 'Unit'}`
-            : (resolveAttributeForBid(rollableContextMenu?.bid || '')?.attr_name || 'Roll Options')
+            ? t('initiative.initiativeTitle', { unit: selectedRollableMenuUnit?.name || t('initiative.unitFallbackTitle') })
+            : (resolveAttributeForBid(rollableContextMenu?.bid || '')?.attr_name || t('initiative.rollOptionsTitle'))
         }
         onClose={closeRollableContextMenu}
         maxWidth="460px"
       >
         <OwnerPickerHint theme={theme}>
-          Choose an action for this rollable field.
+          {t('initiative.chooseRollableAction')}
         </OwnerPickerHint>
         <OwnerPickerList>
           <OwnerPickerButton
@@ -3740,7 +3743,7 @@ export const InitiativeList: React.FC = () => {
               enableRollableEditMode(rollableContextMenu.fieldKey, rollableContextMenu.input);
             }}
           >
-            Edit value
+            {t('initiative.editValue')}
           </OwnerPickerButton>
 
           {(() => {
@@ -3758,7 +3761,7 @@ export const InitiativeList: React.FC = () => {
                       handleRollInitiative(rollableContextMenu.unitId, 'advantage');
                     }}
                   >
-                    Roll with Advantage
+                      {t('initiative.rollWithAdvantage')}
                   </OwnerPickerButton>
                   <OwnerPickerButton
                     theme={theme}
@@ -3767,7 +3770,7 @@ export const InitiativeList: React.FC = () => {
                       handleRollInitiative(rollableContextMenu.unitId, 'disadvantage');
                     }}
                   >
-                    Roll with Disadvantage
+                      {t('initiative.rollWithDisadvantage')}
                   </OwnerPickerButton>
                 </>
               );
@@ -3795,7 +3798,7 @@ export const InitiativeList: React.FC = () => {
                     void handleNotationClickWithMode(selectedRollableMenuUnit, targetBid, 'advantage');
                   }}
                 >
-                  Roll with Advantage
+                  {t('initiative.rollWithAdvantage')}
                 </OwnerPickerButton>
                 <OwnerPickerButton
                   theme={theme}
@@ -3804,7 +3807,7 @@ export const InitiativeList: React.FC = () => {
                     void handleNotationClickWithMode(selectedRollableMenuUnit, targetBid, 'disadvantage');
                   }}
                 >
-                  Roll with Disadvantage
+                  {t('initiative.rollWithDisadvantage')}
                 </OwnerPickerButton>
               </>
             );
@@ -3816,7 +3819,7 @@ export const InitiativeList: React.FC = () => {
 
       <PopupModal
         isOpen={isResetModalOpen}
-        title="Reset Encounter"
+        title={t('initiative.resetEncounterTitle')}
         onClose={() => {
           if (isResetting) return;
           setIsResetModalOpen(false);
@@ -3825,7 +3828,7 @@ export const InitiativeList: React.FC = () => {
         maxWidth="460px"
       >
         <OwnerPickerHint theme={theme}>
-          Choose how you want to reset initiative state.
+          {t('initiative.chooseResetMode')}
         </OwnerPickerHint>
         <OwnerPickerList>
           <OwnerPickerButton
@@ -3835,7 +3838,7 @@ export const InitiativeList: React.FC = () => {
             }}
             disabled={isResetting}
           >
-            {isResetting ? 'Resetting...' : 'Reset Round'}
+            {isResetting ? t('initiative.resetting') : t('initiative.resetRound')}
           </OwnerPickerButton>
           <OwnerPickerButton
             theme={theme}
@@ -3844,7 +3847,7 @@ export const InitiativeList: React.FC = () => {
             }}
             disabled={isResetting}
           >
-            {isResetting ? 'Resetting...' : 'Reset Round & Initiative'}
+            {isResetting ? t('initiative.resetting') : t('initiative.resetRoundAndInitiative')}
           </OwnerPickerButton>
           <OwnerPickerButton
             theme={theme}
@@ -3853,7 +3856,7 @@ export const InitiativeList: React.FC = () => {
             }}
             disabled={isResetting}
           >
-            {isResetting ? 'Resetting...' : 'Reset Round & Clear List'}
+            {isResetting ? t('initiative.resetting') : t('initiative.resetRoundAndClearList')}
           </OwnerPickerButton>
         </OwnerPickerList>
       </PopupModal>
@@ -3861,8 +3864,11 @@ export const InitiativeList: React.FC = () => {
       <PopupModal
         isOpen={!!listReferenceModal}
         title={selectedListReferenceUnit
-          ? `${selectedListAttribute?.attr_name || 'List'} for ${selectedListReferenceUnit.name}`
-          : 'List Reference'}
+          ? t('initiative.listReferenceTitle', {
+            attribute: selectedListAttribute?.attr_name || t('initiative.listReferenceFallback'),
+            unit: selectedListReferenceUnit.name,
+          })
+          : t('initiative.listReferenceFallback')}
         onClose={() => {
           setListReferenceModal(null);
         }}
@@ -3873,7 +3879,7 @@ export const InitiativeList: React.FC = () => {
           </ListReferenceHint>
 
           {selectedListReferenceEntries.length === 0 ? (
-            <ListReferenceEmpty theme={theme}>No entries.</ListReferenceEmpty>
+            <ListReferenceEmpty theme={theme}>{t('initiative.noEntries')}</ListReferenceEmpty>
           ) : (
             <ListReferenceItems>
               {selectedListReferenceEntries.map((entry) => (
@@ -3882,7 +3888,7 @@ export const InitiativeList: React.FC = () => {
                     {selectedListLooksLikeItemList ? (
                       <ListReferenceUseCheckbox type="checkbox" checked={!!entry.inUse} readOnly tabIndex={-1} />
                     ) : null}
-                    <ListReferenceName theme={theme}>{entry.name || '(Unnamed)'}</ListReferenceName>
+                    <ListReferenceName theme={theme}>{entry.name || t('initiative.unnamed')}</ListReferenceName>
                   </ListReferenceTitleRow>
                   {entry.description ? (
                     <ListReferenceDescription theme={theme}>{entry.description}</ListReferenceDescription>
@@ -3907,8 +3913,8 @@ export const InitiativeList: React.FC = () => {
                                 : null;
                               void sendNotationRoll({
                                 notation,
-                                actionName: entry.name || selectedListAttribute?.attr_name || 'List Roll',
-                                tokenName: selectedListReferenceUnit?.name || 'Unknown',
+                                actionName: entry.name || selectedListAttribute?.attr_name || t('initiative.listRoll'),
+                                tokenName: selectedListReferenceUnit?.name || t('initiative.unknown'),
                                 senderId: selectedListReferenceUnit?.createdUserId || playerData?.id || 'unknown',
                                 senderColor: listOwner?.color || playerData?.color || '#ffffff',
                               });
@@ -3920,8 +3926,8 @@ export const InitiativeList: React.FC = () => {
                                 : null;
                               setListNotationContextMenu({
                                 notation,
-                                actionName: entry.name || selectedListAttribute?.attr_name || 'List Roll',
-                                tokenName: selectedListReferenceUnit?.name || 'Unknown',
+                                actionName: entry.name || selectedListAttribute?.attr_name || t('initiative.listRoll'),
+                                tokenName: selectedListReferenceUnit?.name || t('initiative.unknown'),
                                 senderId: selectedListReferenceUnit?.createdUserId || playerData?.id || 'unknown',
                                 senderColor: listOwner?.color || playerData?.color || '#ffffff',
                               });
@@ -3943,13 +3949,13 @@ export const InitiativeList: React.FC = () => {
 
       <PopupModal
         isOpen={!!listNotationContextMenu}
-        title={listNotationContextMenu?.actionName || 'Roll Options'}
+        title={listNotationContextMenu?.actionName || t('initiative.rollOptionsTitle')}
         onClose={closeListNotationContextMenu}
         maxWidth="460px"
         zIndexBase={12000}
       >
         <OwnerPickerHint theme={theme}>
-          Choose a roll mode for this notation.
+          {t('initiative.chooseRollMode')}
         </OwnerPickerHint>
         <OwnerPickerList>
           {(() => {
@@ -3976,7 +3982,7 @@ export const InitiativeList: React.FC = () => {
                     void handleListNotationClickWithMode(listNotationContextMenu, 'advantage');
                   }}
                 >
-                  Roll with Advantage
+                  {t('initiative.rollWithAdvantage')}
                 </OwnerPickerButton>
                 <OwnerPickerButton
                   theme={theme}
@@ -3988,7 +3994,7 @@ export const InitiativeList: React.FC = () => {
                     void handleListNotationClickWithMode(listNotationContextMenu, 'disadvantage');
                   }}
                 >
-                  Roll with Disadvantage
+                  {t('initiative.rollWithDisadvantage')}
                 </OwnerPickerButton>
               </>
             );

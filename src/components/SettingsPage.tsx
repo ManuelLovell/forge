@@ -7,7 +7,7 @@ import { PageContainer, PageTitle, Button, Card } from './SharedStyledComponents
 import { ToggleControl } from './ToggleControl';
 import { PopupModal } from './PopupModal';
 import { SettingsTooltip } from './SettingsTooltip';
-import { SETTINGS_TOOLTIPS } from './SettingsTooltipContent';
+import { getSettingsTooltips } from './SettingsTooltipContent';
 import LOGGER from '../helpers/Logger';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { useSceneStore } from '../helpers/BSCache';
@@ -26,6 +26,7 @@ import {
 } from '../auth/authHelpers';
 import { useSystemData } from '../helpers/useSystemData';
 import { toResolvedDiceNotation, validateFormula } from '../helpers/FormulaParser';
+import { useTranslation } from '../i18n/Translation';
 
 // Styled Components
 const SectionTitle = styled.h2<{ theme: ForgeTheme }>`
@@ -35,7 +36,7 @@ const SectionTitle = styled.h2<{ theme: ForgeTheme }>`
 `;
 
 const ControlRow = styled.div<{ theme: ForgeTheme }>`
-  ${tw`flex items-center justify-between py-1 last:border-b-0`}
+  ${tw`flex items-center justify-between py-1`}
   color: ${props => props.theme.PRIMARY};
 `;
 
@@ -132,6 +133,7 @@ const ModalText = styled.p<{ theme: ForgeTheme }>`
 
 export const SettingsPage = () => {
   const { theme } = useForgeTheme();
+  const { t } = useTranslation();
   const { attributes } = useSystemData();
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
@@ -181,6 +183,7 @@ export const SettingsPage = () => {
   const [premiumAuthorized, setPremiumAuthorized] = useState<boolean>(() => isPremiumAuthorized());
   const [isConnectingAuth, setIsConnectingAuth] = useState(false);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
+  const tooltips = getSettingsTooltips(t);
 
   useEffect(() => {
     let mounted = true;
@@ -332,25 +335,25 @@ export const SettingsPage = () => {
   const validateInitiativeModifierExpr = (expression: string, bid: string): { valid: boolean; error?: string } => {
     const trimmedExpression = expression.trim();
     if (!trimmedExpression) {
-      return { valid: false, error: 'Expression is required.' };
+      return { valid: false, error: t('settings.exprRequiredError') };
     }
 
     if (!bid) {
-      return { valid: false, error: 'Select a numeric attribute first.' };
+      return { valid: false, error: t('settings.selectNumericAttributeError') };
     }
 
     const hasVariable = /@STAT/i.test(trimmedExpression);
     if (!hasVariable) {
-      return { valid: false, error: 'Expression must include @STAT (the selected attribute value).' };
+      return { valid: false, error: t('settings.exprMustIncludeStatError') };
     }
 
     if (/\d\s*d\s*\d|\bd\s*\d/i.test(trimmedExpression)) {
-      return { valid: false, error: 'Dice notation is not allowed in initiative modifiers.' };
+      return { valid: false, error: t('settings.diceNotAllowedError') };
     }
 
     const formulaWithBid = trimmedExpression.replace(/@STAT/gi, `@${bid}`);
     if (!validateFormula(formulaWithBid)) {
-      return { valid: false, error: 'Invalid expression syntax.' };
+      return { valid: false, error: t('settings.invalidSyntaxError') };
     }
 
     return { valid: true };
@@ -371,7 +374,7 @@ export const SettingsPage = () => {
 
     const validation = validateInitiativeModifierExpr(initiativeModifierExpr, nextBid);
     if (!validation.valid) {
-      await OBR.notification.show(validation.error || 'Invalid initiative modifier settings.', 'WARNING');
+      await OBR.notification.show(validation.error || t('settings.invalidModifierSettingsError'), 'WARNING');
     }
 
     await persistInitiativeModifierSettings(nextBid, initiativeModifierExpr);
@@ -389,7 +392,7 @@ export const SettingsPage = () => {
 
     const validation = validateInitiativeModifierExpr(normalizedExpr, initiativeModifierBid);
     if (!validation.valid) {
-      await OBR.notification.show(validation.error || 'Invalid initiative modifier expression.', 'WARNING');
+      await OBR.notification.show(validation.error || t('settings.invalidModifierExpressionError'), 'WARNING');
       return;
     }
 
@@ -398,14 +401,14 @@ export const SettingsPage = () => {
 
   const handleTestInitiativeModifier = async () => {
     if (!initiativeModifierBid) {
-      await OBR.notification.show('Select an Initiative Modifier attribute before testing.', 'WARNING');
+      await OBR.notification.show(t('settings.selectAttributeBeforeTestingError'), 'WARNING');
       return;
     }
 
     const normalizedExpr = initiativeModifierExpr.replace(/\bx\b/gi, '@STAT');
     const validation = validateInitiativeModifierExpr(normalizedExpr, initiativeModifierBid);
     if (!validation.valid) {
-      await OBR.notification.show(validation.error || 'Invalid initiative modifier expression.', 'WARNING');
+      await OBR.notification.show(validation.error || t('settings.invalidModifierExpressionError'), 'WARNING');
       return;
     }
 
@@ -423,7 +426,7 @@ export const SettingsPage = () => {
     );
 
     if (!resolvedModifier.valid || !resolvedModifier.notation) {
-      await OBR.notification.show('Could not resolve initiative modifier expression.', 'ERROR');
+      await OBR.notification.show(t('settings.couldNotResolveModifierError'), 'ERROR');
       return;
     }
 
@@ -433,7 +436,13 @@ export const SettingsPage = () => {
     const displayExpr = normalizedExpr.replace(/@STAT/gi, String(TEST_STAT_VALUE));
 
     await OBR.notification.show(
-      `Mock Initiative: 1d${sides}(${baseRoll}) + ${displayExpr}(${modifierValue}) = ${total}`,
+      t('settings.mockInitiativeResult', {
+        sides,
+        baseRoll,
+        expression: displayExpr,
+        modifier: modifierValue,
+        total,
+      }),
       'SUCCESS',
     );
   };
@@ -449,10 +458,10 @@ export const SettingsPage = () => {
       link.download = `forge-collection-${new Date().toISOString().slice(0, 10)}.txt`;
       link.click();
       URL.revokeObjectURL(url);
-      await OBR.notification.show(`Collection export complete. ${records.length} record(s) written.`, 'SUCCESS');
+      await OBR.notification.show(t('settings.collectionExportComplete', { count: records.length }), 'SUCCESS');
     } catch (error) {
       LOGGER.log('Collection export failed', error);
-      await OBR.notification.show('Collection export failed. See console log for details.', 'ERROR');
+      await OBR.notification.show(t('settings.collectionExportFailed'), 'ERROR');
     }
   };
 
@@ -477,18 +486,22 @@ export const SettingsPage = () => {
       const parsed = JSON.parse(text);
 
       if (!Array.isArray(parsed)) {
-        await OBR.notification.show('Import file must contain a JSON array of collection records.', 'ERROR');
+        await OBR.notification.show(t('settings.collectionImportArrayError'), 'ERROR');
         return;
       }
 
       const summary = await bulkImportUnitCollection(parsed);
       await OBR.notification.show(
-        `Collection import complete. Created: ${summary.created}, Updated: ${summary.updated}, Skipped: ${summary.skipped}.`,
+        t('settings.collectionImportCompleteSummary', {
+          created: summary.created,
+          updated: summary.updated,
+          skipped: summary.skipped,
+        }),
         'SUCCESS',
       );
     } catch (error) {
       LOGGER.log('Collection import failed', error);
-      await OBR.notification.show('Collection import failed. Ensure the file is valid JSON and try again.', 'ERROR');
+      await OBR.notification.show(t('settings.collectionImportFailed'), 'ERROR');
     } finally {
       event.target.value = '';
     }
@@ -502,10 +515,10 @@ export const SettingsPage = () => {
       setAuthConnected(isConnected());
       setAuthTier(getUserTier());
       setPremiumAuthorized(isPremiumAuthorized());
-      await OBR.notification.show('Connected to Battle-System account.', 'SUCCESS');
+      await OBR.notification.show(t('settings.connectedAccount'), 'SUCCESS');
     } catch (error) {
       LOGGER.error('Battle-System auth connection failed', error);
-      await OBR.notification.show('Unable to connect to Battle-System account. Please try again.', 'ERROR');
+      await OBR.notification.show(t('settings.unableToConnectAccount'), 'ERROR');
       setAuthConnected(isConnected());
       setAuthTier(getUserTier());
       setPremiumAuthorized(isPremiumAuthorized());
@@ -521,10 +534,10 @@ export const SettingsPage = () => {
       exit={{ opacity: 0, y: -20 }}
     >
       <PageContainer theme={theme}>
-        <PageTitle theme={theme}>Settings</PageTitle>
+        <PageTitle theme={theme}>{t('settings.pageTitle')}</PageTitle>
 
         <Card theme={theme}>
-          <SectionTitle theme={theme}>Battle-System Account</SectionTitle>
+          <SectionTitle theme={theme}>{t('settings.accountSectionTitle')}</SectionTitle>
           <ButtonGroup>
             <Button
               theme={theme}
@@ -533,22 +546,22 @@ export const SettingsPage = () => {
               }}
               disabled={isConnectingAuth}
             >
-              {isConnectingAuth ? 'Connecting...' : (authConnected ? 'Reconnect to Battle-System' : 'Connect to Battle-System')}
+              {isConnectingAuth ? t('settings.connecting') : (authConnected ? t('settings.reconnectAccount') : t('settings.connectAccount'))}
             </Button>
           </ButtonGroup>
           <AuthStatus theme={theme} $connected={authConnected}>
             {authConnected
-              ? (premiumAuthorized ? `Status: Connected (${authTier} tier)` : `Status: Connected (${authTier} tier)`)
-              : 'Status: Disconnected'}
+              ? t('settings.statusConnected', { tier: premiumAuthorized ? authTier : authTier })
+              : t('settings.statusDisconnected')}
           </AuthStatus>
         </Card>
 
         {/* Collection Management */}
         <Card theme={theme}>
-          <SectionTitle theme={theme}>Collection Management</SectionTitle>
+          <SectionTitle theme={theme}>{t('settings.collectionSectionTitle')}</SectionTitle>
           <ButtonGroup>
-            <Button theme={theme} onClick={handleExportCollection}>Export</Button>
-            <Button theme={theme} onClick={handleImportClick}>Import</Button>
+            <Button theme={theme} onClick={handleExportCollection}>{t('settings.export')}</Button>
+            <Button theme={theme} onClick={handleImportClick}>{t('settings.import')}</Button>
           </ButtonGroup>
           <input
             ref={importFileInputRef}
@@ -561,14 +574,14 @@ export const SettingsPage = () => {
 
         {/* List Controls */}
         <Card theme={theme}>
-          <SectionTitle theme={theme}>List Controls</SectionTitle>
+          <SectionTitle theme={theme}>{t('settings.listControlsSectionTitle')}</SectionTitle>
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.reverseInitiative}>Reverse Initiative</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.reverseInitiative}>{t('settings.reverseInitiative')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Reverse Initiative"
+              label={t('settings.reverseInitiative')}
               isOn={reverseInitiative}
               onChange={async (value) => {
                 setReverseInitiative(value);
@@ -584,10 +597,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.popcornInitiative}>Popcorn Initiative</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.popcornInitiative}>{t('settings.popcornInitiative')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Popcorn Initiative"
+              label={t('settings.popcornInitiative')}
               isOn={popcornInitiative}
               onChange={async (value) => {
                 setPopcornInitiative(value);
@@ -603,7 +616,7 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.initiativeDie}>Initiative Die:</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.initiativeDie}>{t('settings.initiativeDie')}</SettingsTooltip>
             </ControlLabel>
             <SmallInput
               theme={theme}
@@ -622,7 +635,7 @@ export const SettingsPage = () => {
 
           <SubControlRow theme={theme}>
             <SubControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.initiativeModifierAttr}>Initiative Modifier:</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.initiativeModifierAttr}>{t('settings.initiativeModifier')}</SettingsTooltip>
             </SubControlLabel>
             <SmallSelect
               theme={theme}
@@ -631,7 +644,7 @@ export const SettingsPage = () => {
                 await handleInitiativeModifierBidChange(e.target.value);
               }}
             >
-              <option value="">None</option>
+              <option value="">{t('settings.none')}</option>
               {numericAttributes.map((attribute) => (
                 <option key={attribute.attr_bid} value={attribute.attr_bid}>
                   {attribute.attr_abbr} — {attribute.attr_name}
@@ -641,7 +654,7 @@ export const SettingsPage = () => {
           </SubControlRow>
           <SubControlRow theme={theme}>
             <SubControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.initiativeModifierMath}>Math:</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.initiativeModifierMath}>{t('settings.math')}</SettingsTooltip>
             </SubControlLabel>
             <SmallInput
               theme={theme}
@@ -665,19 +678,19 @@ export const SettingsPage = () => {
               }}
               disabled={!initiativeModifierBid}
             >
-              Test
+              {t('settings.test')}
             </InlineActionButton>
           </SubControlRow>
           <SubControlHint theme={theme}>
-            Use @STAT as the selected attribute value. Example: floor((@STAT-10)/2)
+            {t('settings.initiativeModifierHint')}
           </SubControlHint>
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showCardColumn}>Show Card Column</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.showCardColumn}>{t('settings.showCardColumn')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Show Stat Block Access"
+              label={t('settings.showCardColumn')}
               isOn={showCardAccess}
               onChange={async (value) => {
                 setShowCardAccess(value);
@@ -689,14 +702,14 @@ export const SettingsPage = () => {
 
         {/* Player Controls */}
         <Card theme={theme}>
-          <SectionTitle theme={theme}>Player Controls</SectionTitle>
+          <SectionTitle theme={theme}>{t('settings.playerControlsSectionTitle')}</SectionTitle>
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showPlayerView}>Show Player View</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.showPlayerView}>{t('settings.showPlayerView')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Show Player View"
+              label={t('settings.showPlayerView')}
               isOn={showPlayerView}
               onChange={async (value) => {
                 setShowPlayerView(value);
@@ -707,10 +720,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showNonPartyUnits}>Show Non-Party Units</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.showNonPartyUnits}>{t('settings.showNonPartyUnits')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Show Non-Party Units"
+              label={t('settings.showNonPartyUnits')}
               isOn={showNonPartyUnits}
               onChange={async (value) => {
                 setShowNonPartyUnits(value);
@@ -721,10 +734,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showHpNumbersOnList}>Show HP Numbers on List</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.showHpNumbersOnList}>{t('settings.showHpNumbersOnList')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Show HP Numbers on List"
+              label={t('settings.showHpNumbersOnList')}
               isOn={showListHpNumbers}
               onChange={async (value) => {
                 setShowListHpNumbers(value);
@@ -735,10 +748,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.ownerOnlyEdit}>GM/Owner Only Edit</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.ownerOnlyEdit}>{t('settings.ownerOnlyEdit')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Owner Only Edit"
+              label={t('settings.ownerOnlyEdit')}
               isOn={showOwnerOnlyEdit}
               onChange={async (value) => {
                 setShowOwnerOnlyEdit(value);
@@ -749,10 +762,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showAdjustHpContextMenu}>Show Adjust HP Context Menu</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.showAdjustHpContextMenu}>{t('settings.showAdjustHpContextMenu')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Show Adjust HP Context Menu"
+              label={t('settings.showAdjustHpContextMenu')}
               isOn={showModifyUnitContextMenu}
               onChange={async (value) => {
                 setShowModifyUnitContextMenu(value);
@@ -763,10 +776,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showViewUnitContextMenuForPlayers}>Show View Unit Context Menu for Players</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.showViewUnitContextMenuForPlayers}>{t('settings.showViewUnitContextMenuForPlayers')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Show View Unit Context Menu for Players"
+              label={t('settings.showViewUnitContextMenuForPlayers')}
               isOn={showViewUnitContextMenuForPlayers}
               onChange={async (value) => {
                 setShowViewUnitContextMenuForPlayers(value);
@@ -778,14 +791,14 @@ export const SettingsPage = () => {
 
         {/* Game Controls */}
         <Card theme={theme}>
-          <SectionTitle theme={theme}>Game Controls</SectionTitle>
+          <SectionTitle theme={theme}>{t('settings.gameControlsSectionTitle')}</SectionTitle>
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showHpBarsOnTokens}>Show HP Bars on tokens</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.showHpBarsOnTokens}>{t('settings.showHpBarsOnTokens')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Show HP Bars on tokens"
+              label={t('settings.showHpBarsOnTokens')}
               isOn={showHpBars}
               onChange={async (value) => {
                 setShowHpBars(value);
@@ -804,7 +817,7 @@ export const SettingsPage = () => {
           {(showHpBars || showHpNumbers) && (
             <SubControlRow theme={theme}>
               <SubControlLabel theme={theme}>
-                <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.hpOrientation}>Orientation:</SettingsTooltip>
+                <SettingsTooltip theme={theme} text={tooltips.hpOrientation}>{t('settings.orientation')}</SettingsTooltip>
               </SubControlLabel>
               <SmallSelect
                 theme={theme}
@@ -815,20 +828,20 @@ export const SettingsPage = () => {
                   await saveData(SettingsConstants.HP_BAR_ORIENTATION, value);
                 }}
               >
-                <option value="top">Top</option>
-                <option value="bottom">Bottom</option>
-                <option value="left">Left</option>
-                <option value="right">Right</option>
+                <option value="top">{t('common.orientation.top')}</option>
+                <option value="bottom">{t('common.orientation.bottom')}</option>
+                <option value="left">{t('common.orientation.left')}</option>
+                <option value="right">{t('common.orientation.right')}</option>
               </SmallSelect>
             </SubControlRow>
           )}
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showHpNumbersOnTokens}>Show HP Numbers on tokens</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.showHpNumbersOnTokens}>{t('settings.showHpNumbersOnTokens')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Show HP Numbers on tokens"
+              label={t('settings.showHpNumbersOnTokens')}
               isOn={showHpNumbers}
               onChange={async (value) => {
                 setShowHpNumbers(value);
@@ -847,10 +860,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showDeathEffect}>Show Death Effect</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.showDeathEffect}>{t('settings.showDeathEffect')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Show Death Effect"
+              label={t('settings.showDeathEffect')}
               isOn={showDeathEffect}
               onChange={async (value) => {
                 setShowDeathEffect(value);
@@ -861,10 +874,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showNamesOnTokens}>Show Names on Tokens</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.showNamesOnTokens}>{t('settings.showNamesOnTokens')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Show names on tokens"
+              label={t('settings.showNamesOnTokens')}
               isOn={showNames}
               onChange={async (value) => {
                 setShowNames(value);
@@ -899,10 +912,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showTurnEffect}>Show Turn Effect</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.showTurnEffect}>{t('settings.showTurnEffect')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Show Turn Effect"
+              label={t('settings.showTurnEffect')}
               isOn={showTurnEffect}
               onChange={async (value) => {
                 setshowTurnEffect(value);
@@ -913,10 +926,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.useDescriptiveNames}>Use Descriptive Names</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.useDescriptiveNames}>{t('settings.useDescriptiveNames')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Use Descriptive Duplicates Names"
+              label={t('settings.useDescriptiveNames')}
               isOn={useDescriptiveDuplicates}
               onChange={async (value) => {
                 setUseDescriptiveDuplicates(value);
@@ -928,14 +941,14 @@ export const SettingsPage = () => {
 
         {/* Dice Controls */}
         <Card theme={theme}>
-          <SectionTitle theme={theme}>Dice Controls</SectionTitle>
+          <SectionTitle theme={theme}>{t('settings.diceControlsSectionTitle')}</SectionTitle>
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableTextBasedRolls}>Enable Text-Based Rolls</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.enableTextBasedRolls}>{t('settings.enableTextBasedRolls')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Enable Text-Based Rolls"
+              label={t('settings.enableTextBasedRolls')}
               isOn={enableTextBasedRolls}
               onChange={async (value) => {
                 setEnableTextBasedRolls(value);
@@ -956,10 +969,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableRumble}>Enable Rumble! Integration</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.enableRumble}>{t('settings.enableRumble')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Enable Rumble! Integration"
+              label={t('settings.enableRumble')}
               isOn={enableRumble}
               onChange={async (value) => {
                 setEnableRumble(value);
@@ -978,10 +991,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableBones}>Enable Bones! Integration</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.enableBones}>{t('settings.enableBones')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Enable Bones! Integration"
+              label={t('settings.enableBones')}
               isOn={enableBones}
               onChange={async (value) => {
                 setEnableBones(value);
@@ -1000,10 +1013,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableDicePlus}>Enable Dice+ Integration</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.enableDicePlus}>{t('settings.enableDicePlus')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Enable Dice+ Integration"
+              label={t('settings.enableDicePlus')}
               isOn={enableDicePlus}
               onChange={async (value) => {
                 setEnableDicePlus(value);
@@ -1022,10 +1035,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableObrNotification}>Enable OBR Notification</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.enableObrNotification}>{t('settings.enableObrNotification')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Enable OBR Notification"
+              label={t('settings.enableObrNotification')}
               isOn={enableObrNotification}
               onChange={async (value) => {
                 setEnableObrNotification(value);
@@ -1036,10 +1049,10 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.showResultsToAll}>Show Results to All</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.showResultsToAll}>{t('settings.showResultsToAll')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Show Results to All"
+              label={t('settings.showResultsToAll')}
               isOn={showNotificationToAll}
               onChange={async (value) => {
                 setShowNotificationToAll(value);
@@ -1050,16 +1063,16 @@ export const SettingsPage = () => {
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableDiscordLogging}>Enable Discord Logging</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.enableDiscordLogging}>{t('settings.enableDiscordLogging')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Enable Discord Logging"
+              label={t('settings.enableDiscordLogging')}
               isOn={enableDiscordLogging}
               onChange={async (value) => {
                 if (value) {
                   const webhookUrl = discordUrl.trim();
                   if (!isValidDiscordWebhookUrl(webhookUrl)) {
-                    await OBR.notification.show('Please enter a valid Discord webhook URL before enabling Discord logging.', 'WARNING');
+                    await OBR.notification.show(t('settings.invalidDiscordWebhookWarning'), 'WARNING');
                     setEnableDiscordLogging(false);
                     await saveData(SettingsConstants.ENABLE_DISCORD_LOGGING, false);
                     return;
@@ -1073,7 +1086,7 @@ export const SettingsPage = () => {
           </ControlRow>
           <ControlRow theme={theme}>
             <SubControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.discordUrl}>Discord Url:</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.discordUrl}>{t('settings.discordUrl')}</SettingsTooltip>
             </SubControlLabel>
             <SmallInput
               theme={theme}
@@ -1093,13 +1106,13 @@ export const SettingsPage = () => {
         </Card>
 
         <Card theme={theme}>
-          <SectionTitle theme={theme}>Other</SectionTitle>
+          <SectionTitle theme={theme}>{t('settings.otherSectionTitle')}</SectionTitle>
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>
-              <SettingsTooltip theme={theme} text={SETTINGS_TOOLTIPS.enableConsoleLog}>Enable Console Log</SettingsTooltip>
+              <SettingsTooltip theme={theme} text={tooltips.enableConsoleLog}>{t('settings.enableConsoleLog')}</SettingsTooltip>
             </ControlLabel>
             <ToggleControl
-              label="Enable Console Log"
+              label={t('settings.enableConsoleLog')}
               isOn={enableConsoleLog}
               onChange={async (value) => {
                 setEnableConsoleLog(value);
@@ -1113,21 +1126,21 @@ export const SettingsPage = () => {
 
       <PopupModal
         isOpen={isImportConfirmOpen}
-        title="Confirm Import"
+        title={t('settings.confirmImportTitle')}
         onClose={() => setIsImportConfirmOpen(false)}
         actions={(
           <>
             <Button theme={theme} variant="secondary" onClick={() => setIsImportConfirmOpen(false)}>
-              Cancel
+              {t('settings.cancel')}
             </Button>
             <Button theme={theme} onClick={handleConfirmImport}>
-              Continue
+              {t('settings.continue')}
             </Button>
           </>
         )}
       >
         <ModalText theme={theme}>
-          Import will overwrite duplicate records that share the same Name and Author. Continue?
+          {t('settings.importConfirmMessage')}
         </ModalText>
       </PopupModal>
     </motion.div>

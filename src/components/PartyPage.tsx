@@ -11,6 +11,7 @@ import { PageContainer, PageTitle } from './SharedStyledComponents';
 import { ToggleControl } from './ToggleControl';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { closePartyHudModal, openPartyHudModal } from '../helpers/partyHudModal';
+import { useTranslation } from '../i18n/Translation';
 
 type PartyHudOrientation = 'bottom' | 'left' | 'top' | 'right';
 type PartyHudBorderStyle = 'default' | 'plate' | 'tech';
@@ -213,6 +214,7 @@ export const PartyPage = () => {
   const isHudModalOpenRef = useRef(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const { theme } = useForgeTheme();
+  const { t } = useTranslation();
   const { attributes } = useSystemData();
   const items = useSceneStore((state) => state.items);
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
@@ -242,6 +244,8 @@ export const PartyPage = () => {
     : 'default';
 
   const partyItems = items.filter((item) => item.metadata[UnitConstants.IN_PARTY] === true);
+
+  const orientationLabel = t(`common.orientation.${hudOrientation}` as const);
 
   useEffect(() => {
     try {
@@ -376,25 +380,25 @@ export const PartyPage = () => {
       style={{ height: '100%' }}
     >
       <PageContainer theme={theme}>
-        <PageTitle theme={theme}>Party</PageTitle>
+        <PageTitle theme={theme}>{t('party.pageTitle')}</PageTitle>
         <PartyControls theme={theme}>
           <ControlRow>
             <ControlButton theme={theme} onClick={() => void handleCycleOrientation()}>
-              Display: {hudOrientation.toUpperCase()}
+              {t('party.display', { orientation: orientationLabel })}
             </ControlButton>
             <ControlButton theme={theme} onClick={() => void handleToggleHudOpen()}>
-              {hudOpen ? 'Close Party HUD' : 'Open Party HUD'}
+              {hudOpen ? t('party.closeHud') : t('party.openHud')}
             </ControlButton>
           </ControlRow>
 
           {isCurrentUserGm && (
             <>
               <CenteredControlRow>
-                <ControlLabel theme={theme}>Show in HUD:</ControlLabel>
+                <ControlLabel theme={theme}>{t('party.showInHud')}</ControlLabel>
                 <ToggleRow $disabled={!isCurrentUserGm}>
-                  <ToggleLabel theme={theme}>Show HP Bars</ToggleLabel>
+                  <ToggleLabel theme={theme}>{t('party.showHpBars')}</ToggleLabel>
                   <ToggleControl
-                    label="Party HUD Show HP Bars"
+                    label={t('party.toggleHpBarsLabel')}
                     isOn={showPartyHudHpBars}
                     onChange={(next) => {
                       if (!isCurrentUserGm) return;
@@ -410,9 +414,9 @@ export const PartyPage = () => {
                   />
                 </ToggleRow>
                 <ToggleRow $disabled={!isCurrentUserGm}>
-                  <ToggleLabel theme={theme}>Show HP Numbers</ToggleLabel>
+                  <ToggleLabel theme={theme}>{t('party.showHpNumbers')}</ToggleLabel>
                   <ToggleControl
-                    label="Party HUD Show HP Numbers"
+                    label={t('party.toggleHpNumbersLabel')}
                     isOn={showPartyHudHpNumbers}
                     onChange={(next) => {
                       if (!isCurrentUserGm) return;
@@ -439,7 +443,7 @@ export const PartyPage = () => {
                     }
                   }}
                 >
-                  <option value="">Extra Slot 1 (None)</option>
+                  <option value="">{t('party.extraSlotNone', { slot: 1 })}</option>
                   {allowedAttributes.map((attribute) => (
                     <option key={attribute.attr_bid} value={attribute.attr_bid}>
                       {(attribute.attr_name || attribute.attr_bid)}
@@ -459,7 +463,7 @@ export const PartyPage = () => {
                     }
                   }}
                 >
-                  <option value="">Extra Slot 2 (None)</option>
+                  <option value="">{t('party.extraSlotNone', { slot: 2 })}</option>
                   {allowedAttributes.map((attribute) => (
                     <option key={attribute.attr_bid} value={attribute.attr_bid}>
                       {(attribute.attr_name || attribute.attr_bid)}
@@ -477,17 +481,17 @@ export const PartyPage = () => {
                     void savePartySetting(SettingsConstants.PARTY_HUD_BORDER_STYLE, value);
                   }}
                 >
-                  <option value="default">Portrait Border: Default</option>
-                  <option value="plate">Portrait Border: Plate</option>
-                  <option value="tech">Portrait Border: Tech</option>
+                  <option value="default">{t('party.portraitBorderDefault')}</option>
+                  <option value="plate">{t('party.portraitBorderPlate')}</option>
+                  <option value="tech">{t('party.portraitBorderTech')}</option>
                 </ControlSelect>
               </CenteredControlRow>
 
               <ControlHint theme={theme}>
                 <>
-                  Configure Party HUD and portraits.
+                  {t('party.configureHint')}
                   <br />
-                  LIST attributes are excluded.
+                  {t('party.listAttributesExcluded')}
                 </>
               </ControlHint>
             </>
@@ -502,34 +506,34 @@ export const PartyPage = () => {
                 onClick={handleSaveParty}
                 disabled={partyItems.length === 0}
               >
-                Save Party
+                {t('party.saveParty')}
               </ControlButton>
               <ControlButton
                 theme={theme}
                 onClick={() => void handleLoadParty()}
                 disabled={lastSaved === null}
               >
-                Load Party
+                {t('party.loadParty')}
               </ControlButton>
             </CenteredControlRow>
             <SaveTimestamp theme={theme}>
               {lastSaved
-                ? `Last saved: ${new Date(lastSaved).toLocaleString()}`
-                : 'No save available.'}
+                ? t('party.lastSaved', { value: new Date(lastSaved).toLocaleString() })
+                : t('party.noSaveAvailable')}
             </SaveTimestamp>
           </PartyControls>
         )}
 
         {partyItems.length === 0 ? (
           <EmptyState theme={theme}>
-            No one is in the Party.  Add a unit using the ContextMenu on the token.
+            {t('party.emptyState')}
           </EmptyState>
         ) : (
           <PartyList theme={theme}>
             {partyItems.map((item) => {
               const portraitOverride = (item.metadata?.[UnitConstants.PORTRAIT_URL] as string | undefined) || '';
               const tokenUrl = isImage(item) ? item.image.url : undefined;
-              const unitName = (item.metadata[UnitConstants.UNIT_NAME] as string) || item.name || 'Unknown';
+              const unitName = (item.metadata[UnitConstants.UNIT_NAME] as string) || item.name || t('party.unknownUnit');
               const isOwner = item.createdUserId === playerData?.id;
               const canEditPortraitOverride = isCurrentUserGm || isOwner;
               const basePortrait = tokenUrl || '/logo.png';
@@ -549,7 +553,7 @@ export const PartyPage = () => {
                       <TokenImage
                         theme={theme}
                         src={overlayPortrait}
-                        alt={`${unitName} override`}
+                        alt={t('party.overrideAlt', { unit: unitName })}
                         $overlay
                       />
                     )}
@@ -560,7 +564,7 @@ export const PartyPage = () => {
                       <PortraitInput
                         theme={theme}
                         defaultValue={portraitOverride}
-                        placeholder="Portrait URL override (optional)"
+                        placeholder={t('party.portraitUrlPlaceholder')}
                         onBlur={(event) => {
                           void updatePortraitUrl(item.id, event.target.value);
                         }}

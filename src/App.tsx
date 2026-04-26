@@ -24,6 +24,7 @@ import { DATA_STORED_IN_ROOM } from './helpers/Constants';
 import { SettingsConstants, getPerPlayerSettingKey } from './interfaces/MetadataKeys';
 import { initializeAuthOnStartup } from './auth/authHelpers';
 import { closePartyHudModal, openPartyHudModal } from './helpers/partyHudModal';
+import { useTranslation } from './i18n/Translation';
 
 const LoadingContainer = styled.div`
   display: flex;
@@ -58,6 +59,7 @@ function App() {
   const { sceneReady, cacheReady, playerData, roomMetadata, sceneMetadata } = useSceneStore();
   const { isInitialized } = useAppInitialization();
   const { theme } = useForgeTheme();
+  const { t } = useTranslation();
   const [currentPage, setCurrentPage] = useState<PageType>('ForgeMain');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isPartyHudModalOpenRef = useRef(false);
@@ -177,10 +179,10 @@ function App() {
         <LoadingContainer>
           <LoadingSpinner />
           <LoadingText>
-            {!sceneReady ? 'Connecting to scene...' : 
-             !cacheReady ? 'Loading cache...' : 
-             !isInitialized ? 'Initializing system...' : 
-             'Loading...'}
+            {!sceneReady ? t('app.connectingScene') : 
+             !cacheReady ? t('app.loadingCache') : 
+             !isInitialized ? t('app.initializingSystem') : 
+             t('app.loadingFallback')}
           </LoadingText>
         </LoadingContainer>
       ) : (

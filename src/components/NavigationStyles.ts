@@ -39,6 +39,10 @@ export const MenuOverlay = styled(motion.div)<{ theme: ForgeTheme }>`
 
 export const MenuHeader = styled.div<{ theme: ForgeTheme }>`
   ${tw`p-5 flex-none`}
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   border-bottom: 1px solid ${props => props.theme.BORDER};
   background-color: ${props => props.theme.OFFSET};
   border-radius: 12px 12px 0 0;
@@ -51,8 +55,77 @@ export const MenuSubText = styled.div<{ theme: ForgeTheme }>`
 `;
 
 export const MenuTitle = styled.h2<{ theme: ForgeTheme }>`
-  ${tw`m-0 mb-2 font-bold text-2xl`}
+  ${tw`m-0 font-bold text-2xl`}
   color: ${props => props.theme.PRIMARY};
+`;
+
+export const LocaleSwitcherWrap = styled.div`
+  position: relative;
+`;
+
+export const LocaleButton = styled.button<{ theme: ForgeTheme; $open?: boolean }>`
+  ${tw`w-full flex items-center justify-between gap-2 cursor-pointer`}
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 2px solid ${props => props.theme.BORDER};
+  background: ${props => props.$open
+    ? rgbaFromHex(props.theme.BACKGROUND, 0.82)
+    : rgbaFromHex(props.theme.BACKGROUND, 0.68)};
+  color: ${props => props.theme.PRIMARY};
+  transition: background-color 0.2s ease, transform 0.2s ease;
+
+  &:hover {
+    background: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.86)};
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+`;
+
+export const LocaleButtonLabel = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+`;
+
+export const LocaleButtonText = styled.span`
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: small;
+  font-weight: 600;
+`;
+
+export const LocaleMenu = styled.div<{ theme: ForgeTheme }>`
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  padding: 6px;
+  border-radius: 14px;
+  border: 2px solid ${props => props.theme.BORDER};
+  background: ${props => rgbaFromHex(props.theme.BACKGROUND, 0.94)};
+  box-shadow: 0 10px 24px ${props => rgbaFromHex(props.theme.BACKGROUND, 0.45)};
+  z-index: 2;
+`;
+
+export const LocaleOption = styled.button<{ theme: ForgeTheme; $active?: boolean }>`
+  ${tw`w-full flex items-center justify-between cursor-pointer border-none`}
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: ${props => props.$active
+    ? rgbaFromHex(props.theme.OFFSET, 0.42)
+    : 'transparent'};
+  color: ${props => props.theme.PRIMARY};
+  font-size: 13px;
+  text-align: left;
+
+  &:hover {
+    background: ${props => rgbaFromHex(props.theme.OFFSET, 0.32)};
+  }
 `;
 
 export const MenuInfo = styled.p<{ theme: ForgeTheme }>`

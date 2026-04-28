@@ -60,6 +60,7 @@ import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import LOGGER from '../helpers/Logger';
 import { HexToRgba } from '../helpers/HexToRGB';
 import { ViewportFunctions } from '../helpers/ViewPortUtility';
+import { getConfiguredHpBidKeys } from '../helpers/hpAttributeMapping';
 import { PopupModal } from './PopupModal';
 import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 import { EffectsManagerModal, useEffectsManager } from './EffectsManager';
@@ -2609,33 +2610,7 @@ export const InitiativeList: React.FC = () => {
   }, [isListCompact, listColumns, showCardColumn]);
 
   const hpBidKeys = useMemo(() => {
-    const currentHpAttribute = attributes.find((attribute) => {
-      const abbr = (attribute.attr_abbr || '').toUpperCase();
-      const name = (attribute.attr_name || '').toLowerCase();
-      return abbr === 'HP' || name === 'hit points';
-    });
-
-    const maxHpAttribute = attributes.find((attribute) => {
-      const abbr = (attribute.attr_abbr || '').toUpperCase();
-      const name = (attribute.attr_name || '').toLowerCase();
-      return abbr === 'MHP' || name === 'max hit points';
-    });
-
-    const inferredCurrentHpBid = currentHpAttribute?.attr_bid;
-    const inferredMaxHpBid = maxHpAttribute?.attr_bid;
-
-    const configuredCurrent = storageContainer[SettingsConstants.HP_CURRENT_BID] as string | undefined;
-    const configuredMax = storageContainer[SettingsConstants.HP_MAX_BID] as string | undefined;
-    const attributeBids = new Set(attributes.map((attribute) => attribute.attr_bid));
-
-    return {
-      currentHpBid: configuredCurrent && attributeBids.has(configuredCurrent)
-        ? configuredCurrent
-        : inferredCurrentHpBid,
-      maxHpBid: configuredMax && attributeBids.has(configuredMax)
-        ? configuredMax
-        : inferredMaxHpBid,
-    };
+    return getConfiguredHpBidKeys(storageContainer, attributes);
   }, [attributes, storageContainer]);
 
   const displayedUnits = useMemo(

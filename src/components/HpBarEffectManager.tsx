@@ -2,11 +2,12 @@ import { useEffect } from 'react';
 import OBR, { buildEffect, buildText, isEffect, isImage, isText, Item } from '@owlbear-rodeo/sdk';
 import { useSceneStore } from '../helpers/BSCache';
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
-import { EXTENSION_ID, MOCK_BIDS } from '../helpers/MockData';
+import { EXTENSION_ID } from '../helpers/MockData';
 import LOGGER from '../helpers/Logger';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { SystemAttribute } from '../interfaces/SystemResponse';
 import { HP_BAR_EFFECT } from '../assets/hpBarEffect';
+import { getConfiguredHpBidKeys, getHpValueFromMetadata } from '../helpers/hpAttributeMapping';
 
 const HP_BAR_EFFECT_FLAG = `${EXTENSION_ID}/hp-bar-effect`;
 const HP_BAR_EFFECT_OWNER = `${EXTENSION_ID}/hp-bar-owner`;
@@ -18,63 +19,9 @@ const getHpNumberId = (unitId: string) => `HPN${unitId.slice(3)}`;
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 
-const parseNumeric = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const parsed = parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-};
-
-const getHpBidKeys = (attributes: SystemAttribute[]) => {
-  const currentHp = attributes.find((attribute) => {
-    const abbr = (attribute.attr_abbr || '').toUpperCase();
-    const name = (attribute.attr_name || '').toLowerCase();
-    return abbr === 'HP' || name === 'hit points';
-  });
-
-  const maxHp = attributes.find((attribute) => {
-    const abbr = (attribute.attr_abbr || '').toUpperCase();
-    const name = (attribute.attr_name || '').toLowerCase();
-    return abbr === 'MHP' || name === 'max hit points';
-  });
-
-  return {
-    currentHpBid: currentHp?.attr_bid || MOCK_BIDS.CURRENT_HP,
-    maxHpBid: maxHp?.attr_bid || MOCK_BIDS.MAX_HP,
-  };
-};
-
-const getConfiguredHpBidKeys = (
-  storage: Record<string, unknown>,
-  attributes: SystemAttribute[]
-) => {
-  const inferred = getHpBidKeys(attributes);
-  const configuredCurrent = storage[SettingsConstants.HP_CURRENT_BID] as string | undefined;
-  const configuredMax = storage[SettingsConstants.HP_MAX_BID] as string | undefined;
-
-  const attributeBids = new Set(attributes.map((attribute) => attribute.attr_bid));
-
-  return {
-    currentHpBid: configuredCurrent && attributeBids.has(configuredCurrent)
-      ? configuredCurrent
-      : inferred.currentHpBid,
-    maxHpBid: configuredMax && attributeBids.has(configuredMax)
-      ? configuredMax
-      : inferred.maxHpBid,
-  };
-};
-
-const getHpPercent = (unit: Item, currentHpBid: string, maxHpBid: string): number | null => {
-  const currentRaw = unit.metadata?.[`${EXTENSION_ID}/${currentHpBid}`];
-  const maxRaw = unit.metadata?.[`${EXTENSION_ID}/${maxHpBid}`];
-  const currentHp = parseNumeric(currentRaw);
-  const maxHp = parseNumeric(maxRaw);
+const getHpPercent = (unit: Item, currentHpBid: string, maxHpBid: string, attributes: SystemAttribute[]): number | null => {
+  const currentHp = getHpValueFromMetadata(unit.metadata, currentHpBid, attributes, 'current');
+  const maxHp = getHpValueFromMetadata(unit.metadata, maxHpBid, attributes, 'max');
 
   if (maxHp === null || maxHp <= 0 || currentHp === null) {
     return null;
@@ -83,11 +30,9 @@ const getHpPercent = (unit: Item, currentHpBid: string, maxHpBid: string): numbe
   return clamp((currentHp / maxHp) * 100, 0, 100);
 };
 
-const getHpValues = (unit: Item, currentHpBid: string, maxHpBid: string) => {
-  const currentRaw = unit.metadata?.[`${EXTENSION_ID}/${currentHpBid}`];
-  const maxRaw = unit.metadata?.[`${EXTENSION_ID}/${maxHpBid}`];
-  const currentHp = parseNumeric(currentRaw);
-  const maxHp = parseNumeric(maxRaw);
+const getHpValues = (unit: Item, currentHpBid: string, maxHpBid: string, attributes: SystemAttribute[]) => {
+  const currentHp = getHpValueFromMetadata(unit.metadata, currentHpBid, attributes, 'current');
+  const maxHp = getHpValueFromMetadata(unit.metadata, maxHpBid, attributes, 'max');
 
   if (currentHp === null) {
     return null;
@@ -258,7 +203,7 @@ export const HpBarEffectManager = () => {
         return isImage(item) && item.metadata?.[UnitConstants.ON_LIST] === true;
       });
 
-      const desiredBars = new Map<string, { unitId: string; hpPercent: number }>();
+      const desiredBars = new Map<string, { unitId: string; hpPercent: number; visible: boolean }>();
       const desiredNumbers = new Map<string, {
         unitId: string;
         text: string;
@@ -267,17 +212,18 @@ export const HpBarEffectManager = () => {
 
       for (const unit of trackedUnits) {
         if (effectiveShowHpBars) {
-          const hpPercent = getHpPercent(unit, currentHpBid, maxHpBid);
+          const hpPercent = getHpPercent(unit, currentHpBid, maxHpBid, attributes);
           if (hpPercent !== null) {
             desiredBars.set(getHpBarId(unit.id), {
               unitId: unit.id,
               hpPercent,
+              visible: unit.visible,
             });
           }
         }
 
         if (effectiveShowHpNumbers && isImage(unit)) {
-          const hpValues = getHpValues(unit, currentHpBid, maxHpBid);
+          const hpValues = getHpValues(unit, currentHpBid, maxHpBid, attributes);
           if (hpValues) {
             const hpText = hpValues.maxHp !== null ? `${hpValues.currentHp}/${hpValues.maxHp}` : `${hpValues.currentHp}`;
             desiredNumbers.set(getHpNumberId(unit.id), {
@@ -334,6 +280,7 @@ export const HpBarEffectManager = () => {
               .locked(true)
               .disableHit(true)
               .disableAttachmentBehavior(['ROTATION', 'SCALE'])
+              .visible(desired.visible)
               .uniforms([
                 { name: 'hpPercent', value: desired.hpPercent },
                 { name: 'orientation', value: orientationValue },

@@ -4,11 +4,13 @@ import OBR, { isImage } from '@owlbear-rodeo/sdk';
 import styled from 'styled-components';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
-import { EXTENSION_ID, MOCK_BIDS } from '../helpers/MockData';
+import { EXTENSION_ID } from '../helpers/MockData';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
 import { SettingsConstants, UnitConstants, getPerPlayerSettingKey } from '../interfaces/MetadataKeys';
 import type { SystemAttribute } from '../interfaces/SystemResponse';
 import { supabase } from '../supabase/supabaseClient';
+import { getConfiguredHpBidKeys, getHpValueFromMetadata } from '../helpers/hpAttributeMapping';
+import { useTranslation } from '../i18n/Translation';
 
 type PartyHudOrientation = 'bottom' | 'left' | 'top' | 'right';
 type PartyHudBorderStyle = 'default' | 'plate' | 'tech';
@@ -464,40 +466,8 @@ const parseSystemArrayField = <T,>(value: unknown): T[] | null => {
   return null;
 };
 
-const parseNumeric = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const parsed = parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-};
-
 const getStorageValue = (cache: CacheState): Record<string, unknown> => {
   return DATA_STORED_IN_ROOM ? cache.roomMetadata : cache.sceneMetadata;
-};
-
-const getHpBidKeys = (attributes: SystemAttribute[]) => {
-  const currentHp = attributes.find((attribute) => {
-    const abbr = (attribute.attr_abbr || '').toUpperCase();
-    const name = (attribute.attr_name || '').toLowerCase();
-    return abbr === 'HP' || name === 'hit points';
-  });
-
-  const maxHp = attributes.find((attribute) => {
-    const abbr = (attribute.attr_abbr || '').toUpperCase();
-    const name = (attribute.attr_name || '').toLowerCase();
-    return abbr === 'MHP' || name === 'max hit points';
-  });
-
-  return {
-    currentHpBid: currentHp?.attr_bid || MOCK_BIDS.CURRENT_HP,
-    maxHpBid: maxHp?.attr_bid || MOCK_BIDS.MAX_HP,
-  };
 };
 
 const isOrientation = (value: unknown): value is PartyHudOrientation => {
@@ -545,6 +515,7 @@ const formatAttributeValue = (value: unknown, attrType: string): string => {
 };
 
 const PartyHudPopoverPage = () => {
+  const { t } = useTranslation();
   const [cache, setCache] = useState<CacheState>({
     sceneMetadata: {},
     roomMetadata: {},
@@ -749,26 +720,18 @@ const PartyHudPopoverPage = () => {
   }, [attributes, extraAttrOne, extraAttrTwo]);
 
   const { currentHpBid, maxHpBid } = useMemo(() => {
-    const inferred = getHpBidKeys(attributes);
-    const configuredCurrent = storage[SettingsConstants.HP_CURRENT_BID] as string | undefined;
-    const configuredMax = storage[SettingsConstants.HP_MAX_BID] as string | undefined;
-    const validBids = new Set(attributes.map((attribute) => attribute.attr_bid));
-
-    return {
-      currentHpBid: configuredCurrent && validBids.has(configuredCurrent) ? configuredCurrent : inferred.currentHpBid,
-      maxHpBid: configuredMax && validBids.has(configuredMax) ? configuredMax : inferred.maxHpBid,
-    };
+    return getConfiguredHpBidKeys(storage, attributes);
   }, [attributes, storage]);
 
   const partyItems = useMemo(() => {
     return cache.items
       .filter((item) => item.metadata?.[UnitConstants.IN_PARTY] === true)
       .sort((a, b) => {
-        const aName = String(itemDisplayName(a));
-        const bName = String(itemDisplayName(b));
+        const aName = String(itemDisplayName(a, t('party.unknownUnit')));
+        const bName = String(itemDisplayName(b, t('party.unknownUnit')));
         return aName.localeCompare(bName);
       });
-  }, [cache.items]);
+  }, [cache.items, t]);
 
   const currentTurnId = useMemo(() => {
     const value = cache.sceneMetadata[SettingsConstants.CURRENT_TURN];
@@ -829,7 +792,7 @@ const PartyHudPopoverPage = () => {
     <Root $theme={theme}>
       <HudPanel $orientation={orientation} $inset={hudViewportInsetPx}>
         {partyItems.length === 0 ? (
-          <EmptyState $theme={theme}>No party units found.</EmptyState>
+          <EmptyState $theme={theme}>{t('partyHud.emptyState')}</EmptyState>
         ) : (
           <HudScaleFrame $scaledWidth={hudScaleLayout.scaledWidth} $scaledHeight={hudScaleLayout.scaledHeight}>
             <HudScaleContent
@@ -839,16 +802,14 @@ const PartyHudPopoverPage = () => {
             >
               <HudContainer $orientation={orientation}>
                 {partyItems.map((item) => {
-                  const unitName = itemDisplayName(item);
+                  const unitName = itemDisplayName(item, t('party.unknownUnit'));
                   const portraitOverride = (item.metadata?.[UnitConstants.PORTRAIT_URL] as string | undefined) || '';
                   const tokenUrl = isImage(item) ? item.image.url : undefined;
                   const basePortrait = tokenUrl || '/logo.png';
                   const portrait = portraitOverride || basePortrait;
 
-                  const hpCurrentRaw = item.metadata?.[`${EXTENSION_ID}/${currentHpBid}`];
-                  const hpMaxRaw = item.metadata?.[`${EXTENSION_ID}/${maxHpBid}`];
-                  const hpCurrent = parseNumeric(hpCurrentRaw);
-                  const hpMax = parseNumeric(hpMaxRaw);
+                  const hpCurrent = getHpValueFromMetadata(item.metadata, currentHpBid, attributes, 'current');
+                  const hpMax = getHpValueFromMetadata(item.metadata, maxHpBid, attributes, 'max');
                   const hpPercent = hpCurrent !== null && hpMax !== null && hpMax > 0
                     ? clamp((hpCurrent / hpMax) * 100, 0, 100)
                     : 0;
@@ -883,7 +844,7 @@ const PartyHudPopoverPage = () => {
 
                         {showPartyHudHpNumbers && (
                           <HpNumbers $theme={theme}>
-                            HP: {hpCurrent !== null ? Math.trunc(hpCurrent) : '-'} / {hpMax !== null ? Math.trunc(hpMax) : '-'}
+                            {t('partyHud.hpLabel')}: {hpCurrent !== null ? Math.trunc(hpCurrent) : '-'} / {hpMax !== null ? Math.trunc(hpMax) : '-'}
                           </HpNumbers>
                         )}
 
@@ -914,7 +875,7 @@ const PartyHudPopoverPage = () => {
   );
 };
 
-const itemDisplayName = (item: Item): string => {
+const itemDisplayName = (item: Item, fallbackLabel: string): string => {
   const metadataName = item.metadata?.[UnitConstants.UNIT_NAME];
   if (typeof metadataName === 'string' && metadataName.trim()) {
     return metadataName.trim();
@@ -924,7 +885,7 @@ const itemDisplayName = (item: Item): string => {
     return item.name.trim();
   }
 
-  return 'Unknown';
+  return fallbackLabel;
 };
 
 export default PartyHudPopoverPage;

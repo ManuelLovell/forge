@@ -7,9 +7,15 @@ import defaultGameSystem from './assets/defaultgamesystem.json';
 import { PluginGate } from './components/PluginGateComponent';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from './helpers/Constants';
 import { rgbaFromHex } from './helpers/ThemeConstants';
-import { MOCK_BIDS } from './helpers/MockData';
-import { SettingsConstants } from './interfaces/MetadataKeys';
+import type { SystemAttribute } from './interfaces/SystemResponse';
 import { supabase } from './supabase/supabaseClient';
+import {
+    buildHpMetadataValue,
+    getAttributeByBid,
+    getConfiguredHpBidKeys,
+    getHpMetadataKey,
+    getHpValueFromMetadata,
+} from './helpers/hpAttributeMapping';
 import './styles/sub.css';
 
 type ThemeData = {
@@ -107,13 +113,30 @@ const normalizeNumberInput = (value: string): string | null => {
     return String(parsed);
 };
 
-const getMetadataNumericValue = (item: Item | null, key: string): string => {
+const parseSystemArrayField = <T,>(value: unknown): T[] | null => {
+    if (Array.isArray(value)) {
+        return value as T[];
+    }
+
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed as T[] : null;
+        } catch {
+            return null;
+        }
+    }
+
+    return null;
+};
+
+const getMetadataNumericValue = (item: Item | null, bid: string, attributes: SystemAttribute[], part: 'current' | 'max'): string => {
     if (!item) {
         return '';
     }
 
-    const raw = item.metadata?.[key];
-    if (raw === null || raw === undefined) {
+    const raw = getHpValueFromMetadata(item.metadata, bid, attributes, part);
+    if (raw === null) {
         return '';
     }
 
@@ -123,6 +146,7 @@ const getMetadataNumericValue = (item: Item | null, key: string): string => {
 const ContextMenuHpEditor = () => {
     const [cache, setCache] = useState<CacheState>({ sceneMetadata: {}, roomMetadata: {} });
     const [snapshotTheme, setSnapshotTheme] = useState<ThemeData | null>(null);
+    const [systemAttributes, setSystemAttributes] = useState<SystemAttribute[]>(defaultGameSystem.attributes as SystemAttribute[]);
     const [selectedItemId, setSelectedItemId] = useState<string>('');
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
     const [currentHp, setCurrentHp] = useState('');
@@ -138,18 +162,9 @@ const ContextMenuHpEditor = () => {
         return DEFAULT_THEME;
     }, [snapshotTheme]);
 
-    const currentHpBid = useMemo(() => {
-        const fromStorage = storage[SettingsConstants.HP_CURRENT_BID];
-        return typeof fromStorage === 'string' && fromStorage.trim().length > 0 ? fromStorage : MOCK_BIDS.CURRENT_HP;
-    }, [storage]);
-
-    const maxHpBid = useMemo(() => {
-        const fromStorage = storage[SettingsConstants.HP_MAX_BID];
-        return typeof fromStorage === 'string' && fromStorage.trim().length > 0 ? fromStorage : MOCK_BIDS.MAX_HP;
-    }, [storage]);
-
-    const currentHpKey = `${OwlbearIds.EXTENSIONID}/${currentHpBid}`;
-    const maxHpKey = `${OwlbearIds.EXTENSIONID}/${maxHpBid}`;
+    const { currentHpBid, maxHpBid } = useMemo(() => {
+        return getConfiguredHpBidKeys(storage, systemAttributes);
+    }, [storage, systemAttributes]);
 
     useEffect(() => {
         let mounted = true;
@@ -159,6 +174,7 @@ const ContextMenuHpEditor = () => {
             if (typeof snapshotId !== 'string' || snapshotId.trim().length === 0) {
                 if (mounted) {
                     setSnapshotTheme(null);
+                    setSystemAttributes(defaultGameSystem.attributes as SystemAttribute[]);
                 }
                 return;
             }
@@ -170,6 +186,7 @@ const ContextMenuHpEditor = () => {
             if (error) {
                 if (mounted) {
                     setSnapshotTheme(null);
+                    setSystemAttributes(defaultGameSystem.attributes as SystemAttribute[]);
                 }
                 return;
             }
@@ -178,6 +195,7 @@ const ContextMenuHpEditor = () => {
             if (!snapshot || typeof snapshot !== 'object') {
                 if (mounted) {
                     setSnapshotTheme(null);
+                    setSystemAttributes(defaultGameSystem.attributes as SystemAttribute[]);
                 }
                 return;
             }
@@ -188,16 +206,21 @@ const ContextMenuHpEditor = () => {
                 theme_background: string;
                 theme_border: string;
                 background_url: string;
+                attributes: unknown;
             }>;
+
+            const parsedAttributes = parseSystemArrayField<SystemAttribute>(parsed.attributes);
 
             if (
                 typeof parsed.theme_primary !== 'string'
                 || typeof parsed.theme_offset !== 'string'
                 || typeof parsed.theme_background !== 'string'
                 || typeof parsed.theme_border !== 'string'
+                || !Array.isArray(parsedAttributes)
             ) {
                 if (mounted) {
                     setSnapshotTheme(null);
+                    setSystemAttributes(defaultGameSystem.attributes as SystemAttribute[]);
                 }
                 return;
             }
@@ -210,6 +233,7 @@ const ContextMenuHpEditor = () => {
                     border: parsed.theme_border,
                     background_url: typeof parsed.background_url === 'string' ? parsed.background_url : '',
                 });
+                setSystemAttributes(parsedAttributes);
             }
         };
 
@@ -282,19 +306,18 @@ const ContextMenuHpEditor = () => {
     }, [selectedItemId]);
 
     useEffect(() => {
-        setCurrentHp(getMetadataNumericValue(selectedItem, currentHpKey));
-        setMaxHp(getMetadataNumericValue(selectedItem, maxHpKey));
-    }, [selectedItem, currentHpKey, maxHpKey]);
+        setCurrentHp(getMetadataNumericValue(selectedItem, currentHpBid, systemAttributes, 'current'));
+        setMaxHp(getMetadataNumericValue(selectedItem, maxHpBid, systemAttributes, 'max'));
+    }, [selectedItem, currentHpBid, maxHpBid, systemAttributes]);
 
-    const commitValue = async (bid: string, draftValue: string) => {
+    const commitValue = async (bid: string, draftValue: string, part: 'current' | 'max') => {
         if (!selectedItem) {
             return;
         }
 
         const normalized = normalizeNumberInput(draftValue);
         if (normalized === null) {
-            const key = `${OwlbearIds.EXTENSIONID}/${bid}`;
-            const fallback = getMetadataNumericValue(selectedItem, key);
+            const fallback = getMetadataNumericValue(selectedItem, bid, systemAttributes, part);
             if (bid === currentHpBid) {
                 setCurrentHp(fallback);
             } else {
@@ -309,7 +332,18 @@ const ContextMenuHpEditor = () => {
                 return;
             }
 
-            item.metadata[`${OwlbearIds.EXTENSIONID}/${bid}`] = normalized;
+            const attribute = getAttributeByBid(systemAttributes, bid);
+            const metadataKey = getHpMetadataKey(bid);
+            const otherPart = part === 'current' ? 'max' : 'current';
+            const fallbackOtherValue = getHpValueFromMetadata(item.metadata, bid, systemAttributes, otherPart);
+
+            item.metadata[metadataKey] = buildHpMetadataValue(
+                item.metadata[metadataKey],
+                attribute,
+                part,
+                Number(normalized),
+                fallbackOtherValue
+            );
         });
     };
 
@@ -327,7 +361,7 @@ const ContextMenuHpEditor = () => {
                         value={currentHp}
                         disabled={!hasSelectedItem}
                         onChange={(event) => setCurrentHp(event.target.value)}
-                        onBlur={() => { void commitValue(currentHpBid, currentHp); }}
+                        onBlur={() => { void commitValue(currentHpBid, currentHp, 'current'); }}
                         onKeyDown={(event) => {
                             if (event.key === 'Enter') {
                                 event.currentTarget.blur();
@@ -344,7 +378,7 @@ const ContextMenuHpEditor = () => {
                         value={maxHp}
                         disabled={!hasSelectedItem}
                         onChange={(event) => setMaxHp(event.target.value)}
-                        onBlur={() => { void commitValue(maxHpBid, maxHp); }}
+                        onBlur={() => { void commitValue(maxHpBid, maxHp, 'max'); }}
                         onKeyDown={(event) => {
                             if (event.key === 'Enter') {
                                 event.currentTarget.blur();

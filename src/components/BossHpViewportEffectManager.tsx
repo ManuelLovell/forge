@@ -2,11 +2,12 @@ import { useEffect } from 'react';
 import OBR, { buildEffect, isEffect, isImage, Item } from '@owlbear-rodeo/sdk';
 import { useSceneStore } from '../helpers/BSCache';
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
-import { EXTENSION_ID, MOCK_BIDS } from '../helpers/MockData';
+import { EXTENSION_ID } from '../helpers/MockData';
 import LOGGER from '../helpers/Logger';
-import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
+import { UnitConstants } from '../interfaces/MetadataKeys';
 import { SystemAttribute } from '../interfaces/SystemResponse';
 import { BOSS_HP_VIEWPORT_EFFECT } from '../assets/bossHpViewportEffect';
+import { getConfiguredHpBidKeys, getHpValueFromMetadata } from '../helpers/hpAttributeMapping';
 
 const BOSS_HP_EFFECT_FLAG = `${EXTENSION_ID}/boss-hp-effect`;
 const BOSS_HP_EFFECT_OWNER = `${EXTENSION_ID}/boss-hp-owner`;
@@ -16,63 +17,9 @@ const getBossEffectId = (slot: number) => `BOSSHP${slot}`;
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 
-const parseNumeric = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const parsed = parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-};
-
-const getHpBidKeys = (attributes: SystemAttribute[]) => {
-  const currentHp = attributes.find((attribute) => {
-    const abbr = (attribute.attr_abbr || '').toUpperCase();
-    const name = (attribute.attr_name || '').toLowerCase();
-    return abbr === 'HP' || name === 'hit points';
-  });
-
-  const maxHp = attributes.find((attribute) => {
-    const abbr = (attribute.attr_abbr || '').toUpperCase();
-    const name = (attribute.attr_name || '').toLowerCase();
-    return abbr === 'MHP' || name === 'max hit points';
-  });
-
-  return {
-    currentHpBid: currentHp?.attr_bid || MOCK_BIDS.CURRENT_HP,
-    maxHpBid: maxHp?.attr_bid || MOCK_BIDS.MAX_HP,
-  };
-};
-
-const getConfiguredHpBidKeys = (
-  storage: Record<string, unknown>,
-  attributes: SystemAttribute[]
-) => {
-  const inferred = getHpBidKeys(attributes);
-  const configuredCurrent = storage[SettingsConstants.HP_CURRENT_BID] as string | undefined;
-  const configuredMax = storage[SettingsConstants.HP_MAX_BID] as string | undefined;
-
-  const attributeBids = new Set(attributes.map((attribute) => attribute.attr_bid));
-
-  return {
-    currentHpBid: configuredCurrent && attributeBids.has(configuredCurrent)
-      ? configuredCurrent
-      : inferred.currentHpBid,
-    maxHpBid: configuredMax && attributeBids.has(configuredMax)
-      ? configuredMax
-      : inferred.maxHpBid,
-  };
-};
-
-const getHpPercent = (unit: Item, currentHpBid: string, maxHpBid: string): number | null => {
-  const currentRaw = unit.metadata?.[`${EXTENSION_ID}/${currentHpBid}`];
-  const maxRaw = unit.metadata?.[`${EXTENSION_ID}/${maxHpBid}`];
-  const currentHp = parseNumeric(currentRaw);
-  const maxHp = parseNumeric(maxRaw);
+const getHpPercent = (unit: Item, currentHpBid: string, maxHpBid: string, attributes: SystemAttribute[]): number | null => {
+  const currentHp = getHpValueFromMetadata(unit.metadata, currentHpBid, attributes, 'current');
+  const maxHp = getHpValueFromMetadata(unit.metadata, maxHpBid, attributes, 'max');
 
   if (maxHp === null || maxHp <= 0 || currentHp === null) {
     return null;
@@ -126,7 +73,7 @@ export const BossHpViewportEffectManager = () => {
 
       const desired = bossCandidates
         .map((unit, slot) => {
-          const hpPercent = getHpPercent(unit, currentHpBid, maxHpBid);
+          const hpPercent = getHpPercent(unit, currentHpBid, maxHpBid, attributes);
           if (hpPercent === null) {
             return null;
           }

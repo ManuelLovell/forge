@@ -30,6 +30,8 @@ import {
   isBuffVisualPreset,
   isDebuffVisualPreset,
 } from '../helpers/EffectVisualPresets';
+import { getHpBidKeys } from '../helpers/hpAttributeMapping';
+import { useTranslation } from '../i18n/Translation';
 import type { BuffVisualPreset, DebuffVisualPreset } from '../helpers/EffectVisualPresets';
 
 const EXTENSION_ID = OwlbearIds.EXTENSIONID;
@@ -79,28 +81,7 @@ interface SystemBackup {
   attributes: SystemAttribute[];
 }
 
-const getDefaultHpBidKeys = () => {
-  const attributes = defaultGameSystem.attributes as SystemAttribute[];
-
-  const currentHp = attributes.find((attribute) => {
-    const abbr = (attribute.attr_abbr || '').toUpperCase();
-    const name = (attribute.attr_name || '').toLowerCase();
-    return abbr === 'HP' || name === 'hit points';
-  });
-
-  const maxHp = attributes.find((attribute) => {
-    const abbr = (attribute.attr_abbr || '').toUpperCase();
-    const name = (attribute.attr_name || '').toLowerCase();
-    return abbr === 'MHP' || name === 'max hit points';
-  });
-
-  return {
-    currentHpBid: currentHp?.attr_bid || '',
-    maxHpBid: maxHp?.attr_bid || '',
-  };
-};
-
-const DEFAULT_HP_BID_KEYS = getDefaultHpBidKeys();
+const DEFAULT_HP_BID_KEYS = getHpBidKeys(defaultGameSystem.attributes as SystemAttribute[]);
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (error instanceof Error && error.message) {
@@ -205,7 +186,10 @@ const MappingSelect = styled.select<{ theme: ForgeTheme }>`
   color: ${props => props.theme.PRIMARY};
   border: 2px solid ${props => props.theme.BORDER};
   border-radius: 6px;
-  padding: 6px 8px;
+  padding: 6px 20px 6px 8px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  width: 100%;
   font-size: 13px;
 
   &:focus {
@@ -320,6 +304,7 @@ const pageVariants = {
 
 export const SystemPage = () => {
   const { theme, updateThemeFromSystem } = useForgeTheme();
+  const { t, locale } = useTranslation();
   const sceneMetadata = useSceneStore((state) => state.sceneMetadata);
   const roomMetadata = useSceneStore((state) => state.roomMetadata);
   const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
@@ -351,6 +336,16 @@ export const SystemPage = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
   const [confirmMessage, setConfirmMessage] = useState('');
+
+  const buffVisualPresetLabels: Record<BuffVisualPreset, string> = {
+    buff_effect_one: t('system.buffVisualPreset.buff_effect_one'),
+    buff_effect_two: t('system.buffVisualPreset.buff_effect_two'),
+  };
+
+  const debuffVisualPresetLabels: Record<DebuffVisualPreset, string> = {
+    debuff_effect_one: t('system.debuffVisualPreset.debuff_effect_one'),
+    debuff_effect_two: t('system.debuffVisualPreset.debuff_effect_two'),
+  };
 
   // Keep premium lock state in sync with auth changes (including connect from Settings).
   useEffect(() => {
@@ -515,20 +510,23 @@ export const SystemPage = () => {
       try {
         parsed = JSON.parse(value);
       } catch {
-        throw new Error(`Imported ${fieldName} is not valid JSON`);
+        throw new Error(t('system.error.invalidJsonField', { field: fieldName }));
       }
 
       if (!Array.isArray(parsed)) {
-        throw new Error(`Imported ${fieldName} is not a JSON array`);
+        throw new Error(t('system.error.invalidArrayField', { field: fieldName }));
       }
 
       return parsed as T[];
     }
 
-    throw new Error(`Imported ${fieldName} has invalid type`);
+    throw new Error(t('system.error.invalidFieldType', { field: fieldName }));
   };
 
-  const numericAttributes = systemAttributes.filter((attribute) => attribute.attr_type === 'numb');
+  const hpMappableAttributes = systemAttributes.filter((attribute) => {
+    const type = String(attribute.attr_type || '').toLowerCase();
+    return type === 'numb' || type === 'resource';
+  });
 
   const loadBackups = () => {
     try {
@@ -594,10 +592,10 @@ export const SystemPage = () => {
       localStorage.removeItem(backupKey);
       LOGGER.log(`Backup deleted for ${systemName}`);
       loadBackups(); // Refresh backup list
-      setSuccess(`Backup for "${systemName}" deleted successfully`);
+      setSuccess(t('system.success.backupDeleted', { name: systemName }));
     } catch (err) {
       LOGGER.error('Error deleting backup:', err);
-      setError('Failed to delete backup');
+      setError(t('system.error.deleteBackup'));
     }
   };
 
@@ -623,13 +621,13 @@ export const SystemPage = () => {
 
   const fetchAndSaveSystem = async () => {
     if (!shareId.trim()) {
-      setError('Please enter a share_id');
+      setError(t('system.error.enterShareId'));
       return;
     }
 
     // Show confirmation before importing
     confirmAction(
-      'This will overwrite your current system data. A backup of your current system will be saved to local storage. Do you want to continue?',
+      t('system.confirm.importSystem'),
       async () => {
         await performSystemImport();
       }
@@ -638,7 +636,7 @@ export const SystemPage = () => {
 
   const performSystemImport = async () => {
     if (!isPremiumAuthorized()) {
-      setError('Premium account required. Connect and use a premium Battle-System account before importing systems.');
+      setError(t('system.error.premiumImport'));
       return;
     }
 
@@ -658,14 +656,14 @@ export const SystemPage = () => {
       if (fetchError) throw fetchError;
 
       if (!data) {
-        setError('No system found with that share_id');
+        setError(t('system.error.noSystemFound'));
         setLoading(false);
         return;
       }
 
       const importedSnapshot = (Array.isArray(data) ? data[0] : data) as SnapshotSystemRecord | null;
       if (!importedSnapshot || typeof importedSnapshot.snapshot_public_id !== 'string') {
-        throw new Error('Snapshot import did not return a valid record');
+        throw new Error(t('system.error.snapshotInvalid'));
       }
 
       const cardLayout = parseSnapshotArrayField<CardLayoutComponent>(importedSnapshot.card_layout, 'card_layout');
@@ -673,7 +671,7 @@ export const SystemPage = () => {
       const attributes = parseSnapshotArrayField<SystemAttribute>(importedSnapshot.attributes, 'attributes');
 
       if (!Array.isArray(attributes)) {
-        throw new Error('Imported attributes are not a valid array');
+        throw new Error(t('system.error.attributesInvalid'));
       }
 
       // Create backup of current system before overwriting
@@ -720,7 +718,7 @@ export const SystemPage = () => {
         themeData.background_url
       );
 
-      setSuccess(`System "${importedSnapshot.system_name}" loaded successfully! Backup created.`);
+      setSuccess(t('system.success.systemImported', { name: importedSnapshot.system_name }));
       setShareId('');
 
       LOGGER.log('System snapshot imported and loaded:', {
@@ -730,7 +728,7 @@ export const SystemPage = () => {
 
     } catch (err: unknown) {
       LOGGER.error('Error fetching system:', err);
-      setError(getErrorMessage(err, 'An error occurred while fetching the system'));
+      setError(getErrorMessage(err, t('system.error.fetchSystem')));
     } finally {
       setLoading(false);
     }
@@ -738,7 +736,7 @@ export const SystemPage = () => {
 
   const importFromBackup = async (backup: SystemBackup) => {
     confirmAction(
-      `This will restore the system "${backup.name}" from backup. A backup of your current system will be created. Do you want to continue?`,
+      t('system.confirm.restoreBackup', { name: backup.name }),
       async () => {
         await performBackupRestore(backup);
       }
@@ -752,7 +750,7 @@ export const SystemPage = () => {
 
     try {
       if (!isPremiumAuthorized()) {
-        setError('Premium account required. Connect and use a premium Battle-System account before restoring backups for room sharing.');
+        setError(t('system.error.premiumRestore'));
         return;
       }
 
@@ -771,7 +769,7 @@ export const SystemPage = () => {
       };
 
       if (!Array.isArray(backup.card_layout) || !Array.isArray(backup.list_layout) || !Array.isArray(backup.attributes)) {
-        throw new Error('Backup data is invalid');
+        throw new Error(t('system.error.backupInvalid'));
       }
 
       const restoreTimestamp = new Date().toISOString();
@@ -798,7 +796,7 @@ export const SystemPage = () => {
 
       const publishedSnapshot = (Array.isArray(publishData) ? publishData[0] : publishData) as SnapshotSystemRecord | null;
       if (!publishedSnapshot || typeof publishedSnapshot.snapshot_public_id !== 'string') {
-        throw new Error('Backup restore snapshot publish failed');
+        throw new Error(t('system.error.backupPublishFailed'));
       }
 
       const restoredRuntimeData: RuntimeSystemData = {
@@ -833,12 +831,12 @@ export const SystemPage = () => {
         themeData.background_url
       );
 
-      setSuccess(`System "${backup.name}" restored from backup successfully!`);
+      setSuccess(t('system.success.backupRestored', { name: backup.name }));
       LOGGER.log('System restored from backup:', backup.name);
 
     } catch (err: unknown) {
       LOGGER.error('Error restoring backup:', err);
-      setError('Failed to restore system from backup');
+      setError(t('system.error.restoreBackup'));
     } finally {
       setLoading(false);
     }
@@ -888,9 +886,9 @@ export const SystemPage = () => {
         defaultTheme.background_url
       );
 
-      setSuccess('Reset to default system successfully!');
+      setSuccess(t('system.success.resetDefault'));
     } catch (err: unknown) {
-      setError('Failed to reset to default system');
+      setError(t('system.error.resetDefault'));
       LOGGER.error('Error resetting to default:', err);
     } finally {
       setLoading(false);
@@ -900,7 +898,7 @@ export const SystemPage = () => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return null;
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(locale, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -921,18 +919,18 @@ export const SystemPage = () => {
       exit="exit"
     >
       <PageContainer theme={theme}>
-        <PageTitle theme={theme}>System Configuration</PageTitle>
+        <PageTitle theme={theme}>{t('system.pageTitle')}</PageTitle>
 
         {/* Current System Display */}
         <SystemName theme={theme}>{currentSystemName}</SystemName>
 
         {currentImportDate ? (
           <ImportDate theme={theme}>
-            Imported: {formatDate(currentImportDate)}
+            {t('system.importedOn', { value: formatDate(currentImportDate) })}
           </ImportDate>
         ) : (
           <ImportDate theme={theme}>
-            Using Default System
+            {t('system.usingDefaultSystem')}
           </ImportDate>
         )}
 
@@ -943,32 +941,32 @@ export const SystemPage = () => {
                 <ColorSwatch color={currentTheme.primary} theme={theme}>
                   {currentTheme.primary}
                 </ColorSwatch>
-                <SwatchLabel theme={theme}>PRIMARY</SwatchLabel>
+                <SwatchLabel theme={theme}>{t('system.swatch.primary')}</SwatchLabel>
               </div>
               <div>
                 <ColorSwatch color={currentTheme.offset} theme={theme}>
                   {currentTheme.offset}
                 </ColorSwatch>
-                <SwatchLabel theme={theme}>OFFSET</SwatchLabel>
+                <SwatchLabel theme={theme}>{t('system.swatch.offset')}</SwatchLabel>
               </div>
               <div>
                 <ColorSwatch color={currentTheme.background} theme={theme}>
                   {currentTheme.background}
                 </ColorSwatch>
-                <SwatchLabel theme={theme}>BG</SwatchLabel>
+                <SwatchLabel theme={theme}>{t('system.swatch.background')}</SwatchLabel>
               </div>
               <div>
                 <ColorSwatch color={currentTheme.border} theme={theme}>
                   {currentTheme.border}
                 </ColorSwatch>
-                <SwatchLabel theme={theme}>BORDER</SwatchLabel>
+                <SwatchLabel theme={theme}>{t('system.swatch.border')}</SwatchLabel>
               </div>
             </SwatchContainer>
 
             <MappingSection theme={theme}>
-              <MappingTitle theme={theme}>System Settings</MappingTitle>
+              <MappingTitle theme={theme}>{t('system.settingsSectionTitle')}</MappingTitle>
               <MappingRow>
-                <MappingLabel theme={theme}>Current HP</MappingLabel>
+                <MappingLabel theme={theme}>{t('system.currentHp')}</MappingLabel>
                 <MappingSelect
                   theme={theme}
                   value={hpCurrentBid}
@@ -982,16 +980,16 @@ export const SystemPage = () => {
                     await saveHpAttributeMapping(SettingsConstants.HP_CURRENT_BID, value);
                   }}
                 >
-                  <option value="">-- Select Attribute --</option>
-                  {numericAttributes.map((attribute) => (
+                  <option value="">{t('system.selectAttribute')}</option>
+                  {hpMappableAttributes.map((attribute) => (
                     <option key={attribute.attr_bid} value={attribute.attr_bid}>
-                      {attribute.attr_abbr} — {attribute.attr_name}
+                      {attribute.attr_abbr} — {attribute.attr_name}{String(attribute.attr_type || '').toLowerCase() === 'resource' ? t('system.resourceOptionSuffix') : ''}
                     </option>
                   ))}
                 </MappingSelect>
               </MappingRow>
               <MappingRow>
-                <MappingLabel theme={theme}>Max HP</MappingLabel>
+                <MappingLabel theme={theme}>{t('system.maxHp')}</MappingLabel>
                 <MappingSelect
                   theme={theme}
                   value={hpMaxBid}
@@ -1005,21 +1003,21 @@ export const SystemPage = () => {
                     await saveHpAttributeMapping(SettingsConstants.HP_MAX_BID, value);
                   }}
                 >
-                  <option value="">-- Select Attribute --</option>
-                  {numericAttributes.map((attribute) => (
+                  <option value="">{t('system.selectAttribute')}</option>
+                  {hpMappableAttributes.map((attribute) => (
                     <option key={attribute.attr_bid} value={attribute.attr_bid}>
-                      {attribute.attr_abbr} — {attribute.attr_name}
+                      {attribute.attr_abbr} — {attribute.attr_name}{String(attribute.attr_type || '').toLowerCase() === 'resource' ? t('system.resourceOptionSuffix') : ''}
                     </option>
                   ))}
                 </MappingSelect>
               </MappingRow>
               {isHpMappingLocked && (
                 <ImportDate theme={theme}>
-                  Premium account required to edit HP mapping.
+                  {t('system.premiumHpMappingLocked')}
                 </ImportDate>
               )}
               <MappingRow>
-                <MappingLabel theme={theme}>Buff Visual</MappingLabel>
+                <MappingLabel theme={theme}>{t('system.buffVisual')}</MappingLabel>
                 <MappingSelect
                   theme={theme}
                   value={buffVisualPreset}
@@ -1040,13 +1038,13 @@ export const SystemPage = () => {
                 >
                   {BUFF_VISUAL_PRESET_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
-                      {option.label}
+                      {buffVisualPresetLabels[option.value]}
                     </option>
                   ))}
                 </MappingSelect>
               </MappingRow>
               <MappingRow>
-                <MappingLabel theme={theme}>Debuff Visual</MappingLabel>
+                <MappingLabel theme={theme}>{t('system.debuffVisual')}</MappingLabel>
                 <MappingSelect
                   theme={theme}
                   value={debuffVisualPreset}
@@ -1067,7 +1065,7 @@ export const SystemPage = () => {
                 >
                   {DEBUFF_VISUAL_PRESET_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
-                      {option.label}
+                      {debuffVisualPresetLabels[option.value]}
                     </option>
                   ))}
                 </MappingSelect>
@@ -1078,11 +1076,11 @@ export const SystemPage = () => {
 
         {/* Import New System */}
         <SystemInfo theme={theme}>
-          <h3 style={{ color: theme.PRIMARY, marginTop: 0 }}>Import New System</h3>
+          <h3 style={{ color: theme.PRIMARY, marginTop: 0 }}>{t('system.importSectionTitle')}</h3>
           <p style={{ color: rgbaFromHex(theme.PRIMARY, 0.8), fontSize: '14px' }}>
             {isImportLocked
-              ? 'Premium account required to import new/custom systems.'
-              : 'Enter a share_id to download and activate a new game system configuration.'}
+              ? t('system.importLockedDescription')
+              : t('system.importDescription')}
           </p>
 
           <InputGroup>
@@ -1091,7 +1089,7 @@ export const SystemPage = () => {
               type="text"
               value={shareId}
               onChange={(e) => setShareId(e.target.value)}
-              placeholder={isImportLocked ? '' : 'Enter Share Id...'}
+              placeholder={isImportLocked ? '' : t('system.shareIdPlaceholder')}
               disabled={loading || isImportLocked}
               onKeyPress={(e) => e.key === 'Enter' && fetchAndSaveSystem()}
             />
@@ -1103,7 +1101,7 @@ export const SystemPage = () => {
               onClick={fetchAndSaveSystem}
               disabled={loading || isImportLocked || !shareId.trim()}
             >
-              {loading ? '....!' : 'Import System'}
+              {loading ? t('system.importButtonLoading') : t('system.importButton')}
             </Button>
             <Button
               theme={theme}
@@ -1111,20 +1109,20 @@ export const SystemPage = () => {
               onClick={resetToDefault}
               disabled={loading}
             >
-              Use Default
+              {t('system.useDefaultButton')}
             </Button>
           </ButtonGroup>
         </SystemInfo>
 
         {error && (
           <ErrorMessage theme={theme}>
-            <strong>Error:</strong> {error}
+            <strong>{t('system.errorPrefix')}</strong> {error}
           </ErrorMessage>
         )}
 
         {success && (
           <SuccessMessage theme={theme}>
-            <strong>Success:</strong> {success}
+            <strong>{t('system.successPrefix')}</strong> {success}
           </SuccessMessage>
         )}
 
@@ -1133,7 +1131,7 @@ export const SystemPage = () => {
           <BackupSection>
             <Card theme={theme}>
               <h3 style={{ color: theme.PRIMARY, marginTop: 0, marginBottom: '15px' }}>
-                System Backups
+                {t('system.backupsSectionTitle')}
               </h3>
               <BackupList>
                 {backups.map((backup) => (
@@ -1141,7 +1139,7 @@ export const SystemPage = () => {
                     <BackupInfo>
                       <BackupName theme={theme}>{backup.name}</BackupName>
                       <BackupDate theme={theme}>
-                        Backed up: {formatDate(backup.backupDate)}
+                        {t('system.backedUpOn', { value: formatDate(backup.backupDate) })}
                       </BackupDate>
                     </BackupInfo>
                     <BackupActions>
@@ -1149,7 +1147,7 @@ export const SystemPage = () => {
                         theme={theme}
                         onClick={() => importFromBackup(backup)}
                         disabled={loading}
-                        title="Import this backup"
+                        title={t('system.importBackupTitle')}
                       >
                         <Upload size={18} />
                       </IconButton>
@@ -1158,7 +1156,7 @@ export const SystemPage = () => {
                         $variant="danger"
                         onClick={() => deleteBackup(backup.name)}
                         disabled={loading}
-                        title="Delete this backup"
+                        title={t('system.deleteBackupTitle')}
                       >
                         <X size={18} />
                       </IconButton>
@@ -1173,15 +1171,15 @@ export const SystemPage = () => {
 
       <PopupModal
         isOpen={showConfirmModal}
-        title="Confirm Action"
+        title={t('system.confirmActionTitle')}
         onClose={handleCancel}
         actions={(
           <>
             <Button theme={theme} variant="secondary" onClick={handleCancel}>
-              Cancel
+              {t('system.cancel')}
             </Button>
             <Button theme={theme} onClick={handleConfirm}>
-              Confirm
+              {t('system.confirm')}
             </Button>
           </>
         )}

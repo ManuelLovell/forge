@@ -2,58 +2,20 @@ import { useEffect } from 'react';
 import OBR, { buildEffect, isEffect, isImage, Item } from '@owlbear-rodeo/sdk';
 import { useSceneStore } from '../helpers/BSCache';
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
-import { EXTENSION_ID, MOCK_BIDS } from '../helpers/MockData';
+import { EXTENSION_ID } from '../helpers/MockData';
 import LOGGER from '../helpers/Logger';
 import { deathMarkEffect } from '../assets/deathEffect';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { SystemAttribute } from '../interfaces/SystemResponse';
+import { getConfiguredHpBidKeys, getHpValueFromMetadata } from '../helpers/hpAttributeMapping';
 
 const DEATH_EFFECT_FLAG = `${EXTENSION_ID}/death-effect-token`;
 const DEATH_EFFECT_OWNER = `${EXTENSION_ID}/death-effect-owner`;
 
 const getDeathEffectId = (unitId: string) => `DTH${unitId.slice(3)}`;
 
-const parseNumeric = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const parsed = parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-};
-
-const getHpBidKeys = (attributes: SystemAttribute[]) => {
-  const currentHp = attributes.find((attribute) => {
-    const abbr = (attribute.attr_abbr || '').toUpperCase();
-    const name = (attribute.attr_name || '').toLowerCase();
-    return abbr === 'HP' || name === 'hit points';
-  });
-
-  return {
-    currentHpBid: currentHp?.attr_bid || MOCK_BIDS.CURRENT_HP,
-  };
-};
-
-const getConfiguredCurrentHpBid = (
-  storage: Record<string, unknown>,
-  attributes: SystemAttribute[]
-) => {
-  const inferred = getHpBidKeys(attributes);
-  const configuredCurrent = storage[SettingsConstants.HP_CURRENT_BID] as string | undefined;
-  const attributeBids = new Set(attributes.map((attribute) => attribute.attr_bid));
-
-  return configuredCurrent && attributeBids.has(configuredCurrent)
-    ? configuredCurrent
-    : inferred.currentHpBid;
-};
-
-const getCurrentHp = (unit: Item, currentHpBid: string): number | null => {
-  const currentRaw = unit.metadata?.[`${EXTENSION_ID}/${currentHpBid}`];
-  return parseNumeric(currentRaw);
+const getCurrentHp = (unit: Item, currentHpBid: string, attributes: SystemAttribute[]): number | null => {
+  return getHpValueFromMetadata(unit.metadata, currentHpBid, attributes, 'current');
 };
 
 interface EffectMetadataCarrier {
@@ -80,7 +42,7 @@ export const DeathEffectManager = () => {
       const storage = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
       const showDeathEffect = (storage[SettingsConstants.SHOW_DEATH_EFFECT] as boolean | undefined) ?? false;
       const attributes = runtimeSystemData?.attributes || [];
-      const currentHpBid = getConfiguredCurrentHpBid(storage, attributes);
+      const currentHpBid = getConfiguredHpBidKeys(storage, attributes).currentHpBid;
 
       const existingEffects = localItems.filter((item) => {
         return isEffect(item) && item.metadata?.[DEATH_EFFECT_FLAG] === true;
@@ -101,11 +63,11 @@ export const DeathEffectManager = () => {
         return isImage(item) && item.metadata?.[UnitConstants.ON_LIST] === true;
       });
 
-      const desiredByOverlayId = new Map<string, string>();
+      const desiredByOverlayId = new Map<string, {ownerId: string, visible: boolean}>();
       trackedUnits.forEach((unit) => {
-        const currentHp = getCurrentHp(unit, currentHpBid);
+        const currentHp = getCurrentHp(unit, currentHpBid, attributes);
         if (currentHp === 0) {
-          desiredByOverlayId.set(getDeathEffectId(unit.id), unit.id);
+          desiredByOverlayId.set(getDeathEffectId(unit.id), {ownerId: unit.id, visible: unit.visible});
         }
       });
 
@@ -113,13 +75,13 @@ export const DeathEffectManager = () => {
       const toAdd = Array.from(desiredByOverlayId.entries()).filter(([overlayId]) => !existingById.has(overlayId));
       const toRemove = existingEffects.filter((item) => !desiredByOverlayId.has(item.id));
       const toUpdate = existingEffects.filter((item) => {
-        const ownerId = desiredByOverlayId.get(item.id);
-        if (!ownerId) {
+        const owner = desiredByOverlayId.get(item.id);
+        if (!owner) {
           return false;
         }
 
         const itemWithMetadata = item as typeof item & EffectMetadataCarrier;
-        return item.attachedTo !== ownerId || itemWithMetadata.metadata?.[DEATH_EFFECT_OWNER] !== ownerId;
+        return item.attachedTo !== owner.ownerId || itemWithMetadata.metadata?.[DEATH_EFFECT_OWNER] !== owner.ownerId;
       });
 
       if (cancelled) {
@@ -135,19 +97,20 @@ export const DeathEffectManager = () => {
       }
 
       if (toAdd.length > 0) {
-        const effectsToAdd = toAdd.map(([overlayId, ownerId]) => (
+        const effectsToAdd = toAdd.map(([overlayId, owner]) => (
           buildEffect()
             .id(overlayId)
             .name('Death Token Effect')
             .effectType('ATTACHMENT')
-            .attachedTo(ownerId)
+            .attachedTo(owner.ownerId)
             .locked(true)
             .disableHit(true)
             .disableAttachmentBehavior(['ROTATION', 'SCALE'])
             .sksl(deathMarkEffect)
+            .visible(owner.visible)
             .metadata({
               [DEATH_EFFECT_FLAG]: true,
-              [DEATH_EFFECT_OWNER]: ownerId,
+              [DEATH_EFFECT_OWNER]: owner.ownerId,
             })
             .build()
         ));
@@ -163,16 +126,16 @@ export const DeathEffectManager = () => {
         try {
           await OBR.scene.local.updateItems(toUpdate.map((item) => item.id), (updateItems) => {
             updateItems.forEach((itemToUpdate) => {
-              const ownerId = desiredByOverlayId.get(itemToUpdate.id);
-              if (!ownerId) {
+              const owner = desiredByOverlayId.get(itemToUpdate.id);
+              if (!owner) {
                 return;
               }
 
-              itemToUpdate.attachedTo = ownerId;
+              itemToUpdate.attachedTo = owner.ownerId;
               itemToUpdate.metadata = {
                 ...itemToUpdate.metadata,
                 [DEATH_EFFECT_FLAG]: true,
-                [DEATH_EFFECT_OWNER]: ownerId,
+                [DEATH_EFFECT_OWNER]: owner.ownerId,
               };
             });
           });

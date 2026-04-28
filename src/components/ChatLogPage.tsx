@@ -5,6 +5,7 @@ import tw from 'twin.macro';
 import { useChatLogStore } from '../helpers/ChatLogStore';
 import { PageTitle } from './SharedStyledComponents';
 import { useForgeTheme } from '../helpers/ThemeContext';
+import { useTranslation } from '../i18n/Translation';
 
 const ChatContainer = styled.div`
   ${tw`flex flex-col h-full p-4`}
@@ -36,6 +37,7 @@ export const ChatLogPage = () => {
   const messages = useChatLogStore((state) => state.messages);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { theme } = useForgeTheme();
+  const { t } = useTranslation();
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -50,7 +52,7 @@ export const ChatLogPage = () => {
       style={{ height: '100%' }}
     >
       <ChatContainer>
-        <PageTitle theme={theme}>System Log</PageTitle>
+        <PageTitle theme={theme}>{t('nav.systemLog')}</PageTitle>
         <ChatWindow>
           {messages.map((msg) => (
             <MessageRow key={msg.id}>

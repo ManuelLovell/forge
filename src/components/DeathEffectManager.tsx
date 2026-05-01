@@ -102,6 +102,7 @@ export const DeathEffectManager = () => {
             .id(overlayId)
             .name('Death Token Effect')
             .effectType('ATTACHMENT')
+            .layer('ATTACHMENT')
             .attachedTo(owner.ownerId)
             .locked(true)
             .disableHit(true)

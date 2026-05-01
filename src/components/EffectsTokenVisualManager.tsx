@@ -211,6 +211,7 @@ export const EffectsTokenVisualManager = () => {
               .id(overlayId)
               .name(name)
               .effectType('ATTACHMENT')
+              .layer('ATTACHMENT')
               .attachedTo(ownerId)
               .locked(true)
               .disableHit(true)

@@ -128,13 +128,10 @@ export const Navigation = ({ isOpen, currentPage, onToggle, onNavigate, canAcces
               </LocaleSwitcherWrap>
             </MenuHeader>
             <MenuSubText theme={theme}>
-              {t('nav.goodLuck')}
+              {t('nav.featureRequest')}
               <br/>
               <br/>
-              {t('nav.questions')}
-              <a href="https://discord.gg/Kh9hbHAZnX" target="_blank" rel="noreferrer"><br/>{t('nav.battleSystemDiscord')}</a>.
-              <br/>
-              <a href="https://www.patreon.com/c/battlesystem" target="_blank" rel="noreferrer"><br/>{t('nav.patreon')}</a>.
+              {t('nav.featureSubmit')} <a href="mailto:manuel@battle-system.com">{t('nav.featureEmail')}</a> {t('nav.featureOr')} <a href="https://discord.gg/Kh9hbHAZnX" target="_blank" rel="noreferrer">{t('nav.battleSystemDiscord')}</a>.
             </MenuSubText>
 
             {/* Navigation Links - Bottom Section */}

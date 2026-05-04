@@ -49,8 +49,10 @@ export const MenuHeader = styled.div<{ theme: ForgeTheme }>`
 `;
 
 export const MenuSubText = styled.div<{ theme: ForgeTheme }>`
-  ${tw`text-sm mt-1 flex-1 place-content-center`}
-  padding: 2px 6px;
+  ${tw`text-sm mt-1 flex-1`}
+  padding: 8px 6px;
+  overflow-y: auto;
+  text-align: center;
   color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.7)};
 `;
 

@@ -20,11 +20,21 @@ import { useForgeTheme } from './helpers/ThemeContext';
 import { useAppInitialization } from './helpers/useAppInitialization';
 import GlobalStyles from './styles/GlobalStyles';
 import styled from 'styled-components';
-import { DATA_STORED_IN_ROOM } from './helpers/Constants';
+import { DATA_STORED_IN_ROOM, OwlbearIds } from './helpers/Constants';
 import { SettingsConstants, getPerPlayerSettingKey } from './interfaces/MetadataKeys';
-import { initializeAuthOnStartup } from './auth/authHelpers';
+import { applySharedAuthSnapshot, getSharedAuthSnapshot, initializeAuthOnStartup, isConnected } from './auth/authHelpers';
 import { closePartyHudModal, openPartyHudModal } from './helpers/partyHudModal';
 import { useTranslation } from './i18n/Translation';
+
+type AuthSyncMessage = {
+  type: 'BS_AUTH_REQUEST' | 'BS_AUTH_STATE';
+  source: string;
+  snapshot?: {
+    connected: boolean;
+    accessToken: string | null;
+    expiresAt: number | null;
+  };
+};
 
 const LoadingContainer = styled.div`
   display: flex;
@@ -120,7 +130,70 @@ function App() {
       return;
     }
 
-    void initializeAuthOnStartup();
+    const initialize = async () => {
+      await initializeAuthOnStartup();
+
+      if (isConnected()) {
+        await OBR.broadcast.sendMessage(
+          OwlbearIds.AUTHSYNCCHANNEL,
+          {
+            type: 'BS_AUTH_STATE',
+            source: OwlbearIds.EXTENSIONID,
+            snapshot: getSharedAuthSnapshot(),
+          } as AuthSyncMessage,
+          { destination: 'LOCAL' },
+        );
+      }
+    };
+
+    void initialize();
+  }, [isAppReady]);
+
+  useEffect(() => {
+    if (!isAppReady) {
+      return;
+    }
+
+    const unsubscribe = OBR.broadcast.onMessage(OwlbearIds.AUTHSYNCCHANNEL, (event) => {
+      const message = event.data as AuthSyncMessage;
+
+      if (!message || typeof message !== 'object' || message.source === OwlbearIds.EXTENSIONID) {
+        return;
+      }
+
+      if (message.type === 'BS_AUTH_REQUEST') {
+        if (!isConnected()) {
+          return;
+        }
+
+        void OBR.broadcast.sendMessage(
+          OwlbearIds.AUTHSYNCCHANNEL,
+          {
+            type: 'BS_AUTH_STATE',
+            source: OwlbearIds.EXTENSIONID,
+            snapshot: getSharedAuthSnapshot(),
+          } as AuthSyncMessage,
+          { destination: 'LOCAL' },
+        );
+        return;
+      }
+
+      if (message.type !== 'BS_AUTH_STATE' || isConnected() || !message.snapshot) {
+        return;
+      }
+
+      void applySharedAuthSnapshot(message.snapshot);
+    });
+
+    void OBR.broadcast.sendMessage(
+      OwlbearIds.AUTHSYNCCHANNEL,
+      { type: 'BS_AUTH_REQUEST', source: OwlbearIds.EXTENSIONID } as AuthSyncMessage,
+      { destination: 'LOCAL' },
+    );
+
+    return () => {
+      unsubscribe();
+    };
   }, [isAppReady]);
 
   useEffect(() => {

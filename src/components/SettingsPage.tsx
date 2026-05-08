@@ -13,11 +13,12 @@ import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { useSceneStore } from '../helpers/BSCache';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
-import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
+import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import { bulkImportUnitCollection, exportUnitCollection } from '../helpers/unitCollectionDb';
 import { isValidDiscordWebhookUrl } from '../helpers/DiscordWebhook';
 import {
   connectBattleSystem,
+  getSharedAuthSnapshot,
   getUserTier,
   isConnected,
   isPremiumAuthorized,
@@ -512,6 +513,15 @@ export const SettingsPage = () => {
 
     try {
       await connectBattleSystem();
+      await OBR.broadcast.sendMessage(
+        OwlbearIds.AUTHSYNCCHANNEL,
+        {
+          type: 'BS_AUTH_STATE',
+          source: OwlbearIds.EXTENSIONID,
+          snapshot: getSharedAuthSnapshot(),
+        },
+        { destination: 'LOCAL' },
+      );
       setAuthConnected(isConnected());
       setAuthTier(getUserTier());
       setPremiumAuthorized(isPremiumAuthorized());

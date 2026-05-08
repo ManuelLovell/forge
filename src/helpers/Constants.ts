@@ -19,6 +19,7 @@ export enum OwlbearIds
     BONESID = "com.battle-system.bones",
     RUMBLECHATCHANNEL = "RUMBLECHAT",
     BROADCASTCHANNEL = "FORGE-BROADCAST",
+    AUTHSYNCCHANNEL = "battle-system-login",
     MARKCONNECT = "com.battle-system.marked-connect"
 }
 

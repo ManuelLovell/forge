@@ -17,6 +17,12 @@ export type AuthStatusSnapshot = {
   premiumAuthorized: boolean;
 };
 
+export type SharedAuthSnapshot = {
+  connected: boolean;
+  accessToken: string | null;
+  expiresAt: number | null;
+};
+
 let activeUserTier: UserTier = 'free';
 const authStatusListeners = new Set<(status: AuthStatusSnapshot) => void>();
 
@@ -307,6 +313,11 @@ const restoreTokenFromSessionStorage = (): boolean => {
   return true;
 };
 
+const getSessionExpiresAt = (): number | null => {
+  const expiresAtRaw = sessionStorage.getItem(SESSION_EXPIRES_AT_KEY);
+  return parseExpiresAtMs(expiresAtRaw);
+};
+
 export const connectBattleSystem = async (): Promise<void> => {
   const result = await connectAccessTokenViaHub();
   persistConnectionSnapshot(result.accessToken, result.expiresAt);
@@ -363,6 +374,44 @@ export const getAuthStatusSnapshot = (): AuthStatusSnapshot => {
     tier,
     premiumAuthorized: connected && tier === 'premium',
   };
+};
+
+export const getSharedAuthSnapshot = (): SharedAuthSnapshot => {
+  const token = getAccessToken();
+
+  return {
+    connected: !!token,
+    accessToken: token,
+    expiresAt: getSessionExpiresAt(),
+  };
+};
+
+export const applySharedAuthSnapshot = async (snapshot: SharedAuthSnapshot): Promise<boolean> => {
+  if (!snapshot.connected) {
+    clearConnection();
+    return true;
+  }
+
+  if (!snapshot.accessToken || snapshot.accessToken.trim().length === 0) {
+    return false;
+  }
+
+  const expiresAt = parseExpiresAtMs(snapshot.expiresAt);
+
+  if (expiresAt !== null && expiresAt <= Date.now()) {
+    return false;
+  }
+
+  setAccessToken(snapshot.accessToken);
+  persistConnectionSnapshot(snapshot.accessToken, expiresAt);
+
+  const valid = await validateCurrentConnection();
+  if (!valid) {
+    clearConnection();
+    return false;
+  }
+
+  return true;
 };
 
 export const subscribeAuthStatus = (listener: (status: AuthStatusSnapshot) => void): (() => void) => {

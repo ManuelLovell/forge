@@ -1747,9 +1747,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
         );
       } else if (attrType === 'resource') {
         const resourceMeta = getAttributeMeta(attr)?.resource;
-        const showPips = typeof resourceMeta?.showPips === 'boolean'
-          ? resourceMeta.showPips
-          : !!style.showPips;
+        const showPips = !!resourceMeta?.showPips;
         const resourceValue = bid ? readResourceValue(bid, attr) : { current: 0, max: 0 };
         const pipCapSource = Number(resourceMeta?.pipCap ?? resourceValue.max ?? 0);
         const pipCap = Number.isFinite(pipCapSource) ? Math.max(0, Math.min(Math.round(pipCapSource), 15)) : 0;
@@ -2146,9 +2144,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                 );
               } else if (attrType === 'resource') {
                 const resourceMeta = getAttributeMeta(columnAttr)?.resource;
-                const showPips = typeof resourceMeta?.showPips === 'boolean'
-                  ? resourceMeta.showPips
-                  : !!style.showPips;
+                const showPips = !!resourceMeta?.showPips;
                 const resourceValue = readResourceValue(bid, columnAttr);
                 const pipCapSource = Number(resourceMeta?.pipCap ?? resourceValue.max ?? 0);
                 const pipCap = Number.isFinite(pipCapSource) ? Math.max(0, Math.min(Math.round(pipCapSource), 15)) : 0;

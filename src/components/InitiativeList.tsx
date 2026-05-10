@@ -63,6 +63,7 @@ import { ViewportFunctions } from '../helpers/ViewPortUtility';
 import { getConfiguredHpBidKeys } from '../helpers/hpAttributeMapping';
 import { PopupModal } from './PopupModal';
 import { toResolvedDiceNotation } from '../helpers/FormulaParser';
+import { buildCompleteValueMaps } from '../helpers/DerivedValueResolution';
 import { EffectsManagerModal, useEffectsManager } from './EffectsManager';
 import { ElevationSpecialCell, EffectsSpecialCell } from './InitiativeSpecialCells';
 import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
@@ -1795,62 +1796,16 @@ export const InitiativeList: React.FC = () => {
     return getAttributeFormula(attribute).length > 0;
   };
 
-  const buildBidNumericValueMapForUnit = (unit: Unit): Record<string, number> => {
-    const map: Record<string, number> = {};
-
-    for (const attribute of attributes) {
-      const normalizedAttribute = attribute as RuntimeAttributeLike;
-      const attrBid = getAttributeBid(normalizedAttribute);
-      if (!attrBid) {
-        continue;
-      }
-      const key = `${EXTENSION_ID}/${attrBid}`;
-      const rawValue = unit.attributes?.[key];
-      if (rawValue === undefined || rawValue === null || rawValue === '') {
-        continue;
-      }
-
-      const parsedValue = Number(rawValue);
-      if (Number.isFinite(parsedValue)) {
-        map[attrBid] = parsedValue;
-      }
-    }
-
-    return map;
-  };
-
-  const buildNameNumericValueMapForUnit = (unit: Unit): Record<string, number> => {
-    const map: Record<string, number> = {};
-
-    for (const attribute of attributes) {
-      const normalizedAttribute = attribute as RuntimeAttributeLike;
-      const attrBid = getAttributeBid(normalizedAttribute);
-      if (!attrBid) {
-        continue;
-      }
-      const key = `${EXTENSION_ID}/${attrBid}`;
-      const rawValue = unit.attributes?.[key];
-      if (rawValue === undefined || rawValue === null || rawValue === '') {
-        continue;
-      }
-
-      const parsedValue = Number(rawValue);
-      if (!Number.isFinite(parsedValue)) {
-        continue;
-      }
-
-      const attrName = getAttributeName(normalizedAttribute);
-      if (attrName) {
-        map[attrName] = parsedValue;
-      }
-
-      const attrAbbr = getAttributeAbbr(normalizedAttribute);
-      if (attrAbbr) {
-        map[attrAbbr] = parsedValue;
-      }
-    }
-
-    return map;
+  const buildNumericValueMapsForUnit = (unit: Unit) => {
+    return buildCompleteValueMaps(
+      attributes,
+      (bid: string) => unit.attributes?.[`${EXTENSION_ID}/${bid}`],
+      getAttributeBid,
+      getAttributeType,
+      getAttributeFormula,
+      getAttributeName,
+      getAttributeAbbr
+    );
   };
 
   const resolveAdvantageDisadvantageNotation = (
@@ -1889,9 +1844,10 @@ export const InitiativeList: React.FC = () => {
       return null;
     }
 
+    const maps = buildNumericValueMapsForUnit(unit);
     const conversion = toResolvedDiceNotation(formula, {
-      bidValueMap: buildBidNumericValueMapForUnit(unit),
-      nameValueMap: buildNameNumericValueMapForUnit(unit),
+      bidValueMap: maps.bidValueMap,
+      nameValueMap: maps.nameValueMap,
       onMissingBid: 'error',
     });
 
@@ -1921,9 +1877,10 @@ export const InitiativeList: React.FC = () => {
       return '-';
     }
 
+    const maps = buildNumericValueMapsForUnit(unit);
     const conversion = toResolvedDiceNotation(formula, {
-      bidValueMap: buildBidNumericValueMapForUnit(unit),
-      nameValueMap: buildNameNumericValueMapForUnit(unit),
+      bidValueMap: maps.bidValueMap,
+      nameValueMap: maps.nameValueMap,
       onMissingBid: 'error',
     });
 

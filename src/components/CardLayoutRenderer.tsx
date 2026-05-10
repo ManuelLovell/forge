@@ -52,6 +52,7 @@ import OBR, { type Item } from '@owlbear-rodeo/sdk';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
 import { toResolvedDiceNotation } from '../helpers/FormulaParser';
+import { buildCompleteValueMaps } from '../helpers/DerivedValueResolution';
 import LOGGER from '../helpers/Logger';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
 import { deserializeCardLayout } from '../helpers/deserializeCardLayout';
@@ -1180,60 +1181,16 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     return getAttributeFormula(attribute).length > 0;
   };
 
-  const bidNumericValueMap = useMemo(() => {
-    const map: Record<string, number> = {};
-
-    for (const attribute of attributes) {
-      const normalized = attribute as RuntimeAttributeLike;
-      const bid = getAttributeBid(normalized);
-      if (!bid) {
-        continue;
-      }
-      const rawValue = getMetadataStringValue(bid).trim();
-      if (!rawValue) {
-        continue;
-      }
-
-      const parsedValue = Number(rawValue);
-      if (Number.isFinite(parsedValue)) {
-        map[bid] = parsedValue;
-      }
-    }
-
-    return map;
-  }, [attributes, unitItem.metadata]);
-
-  const nameNumericValueMap = useMemo(() => {
-    const map: Record<string, number> = {};
-
-    for (const attribute of attributes) {
-      const normalized = attribute as RuntimeAttributeLike;
-      const bid = getAttributeBid(normalized);
-      if (!bid) {
-        continue;
-      }
-      const rawValue = getMetadataStringValue(bid).trim();
-      if (!rawValue) {
-        continue;
-      }
-
-      const parsedValue = Number(rawValue);
-      if (!Number.isFinite(parsedValue)) {
-        continue;
-      }
-
-      const attrName = getAttributeName(normalized);
-      if (attrName) {
-        map[attrName] = parsedValue;
-      }
-
-      const attrAbbr = getAttributeAbbr(normalized);
-      if (attrAbbr) {
-        map[attrAbbr] = parsedValue;
-      }
-    }
-
-    return map;
+  const { bidValueMap: bidNumericValueMap, nameValueMap: nameNumericValueMap } = useMemo(() => {
+    return buildCompleteValueMaps(
+      attributes,
+      (bid: string) => getMetadataStringValue(bid).trim(),
+      getAttributeBid,
+      getAttributeType,
+      getAttributeFormula,
+      getAttributeName,
+      getAttributeAbbr
+    );
   }, [attributes, unitItem.metadata]);
 
   const buildResolvedNotation = (attribute: RuntimeAttributeLike | null): string | null => {

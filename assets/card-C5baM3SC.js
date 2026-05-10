@@ -948,11 +948,13 @@ import{C as e,F as t,N as n,O as r,R as i,S as a,T as o,_ as s,b as c,g as l,o a
   border-radius: 8px;
   padding: 25px;
   z-index: 10000;
+  height: 84%;
   min-width: 340px;
   max-width: 560px;
   width: min(560px, calc(100vw - 32px));
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
   box-sizing: border-box;
+  overflow: scroll;
 `,ir=d.h3`
   color: ${e=>e.$theme.primary};
   margin: 0 0 15px 0;

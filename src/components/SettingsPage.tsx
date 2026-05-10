@@ -179,6 +179,7 @@ export const SettingsPage = () => {
   // Other
   const [enableConsoleLog, setEnableConsoleLog] = useState(false);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const clashImportFileInputRef = useRef<HTMLInputElement | null>(null);
   const [authConnected, setAuthConnected] = useState<boolean>(() => isConnected());
   const [authTier, setAuthTier] = useState<UserTier>(() => getUserTier());
   const [premiumAuthorized, setPremiumAuthorized] = useState<boolean>(() => isPremiumAuthorized());
@@ -534,6 +535,55 @@ export const SettingsPage = () => {
       setPremiumAuthorized(isPremiumAuthorized());
     } finally {
       setIsConnectingAuth(false);
+    }
+  };
+
+  const handleClashImportClick = () => {
+    clashImportFileInputRef.current?.click();
+  };
+
+  const handleClashImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+
+    if (!selectedFile) {
+      return;
+    }
+
+    try {
+      const text = await selectedFile.text();
+      const parsed = JSON.parse(text);
+
+      if (!Array.isArray(parsed)) {
+        await OBR.notification.show(t('settings.clashImportArrayError'), 'ERROR');
+        return;
+      }
+
+      // Import clashToForgeMapper to convert Clash data
+      const { migrateClashCollectionFromJson } = await import(
+        '../utilities/clashToForgeMapper'
+      );
+      const migration = migrateClashCollectionFromJson(parsed);
+
+      if (migration.records.length === 0) {
+        await OBR.notification.show(t('settings.clashImportFailed'), 'ERROR');
+        return;
+      }
+
+      const summary = await bulkImportUnitCollection(migration.records);
+      await OBR.notification.show(
+        t('settings.clashImportCompleteSummary', {
+          created: summary.created,
+          updated: summary.updated,
+          skipped: summary.skipped,
+          failed: migration.skipped,
+        }),
+        'SUCCESS',
+      );
+    } catch (error) {
+      LOGGER.log('Clash collection import failed', error);
+      await OBR.notification.show(t('settings.clashImportFailed'), 'ERROR');
+    } finally {
+      event.target.value = '';
     }
   };
 
@@ -1131,6 +1181,25 @@ export const SettingsPage = () => {
               }}
             />
           </ControlRow>
+        </Card>
+
+        {/* Clash Collection Import */}
+        <Card theme={theme}>
+          <SectionTitle theme={theme}>{t('settings.clashImportSectionTitle')}</SectionTitle>
+          <ButtonGroup>
+            <SettingsTooltip theme={theme} text={t('settings.clashImportTooltip')}>
+              <Button theme={theme} onClick={handleClashImportClick}>
+                {t('settings.clashImportLocal')}
+              </Button>
+            </SettingsTooltip>
+          </ButtonGroup>
+          <input
+            ref={clashImportFileInputRef}
+            type="file"
+            accept=".txt,.json,text/plain,application/json"
+            onChange={handleClashImportFile}
+            style={{ display: 'none' }}
+          />
         </Card>
       </PageContainer>
 

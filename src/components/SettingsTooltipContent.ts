@@ -20,6 +20,7 @@ export const getSettingsTooltips = (t: Translate) => ({
   showHpNumbersOnTokens: t('settings.tooltips.showHpNumbersOnTokens'),
   showDeathEffect: t('settings.tooltips.showDeathEffect'),
   showNamesOnTokens: t('settings.tooltips.showNamesOnTokens'),
+  showNamesToGm: t('settings.tooltips.showNamesToGm'),
   showTurnEffect: t('settings.tooltips.showTurnEffect'),
   useDescriptiveNames: t('settings.tooltips.useDescriptiveNames'),
   enableRumble: t('settings.tooltips.enableRumble'),

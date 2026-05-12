@@ -163,6 +163,7 @@ export const SettingsPage = () => {
   const [showHpNumbers, setShowHpNumbers] = useState(false);
   const [showDeathEffect, setShowDeathEffect] = useState(false);
   const [showNames, setShowNames] = useState(false);
+  const [showNamesToGm, setShowNamesToGm] = useState(false);
   const [showTurnEffect, setshowTurnEffect] = useState(false);
   const [useDescriptiveDuplicates, setUseDescriptiveDuplicates] = useState(false);
 
@@ -275,6 +276,9 @@ export const SettingsPage = () => {
     }
     if (storageContainer[SettingsConstants.SHOW_NAMES] !== undefined) {
       setShowNames(storageContainer[SettingsConstants.SHOW_NAMES] as boolean);
+    }
+    if (storageContainer[SettingsConstants.SHOW_NAMES_TO_GM] !== undefined) {
+      setShowNamesToGm(storageContainer[SettingsConstants.SHOW_NAMES_TO_GM] as boolean);
     }
     if (storageContainer[SettingsConstants.SHOW_TURN_EFFECT] !== undefined) {
       setshowTurnEffect(storageContainer[SettingsConstants.SHOW_TURN_EFFECT] as boolean);
@@ -966,6 +970,20 @@ export const SettingsPage = () => {
                     }
                   });
                 }
+              }}
+            />
+          </ControlRow>
+
+          <ControlRow theme={theme}>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={tooltips.showNamesToGm}>{t('settings.showNamesToGm')}</SettingsTooltip>
+            </ControlLabel>
+            <ToggleControl
+              label={t('settings.showNamesToGm')}
+              isOn={showNamesToGm}
+              onChange={async (value) => {
+                setShowNamesToGm(value);
+                await saveData(SettingsConstants.SHOW_NAMES_TO_GM, value);
               }}
             />
           </ControlRow>

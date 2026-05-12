@@ -57,6 +57,7 @@ export class SettingsConstants {
   static DEBUFF_VISUAL_PRESET = `${EXTENSION_ID}/debfvis`;
   static SHOW_HP_NUMBERS = `${EXTENSION_ID}/showhpnum`;
   static SHOW_NAMES = `${EXTENSION_ID}/showname`;
+  static SHOW_NAMES_TO_GM = `${EXTENSION_ID}/showngm`;
   static SHOW_TURN_EFFECT = `${EXTENSION_ID}/showturn`;
   static USE_DESCRIPTIVE_DUPLICATES = `${EXTENSION_ID}/usedescd`;
   static PARTY_HUD_OPEN = `${EXTENSION_ID}/phudopen`;

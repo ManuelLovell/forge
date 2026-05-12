@@ -16,6 +16,7 @@ import { DeathEffectManager } from './components/DeathEffectManager';
 import { EffectsTokenVisualManager } from './components/EffectsTokenVisualManager';
 import { BossHpViewportEffectManager } from './components/BossHpViewportEffectManager';
 import { TurnEffectManager } from './components/TurnEffectManager';
+import { GmNameLabelManager } from './components/GmNameLabelManager';
 import { useForgeTheme } from './helpers/ThemeContext';
 import { useAppInitialization } from './helpers/useAppInitialization';
 import GlobalStyles from './styles/GlobalStyles';
@@ -265,6 +266,7 @@ function App() {
           <EffectsTokenVisualManager />
           <BossHpViewportEffectManager />
           <TurnEffectManager />
+          <GmNameLabelManager />
           <ContentArea theme={theme} $backgroundUrl={theme.BACKGROUND_URL}>
             <AnimatePresence mode="wait">
               {renderPage()}

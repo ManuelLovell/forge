@@ -55,7 +55,7 @@ const getPreferredUnitNameFromItem = (item: { name?: string; metadata?: Record<s
     return typeof item.name === 'string' ? item.name : '';
 };
 
-const openCardPopoverForUnit = async (unitId: string) => {
+const openCardPopoverForUnit = async (unitId: string, elementId: string) => {
     const windowHeight = await OBR.viewport.getHeight();
     const modalBuffer = 100;
     const viewableHeight = windowHeight > 800 ? 700 : windowHeight - modalBuffer;
@@ -65,13 +65,7 @@ const openCardPopoverForUnit = async (unitId: string) => {
         url: `/pages/forgecard.html?unitid=${encodeURIComponent(unitId)}`,
         height: viewableHeight,
         width: 350,
-        anchorReference: 'POSITION',
-        anchorPosition: {
-            left: (await OBR.viewport.getWidth()) / 2,
-            top: (await OBR.viewport.getHeight()) / 2,
-        },
-        anchorOrigin: { horizontal: 'CENTER', vertical: 'CENTER' },
-        transformOrigin: { horizontal: 'CENTER', vertical: 'CENTER' },
+        anchorElementId: elementId,
         hidePaper: true,
         disableClickAway: true,
     });
@@ -447,7 +441,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                         },
                     }
                 ],
-                async onClick(context) {
+                async onClick(context, elementId) {
                     LOGGER.info(`View Unit Clicked: ${context.items[0].name}`);
 
                     const selectedItem = context.items[0];
@@ -503,7 +497,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                         });
                     }
 
-                    await openCardPopoverForUnit(selectedItem.id);
+                    await openCardPopoverForUnit(selectedItem.id, elementId);
 
                 }
             });
@@ -525,7 +519,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                             },
                         }
                     ],
-                    async onClick(context) {
+                    async onClick(context, elementId) {
                         LOGGER.info(`View Unit Clicked: ${context.items[0].name}`);
 
                         const selectedItem = context.items[0];
@@ -581,7 +575,7 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                             });
                         }
 
-                        await openCardPopoverForUnit(selectedItem.id);
+                        await openCardPopoverForUnit(selectedItem.id, elementId);
 
                     }
                 });

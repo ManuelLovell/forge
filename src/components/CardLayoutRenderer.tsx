@@ -1091,6 +1091,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
   const [rollableEditMode, setRollableEditMode] = useState<Record<string, boolean>>({});
   const [fieldContextMenu, setFieldContextMenu] = useState<FieldContextMenuState | null>(null);
   const [inlineNotationContextMenu, setInlineNotationContextMenu] = useState<InlineNotationContextMenuState | null>(null);
+  const [enableDicePlus, setEnableDicePlus] = useState(false);
   const longPressTimersRef = useRef<Record<string, number>>({});
   const suppressNextClickRef = useRef<Record<string, boolean>>({});
   const LONG_PRESS_MS = 500;
@@ -1117,6 +1118,31 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
   useEffect(() => {
     setUnitNameDraft(unitName);
   }, [unitName]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadDicePlusSetting = async () => {
+      try {
+        const metadata = DATA_STORED_IN_ROOM
+          ? await OBR.room.getMetadata()
+          : await OBR.scene.getMetadata();
+        if (mounted) {
+          setEnableDicePlus(metadata[OwlbearIds.EXTENSIONID + '/enabdice'] === true);
+        }
+      } catch {
+        if (mounted) {
+          setEnableDicePlus(false);
+        }
+      }
+    };
+
+    void loadDicePlusSetting();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const saveUnitName = async () => {
     const trimmed = unitNameDraft.trim();
@@ -1193,7 +1219,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     );
   }, [attributes, unitItem.metadata]);
 
-  const buildResolvedNotation = (attribute: RuntimeAttributeLike | null): string | null => {
+  const buildResolvedNotation = (attribute: RuntimeAttributeLike | null, allowCurlyTags = false): string | null => {
     const formula = getAttributeFormula(attribute);
     if (!formula) {
       return null;
@@ -1203,6 +1229,8 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       bidValueMap: bidNumericValueMap,
       nameValueMap: nameNumericValueMap,
       onMissingBid: 'error',
+      // Pass curly tag support for Dice+
+      allowCurlyTags,
     });
 
     if (!conversion.valid || !conversion.notation) {
@@ -1240,7 +1268,18 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       return;
     }
 
-    const notation = buildResolvedNotation(attribute);
+    // Detect Dice+ enabled
+    let metadata: Record<string, unknown>;
+    try {
+      metadata = DATA_STORED_IN_ROOM
+        ? await OBR.room.getMetadata()
+        : await OBR.scene.getMetadata();
+    } catch {
+      metadata = {};
+    }
+    const enableDicePlus = metadata[OwlbearIds.EXTENSIONID + '/enabdice'] === true;
+
+    const notation = buildResolvedNotation(attribute, enableDicePlus);
     if (!notation) {
       return;
     }
@@ -1527,7 +1566,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     element.style.height = `${Math.max(element.scrollHeight, 44)}px`;
   };
 
-  const parseInlineNotationTokens = (text: string): InlineNotationToken[] => {
+  const parseInlineNotationTokens = (text: string, enableDicePlus = false): InlineNotationToken[] => {
     const tokens: InlineNotationToken[] = [];
     const matches = text.matchAll(/\[([^\[\]]+)\]/g);
 
@@ -1538,17 +1577,27 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
         continue;
       }
 
-      const conversion = toResolvedDiceNotation(formula, {
+      // Dice+ action text can include roll labels like "#Hope" / "#Fear".
+      // Validate using a sanitized copy, but preserve the authored formula for sending.
+      const normalizedFormula = enableDicePlus
+        ? formula.replace(/(\d+d\d+(?:[kd][hl]\d+|!|\{[^{}]+\})?)\s+#[a-z0-9_]+/gi, '$1')
+        : formula;
+
+      const conversion = toResolvedDiceNotation(normalizedFormula, {
         bidValueMap: bidNumericValueMap,
         nameValueMap: nameNumericValueMap,
         onMissingBid: 'error',
+        allowCurlyTags: enableDicePlus,
       });
 
       if (!conversion.valid || !conversion.notation) {
         continue;
       }
 
-      tokens.push({ raw, notation: conversion.notation });
+      tokens.push({
+        raw,
+        notation: enableDicePlus ? formula : conversion.notation,
+      });
     }
 
     return tokens;
@@ -2394,7 +2443,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                   </DeleteIconWrap>
                 </ActionNameRow>
                 {(() => {
-                  const inlineNotationTokens = parseInlineNotationTokens(entry.description);
+                  const inlineNotationTokens = parseInlineNotationTokens(entry.description, enableDicePlus);
 
                   return (
                     <>
@@ -2553,7 +2602,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                   </DeleteIconWrap>
                 </ItemTitleRow>
                 {(() => {
-                  const inlineNotationTokens = parseInlineNotationTokens(entry.description);
+                  const inlineNotationTokens = parseInlineNotationTokens(entry.description, enableDicePlus);
 
                   return (
                     <>

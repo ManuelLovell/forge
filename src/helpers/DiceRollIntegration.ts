@@ -49,7 +49,7 @@ export async function sendCentralDiceRoll(
             playerName: params.senderName,
             diceNotation: params.notation,
             rollTarget: params.rollTarget || 'everyone',
-            showResults: params.showResults ?? false,
+            showResults: true //params.showResults ?? false,
         });
         return;
     }

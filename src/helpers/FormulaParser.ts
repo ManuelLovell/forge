@@ -30,6 +30,10 @@ interface ValidationResult {
   position?: number;
 }
 
+interface ValidatorOptions {
+  allowCurlyTags?: boolean;
+}
+
 interface Roll20ConversionOptions {
   attributeReferenceMode?: 'selected' | 'character' | 'plain';
   characterName?: string;
@@ -51,6 +55,7 @@ interface ResolvedNotationOptions {
   nameValueMap?: Record<string, number>;
   resolveNameValue?: (name: string) => number | undefined;
   onMissingBid?: 'error' | 'useZero';
+  allowCurlyTags?: boolean;
 }
 
 interface ResolvedNotationResult {
@@ -89,10 +94,11 @@ const normalizeReferenceKey = (value: string): string => {
  * Tokenize a formula string into discrete tokens
  * Guards against malicious input by strictly validating each character
  */
-function tokenize(formula: string): Token[] {
+function tokenize(formula: string, options: ValidatorOptions = {}): Token[] {
   const tokens: Token[] = [];
   let i = 0;
-  
+  const allowCurlyTags = options.allowCurlyTags ?? false;
+
   // Security: Limit formula length to prevent DoS
   if (formula.length > 500) {
     throw new Error('Formula exceeds maximum length of 500 characters');
@@ -128,36 +134,29 @@ function tokenize(formula: string): Token[] {
     // Dice notation (e.g., 1d20, 4d6kh3)
     if (/\d/.test(char) || (char === 'd' && tokens.length > 0 && tokens[tokens.length - 1].type === TokenType.NUMBER)) {
       const startPos = i;
-      
       // If we just saw a number followed by 'd', rewind and parse as dice
       if (char === 'd' && tokens.length > 0 && tokens[tokens.length - 1].type === TokenType.NUMBER) {
         const lastToken = tokens.pop()!;
         i = lastToken.position;
       }
-      
       const diceMatch = formula.slice(i).match(/^(\d+)d(\d+)([kd][hl]\d+|!)?/i);
       if (diceMatch) {
         const [fullMatch, count, sides, modifier] = diceMatch;
-        
         // Validate dice values
         const diceCount = parseInt(count, 10);
         const dieSides = parseInt(sides, 10);
-        
         if (diceCount < 1 || diceCount > 100) {
           throw new Error(`Invalid dice count at position ${startPos}: must be 1-100`);
         }
-        
         if (!VALID_DIE_SIZES.has(dieSides)) {
           throw new Error(`Invalid die size at position ${startPos}: must be one of ${Array.from(VALID_DIE_SIZES).join(', ')}`);
         }
-        
         // Validate modifier if present
         if (modifier) {
           const modType = modifier.substring(0, 2).toLowerCase();
           if (!DICE_MODIFIERS.has(modType) && modifier !== '!') {
             throw new Error(`Invalid dice modifier at position ${startPos}: ${modifier}`);
           }
-          
           if (modType !== '!') {
             const keepDropCount = parseInt(modifier.substring(2), 10);
             if (keepDropCount < 1 || keepDropCount >= diceCount) {
@@ -165,9 +164,20 @@ function tokenize(formula: string): Token[] {
             }
           }
         }
-        
-        tokens.push({ type: TokenType.DICE, value: fullMatch, position: startPos });
-        i += fullMatch.length;
+        let diceTokenValue = fullMatch;
+        let postDiceIdx = i + fullMatch.length;
+        // Check for curly tag after dice (e.g., 1d12{Hope})
+        if (allowCurlyTags && formula[postDiceIdx] === '{') {
+          const curlyMatch = formula.slice(postDiceIdx).match(/^\{[^}]+\}/);
+          if (curlyMatch) {
+            diceTokenValue += curlyMatch[0];
+            postDiceIdx += curlyMatch[0].length;
+          }
+        } else if (!allowCurlyTags && formula[postDiceIdx] === '{') {
+          throw new Error(`Curly-brace tags are not allowed at position ${postDiceIdx}`);
+        }
+        tokens.push({ type: TokenType.DICE, value: diceTokenValue, position: startPos });
+        i = postDiceIdx;
         continue;
       }
     }
@@ -176,25 +186,32 @@ function tokenize(formula: string): Token[] {
     if (char === '@' || char === '#') {
       const startPos = i;
       const marker = char;
-      i++; // Skip @
+      i++; // Skip @ or #
       let reference = '';
-      
       while (i < formula.length && /[A-Z0-9_]/i.test(formula[i])) {
         reference += formula[i];
         i++;
       }
-      
       if (reference.length === 0) {
         throw new Error(`Invalid reference at position ${startPos}: missing identifier after ${marker}`);
       }
-      
       if (reference.length > 64) {
         throw new Error(`Invalid reference at position ${startPos}: identifier too long (max 64 characters)`);
       }
-
+      let refTokenValue = reference;
+      // Allow curly tag after #NAME (e.g., #Hope{Hope})
+      if (allowCurlyTags && formula[i] === '{') {
+        const curlyMatch = formula.slice(i).match(/^\{[^}]+\}/);
+        if (curlyMatch) {
+          refTokenValue += curlyMatch[0];
+          i += curlyMatch[0].length;
+        }
+      } else if (!allowCurlyTags && formula[i] === '{') {
+        throw new Error(`Curly-brace tags are not allowed at position ${i}`);
+      }
       tokens.push({
         type: marker === '@' ? TokenType.BID_REF : TokenType.NAME_REF,
-        value: reference,
+        value: refTokenValue,
         position: startPos,
       });
       continue;
@@ -692,19 +709,16 @@ class FormulaEvaluator {
  * Validate a dice formula string before saving
  * Returns detailed validation result with error messages
  */
-export function validateDiceFormula(formula: string): ValidationResult {
+export function validateDiceFormula(formula: string, options: ValidatorOptions = {}): ValidationResult {
   if (!formula || formula.trim().length === 0) {
     return { valid: false, error: 'Formula cannot be empty' };
   }
-
   try {
     // Tokenize the formula
-    const tokens = tokenize(formula);
-    
+    const tokens = tokenize(formula, options);
     // Parse and validate structure
     const parser = new FormulaParser(tokens);
     parser.parse();
-    
     return { valid: true };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -822,13 +836,13 @@ export function toResolvedDiceNotation(
   formula: string,
   options: ResolvedNotationOptions = {}
 ): ResolvedNotationResult {
-  const validation = validateDiceFormula(formula);
+  const validation = validateDiceFormula(formula, { allowCurlyTags: options.allowCurlyTags });
   if (!validation.valid) {
     return { valid: false, error: validation.error };
   }
 
   try {
-    const tokens = tokenize(formula);
+    const tokens = tokenize(formula, { allowCurlyTags: options.allowCurlyTags });
     const evaluator = new FormulaEvaluator(tokens, options);
     const evaluated = evaluator.parse();
 

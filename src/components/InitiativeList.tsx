@@ -1188,6 +1188,7 @@ export const InitiativeList: React.FC = () => {
 
   // Control for setting the data to Room or to Scene
   const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
+  const enableDicePlus = (storageContainer[OwlbearIds.EXTENSIONID + '/enabdice'] as boolean) === true;
 
   // Get settings
   const reverseInitiative = storageContainer[SettingsConstants.REVERSE_INITIATIVE] as boolean || false;
@@ -2639,17 +2640,22 @@ export const InitiativeList: React.FC = () => {
         continue;
       }
 
-      const conversion = toResolvedDiceNotation(formula, {
+      const sanitizedFormula = enableDicePlus
+        ? formula.replace(/(\d+d\d+(?:[kd][hl]\d+|!|\{[^{}]+\})?)\s+#[a-z0-9_]+/gi, '$1')
+        : formula;
+
+      const conversion = toResolvedDiceNotation(sanitizedFormula, {
         bidValueMap: selectedListBidValueMap,
         nameValueMap: selectedListNameValueMap,
         onMissingBid: 'error',
+        allowCurlyTags: enableDicePlus,
       });
 
       if (!conversion.valid || !conversion.notation) {
         continue;
       }
 
-      tokens.push(conversion.notation);
+      tokens.push(enableDicePlus ? formula : conversion.notation);
     }
 
     return tokens;

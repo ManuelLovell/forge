@@ -1,7 +1,7 @@
 {
     "name": "Forge!",
     "description": "The successor to Clash! Forge is a customizable combat tracker.",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "author": "Battle-System",
     "icon": "/logo.png",
     "permissions": [

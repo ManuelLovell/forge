@@ -27,6 +27,7 @@ import {
 } from '../auth/authHelpers';
 import { useSystemData } from '../helpers/useSystemData';
 import { toResolvedDiceNotation, validateFormula } from '../helpers/FormulaParser';
+import { getConfiguredHpBidKeys } from '../helpers/hpAttributeMapping';
 import { useTranslation } from '../i18n/Translation';
 
 // Styled Components
@@ -566,7 +567,14 @@ export const SettingsPage = () => {
       const { migrateClashCollectionFromJson } = await import(
         '../utilities/clashToForgeMapper'
       );
-      const migration = migrateClashCollectionFromJson(parsed);
+      const hpBidKeys = getConfiguredHpBidKeys(storageContainer, attributes);
+      const migration = migrateClashCollectionFromJson(parsed, {
+        hp: {
+          currentHpBid: hpBidKeys.currentHpBid,
+          maxHpBid: hpBidKeys.maxHpBid,
+          attributes,
+        },
+      });
 
       if (migration.records.length === 0) {
         await OBR.notification.show(t('settings.clashImportFailed'), 'ERROR');

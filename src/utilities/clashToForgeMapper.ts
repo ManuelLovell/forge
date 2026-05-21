@@ -4,6 +4,8 @@
  */
 
 import { UnitCollectionRecord } from '../helpers/unitCollectionDb';
+import { buildHpMetadataValue, getHpMetadataKey } from '../helpers/hpAttributeMapping';
+import type { SystemAttribute } from '../interfaces/SystemResponse';
 
 /**
  * Clash IUnitInfo schema (flattened structure)
@@ -100,10 +102,18 @@ interface ValidationResult {
   warnings: string[];
 }
 
+interface ClashMigrationOptions {
+  hp?: {
+    currentHpBid: string;
+    maxHpBid: string;
+    attributes: SystemAttribute[];
+  };
+}
+
 /**
  * Migrate a single Clash creature to Forge collection format
  */
-export function migrateClashToForge(clashData: unknown): UnitCollectionRecord | null {
+export function migrateClashToForge(clashData: unknown, options?: ClashMigrationOptions): UnitCollectionRecord | null {
   if (!clashData || typeof clashData !== 'object') {
     return null;
   }
@@ -126,14 +136,44 @@ export function migrateClashToForge(clashData: unknown): UnitCollectionRecord | 
 
   const metadata = forgeRecord.metadata as Record<string, unknown>;
   const PREFIX = 'com.battle-system.forge';
+  const hpConfig = options?.hp;
+  const hpAttributesByBid = new Map((hpConfig?.attributes || []).map((attribute) => [attribute.attr_bid, attribute]));
+  const clashMaxHp = typeof clash.maxHP === 'number' ? clash.maxHP : null;
+  const clashCurrentHp = typeof clash.currentHp === 'number'
+    ? clash.currentHp
+    : clashMaxHp;
 
   // Map basic attributes
-  if (clash.currentHp !== undefined && clash.currentHp !== null) {
-    metadata[`${PREFIX}/Z005`] = clash.currentHp;
-  }
+  if (hpConfig && clashMaxHp !== null) {
+    const resolvedCurrentHp = clashCurrentHp ?? clashMaxHp;
+    const currentKey = getHpMetadataKey(hpConfig.currentHpBid);
+    const maxKey = getHpMetadataKey(hpConfig.maxHpBid);
+    const currentAttribute = hpAttributesByBid.get(hpConfig.currentHpBid) || null;
+    const maxAttribute = hpAttributesByBid.get(hpConfig.maxHpBid) || null;
 
-  if (clash.maxHP !== undefined && clash.maxHP !== null) {
-    metadata[`${PREFIX}/Z006`] = clash.maxHP;
+    metadata[currentKey] = buildHpMetadataValue(
+      metadata[currentKey],
+      currentAttribute,
+      'current',
+      resolvedCurrentHp,
+      clashMaxHp,
+    );
+
+    metadata[maxKey] = buildHpMetadataValue(
+      metadata[maxKey],
+      maxAttribute,
+      'max',
+      clashMaxHp,
+      resolvedCurrentHp,
+    );
+  } else {
+    if (clashCurrentHp !== null) {
+      metadata[`${PREFIX}/Z005`] = clashCurrentHp;
+    }
+
+    if (clashMaxHp !== null) {
+      metadata[`${PREFIX}/Z006`] = clashMaxHp;
+    }
   }
 
   if (clash.armorClass !== undefined && clash.armorClass !== null) {
@@ -481,7 +521,10 @@ export function generateMigrationPreview(clash: ClashUnitInfo) {
 /**
  * Migrate multiple Clash creatures from JSON array
  */
-export function migrateClashCollectionFromJson(jsonData: unknown[]): {
+export function migrateClashCollectionFromJson(
+  jsonData: unknown[],
+  options?: ClashMigrationOptions,
+): {
   records: UnitCollectionRecord[];
   skipped: number;
   errors: string[];
@@ -504,7 +547,7 @@ export function migrateClashCollectionFromJson(jsonData: unknown[]): {
       return;
     }
 
-    const migrated = migrateClashToForge(item);
+    const migrated = migrateClashToForge(item, options);
     if (migrated) {
       records.push(migrated);
     } else {

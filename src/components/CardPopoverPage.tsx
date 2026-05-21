@@ -6,6 +6,7 @@ import { CircleQuestionMark, Cloudy, Download, HardDrive, Menu, Pin, BookMarked,
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import LOGGER from '../helpers/Logger';
+import { MOCK_BIDS } from '../helpers/MockData';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
 import { SettingsTooltip } from './SettingsTooltip';
 import { createTheme } from '../helpers/ThemeConstants';
@@ -36,6 +37,13 @@ import {
   searchSharedUnitCollection,
   upsertRemoteUnitFromMetadata as upsertPremiumRemoteUnit,
 } from '../helpers/unitCollectionRemote';
+import {
+  buildHpMetadataValue,
+  getAttributeByBid,
+  getConfiguredHpBidKeys,
+  getHpMetadataKey,
+  getHpValueFromMetadata,
+} from '../helpers/hpAttributeMapping';
 import { useTranslation } from '../i18n/Translation';
 
 const SYSTEM_KEYS = {
@@ -914,6 +922,41 @@ export const CardPopoverPage = () => {
       return;
     }
 
+    const [sceneMetadata, roomMetadata] = await Promise.all([
+      OBR.scene.getMetadata(),
+      OBR.room.getMetadata(),
+    ]);
+    const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
+    const { currentHpBid, maxHpBid } = getConfiguredHpBidKeys(storageContainer, attributes);
+    const importedConfiguredMaxHp = getHpValueFromMetadata(nextMetadata, maxHpBid, attributes, 'max');
+    const importedLegacyMaxHp = maxHpBid === MOCK_BIDS.MAX_HP
+      ? importedConfiguredMaxHp
+      : getHpValueFromMetadata(nextMetadata, MOCK_BIDS.MAX_HP, attributes, 'max');
+    const importedMaxHp = importedConfiguredMaxHp ?? importedLegacyMaxHp;
+    const normalizedNextMetadata = { ...nextMetadata };
+
+    if (importedMaxHp !== null) {
+      const currentHpKey = getHpMetadataKey(currentHpBid);
+      const maxHpKey = getHpMetadataKey(maxHpBid);
+      const currentHpAttribute = getAttributeByBid(attributes, currentHpBid);
+      const maxHpAttribute = getAttributeByBid(attributes, maxHpBid);
+
+      normalizedNextMetadata[currentHpKey] = buildHpMetadataValue(
+        normalizedNextMetadata[currentHpKey],
+        currentHpAttribute,
+        'current',
+        importedMaxHp,
+        importedMaxHp,
+      );
+      normalizedNextMetadata[maxHpKey] = buildHpMetadataValue(
+        normalizedNextMetadata[maxHpKey],
+        maxHpAttribute,
+        'max',
+        importedMaxHp,
+        importedMaxHp,
+      );
+    }
+
     const stateKeysToPreserve = [
       UnitConstants.FABRICATED,
       UnitConstants.INITIATIVE,
@@ -938,7 +981,7 @@ export const CardPopoverPage = () => {
 
       itemsToUpdate[0].metadata = {
         ...nonExtensionMetadata,
-        ...nextMetadata,
+        ...normalizedNextMetadata,
         ...preservedStateMetadata,
       };
     });
@@ -966,7 +1009,7 @@ export const CardPopoverPage = () => {
           ...item,
           metadata: {
             ...nonExtensionMetadata,
-            ...nextMetadata,
+            ...normalizedNextMetadata,
             ...preservedStateMetadata,
           },
         };

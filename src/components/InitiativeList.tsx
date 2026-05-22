@@ -1629,11 +1629,11 @@ export const InitiativeList: React.FC = () => {
         [ELEVATION_BADGE_OWNER]: unitId,
       })
       .attachedTo(unitId)
+      .layer('ATTACHMENT')
       .visible(unitItem.visible)
       .locked(true)
       .disableHit(true)
       .disableAttachmentBehavior(['ROTATION', 'SCALE'])
-      .layer('TEXT')
       .build();
 
     try {

@@ -76,6 +76,7 @@ export const TurnEffectManager = () => {
           .id(TURN_EFFECT_ID)
           .name('Current Turn Effect')
           .effectType('ATTACHMENT')
+          .layer('ATTACHMENT')
           .attachedTo(currentTurnId)
           .locked(true)
           .disableHit(true)

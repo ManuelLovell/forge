@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import OBR, { buildEffect, buildText, isEffect, isImage, isText, Item } from '@owlbear-rodeo/sdk';
+import OBR, { buildCurve, buildEffect, buildText, isCurve, isEffect, isImage, isText, Item, type Curve } from '@owlbear-rodeo/sdk';
 import { useSceneStore } from '../helpers/BSCache';
 import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
 import { EXTENSION_ID } from '../helpers/MockData';
@@ -8,6 +8,21 @@ import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { SystemAttribute } from '../interfaces/SystemResponse';
 import { HP_BAR_EFFECT } from '../assets/hpBarEffect';
 import { getConfiguredHpBidKeys, getHpValueFromMetadata } from '../helpers/hpAttributeMapping';
+import {
+  buildDesiredTokenBadgesForUnit,
+  type DesiredTokenBadgeShape,
+  type DesiredTokenBadgeText,
+  type HpOverlayOrientation,
+  getTokenBadgeConfigs,
+  getTokenBadgeShapeId,
+  getTokenBadgeTextId,
+  TOKEN_BADGE_SHAPE_FLAG,
+  TOKEN_BADGE_SHAPE_OWNER,
+  TOKEN_BADGE_SHAPE_SLOT,
+  TOKEN_BADGE_TEXT_FLAG,
+  TOKEN_BADGE_TEXT_OWNER,
+  TOKEN_BADGE_TEXT_SLOT,
+} from '../helpers/tokenBadgeOverlay';
 
 const HP_BAR_EFFECT_FLAG = `${EXTENSION_ID}/hp-bar-effect`;
 const HP_BAR_EFFECT_OWNER = `${EXTENSION_ID}/hp-bar-owner`;
@@ -18,6 +33,24 @@ const getHpBarId = (unitId: string) => `HPB${unitId.slice(3)}`;
 const getHpNumberId = (unitId: string) => `HPN${unitId.slice(3)}`;
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
+
+const brightenHexColor = (value: unknown, blendFactor = 0.5, fallback = '#ffffff'): string => {
+  if (typeof value !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(value)) {
+    return fallback;
+  }
+
+  const normalizedBlend = clamp(blendFactor, 0, 1);
+  const brightenChannel = (offset: number) => {
+    const channel = Number.parseInt(value.slice(offset, offset + 2), 16);
+    return Math.round(channel + ((255 - channel) * normalizedBlend));
+  };
+
+  const red = brightenChannel(1).toString(16).padStart(2, '0');
+  const green = brightenChannel(3).toString(16).padStart(2, '0');
+  const blue = brightenChannel(5).toString(16).padStart(2, '0');
+
+  return `#${red}${green}${blue}`;
+};
 
 const getHpPercent = (unit: Item, currentHpBid: string, maxHpBid: string, attributes: SystemAttribute[]): number | null => {
   const currentHp = getHpValueFromMetadata(unit.metadata, currentHpBid, attributes, 'current');
@@ -169,7 +202,9 @@ export const HpBarEffectManager = () => {
       const effectiveShowHpNumbers = !showHpBars && showHpNumbers;
       const orientation = getOrientation(storage[SettingsConstants.HP_BAR_ORIENTATION]);
       const orientationValue = getOrientationValue(storage[SettingsConstants.HP_BAR_ORIENTATION]);
+      const tokenBadgeConfigs = getTokenBadgeConfigs(storage);
       const attributes = runtimeSystemData?.attributes || [];
+      const tokenBadgeStrokeColor = brightenHexColor(runtimeSystemData?.theme.border, 0.5, '#ffffff');
       const { currentHpBid, maxHpBid } = getConfiguredHpBidKeys(storage, attributes);
 
       const existingBars = localItems.filter((item) => {
@@ -177,6 +212,12 @@ export const HpBarEffectManager = () => {
       });
       const existingNumbers = localItems.filter((item) => {
         return isText(item) && item.metadata?.[HP_NUMBER_TEXT_FLAG] === true;
+      });
+      const existingTokenBadgeShapes = localItems.filter((item): item is Curve => {
+        return isCurve(item) && item.metadata?.[TOKEN_BADGE_SHAPE_FLAG] === true;
+      });
+      const existingTokenBadgeTexts = localItems.filter((item) => {
+        return isText(item) && item.metadata?.[TOKEN_BADGE_TEXT_FLAG] === true;
       });
 
       if (!effectiveShowHpBars && existingBars.length > 0) {
@@ -195,7 +236,25 @@ export const HpBarEffectManager = () => {
         }
       }
 
-      if (!effectiveShowHpBars && !effectiveShowHpNumbers) {
+      if (tokenBadgeConfigs.length === 0) {
+        if (existingTokenBadgeShapes.length > 0) {
+          try {
+            await OBR.scene.local.deleteItems(existingTokenBadgeShapes.map((shape) => shape.id));
+          } catch (error) {
+            LOGGER.error('Failed to remove token badge shapes', error);
+          }
+        }
+
+        if (existingTokenBadgeTexts.length > 0) {
+          try {
+            await OBR.scene.local.deleteItems(existingTokenBadgeTexts.map((textItem) => textItem.id));
+          } catch (error) {
+            LOGGER.error('Failed to remove token badge texts', error);
+          }
+        }
+      }
+
+      if (!effectiveShowHpBars && !effectiveShowHpNumbers && tokenBadgeConfigs.length === 0) {
         return;
       }
 
@@ -209,6 +268,8 @@ export const HpBarEffectManager = () => {
         text: string;
         position: { x: number; y: number };
       }>();
+      const desiredTokenBadgeShapes = new Map<string, DesiredTokenBadgeShape>();
+      const desiredTokenBadgeTexts = new Map<string, DesiredTokenBadgeText>();
 
       for (const unit of trackedUnits) {
         if (effectiveShowHpBars) {
@@ -232,6 +293,24 @@ export const HpBarEffectManager = () => {
               position: getHpNumberPosition(unit, gridDpi, orientation),
             });
           }
+        }
+
+        if (isImage(unit) && tokenBadgeConfigs.length > 0) {
+          const { desiredShapes, desiredTexts } = buildDesiredTokenBadgesForUnit(
+            unit,
+            gridDpi,
+            orientation as HpOverlayOrientation,
+            attributes,
+            tokenBadgeConfigs,
+          );
+
+          desiredShapes.forEach((shape) => {
+            desiredTokenBadgeShapes.set(getTokenBadgeShapeId(unit.id, shape.slot), shape);
+          });
+
+          desiredTexts.forEach((text) => {
+            desiredTokenBadgeTexts.set(getTokenBadgeTextId(unit.id, text.slot), text);
+          });
         }
       }
 
@@ -428,6 +507,231 @@ export const HpBarEffectManager = () => {
             });
           } catch (error) {
             LOGGER.error('Failed to update HP number texts', error);
+          }
+        }
+      }
+
+      if (tokenBadgeConfigs.length > 0) {
+        const existingShapesById = new Map(existingTokenBadgeShapes.map((shape) => [shape.id, shape]));
+        const badgeShapesToAdd = Array.from(desiredTokenBadgeShapes.entries()).filter(([shapeId]) => !existingShapesById.has(shapeId));
+        const badgeShapesToRemove = existingTokenBadgeShapes.filter((shape) => !desiredTokenBadgeShapes.has(shape.id));
+        const badgeShapesToUpdate = existingTokenBadgeShapes.filter((shape) => {
+          const desired = desiredTokenBadgeShapes.get(shape.id);
+          if (!desired) {
+            return false;
+          }
+
+          return shape.attachedTo !== desired.unitId
+            || Math.abs(shape.position.x - desired.position.x) > 0.01
+            || Math.abs(shape.position.y - desired.position.y) > 0.01
+            || shape.points.length !== desired.points.length
+            || shape.points.some((point, index) => {
+              const desiredPoint = desired.points[index];
+              return !desiredPoint
+                || Math.abs(point.x - desiredPoint.x) > 0.01
+                || Math.abs(point.y - desiredPoint.y) > 0.01;
+            })
+            || shape.style.fillColor !== desired.color
+            || shape.style.strokeColor !== tokenBadgeStrokeColor
+            || Math.abs(shape.style.strokeWidth - desired.strokeWidth) > 0.01
+            || shape.visible !== desired.visible;
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        if (badgeShapesToRemove.length > 0) {
+          try {
+            await OBR.scene.local.deleteItems(badgeShapesToRemove.map((shape) => shape.id));
+          } catch (error) {
+            LOGGER.error('Failed to remove stale token badge shapes', error);
+          }
+        }
+
+        if (badgeShapesToAdd.length > 0) {
+          const shapesToAdd = badgeShapesToAdd.map(([shapeId, desired]) => (
+            buildCurve()
+              .id(shapeId)
+              .name(`Token Badge ${desired.slot}`)
+              .layer('ATTACHMENT')
+              .position(desired.position)
+              .points(desired.points)
+              .fillColor(desired.color)
+              .fillOpacity(0.95)
+              .strokeColor(tokenBadgeStrokeColor)
+              .strokeOpacity(1)
+              .strokeWidth(desired.strokeWidth)
+              .tension(0)
+              .closed(true)
+              .metadata({
+                [TOKEN_BADGE_SHAPE_FLAG]: true,
+                [TOKEN_BADGE_SHAPE_OWNER]: desired.unitId,
+                [TOKEN_BADGE_SHAPE_SLOT]: desired.slot,
+              })
+              .attachedTo(desired.unitId)
+              .visible(desired.visible)
+              .locked(true)
+              .disableHit(true)
+              .disableAttachmentBehavior(['ROTATION', 'SCALE'])
+              .build()
+          ));
+
+          try {
+            await OBR.scene.local.addItems(shapesToAdd);
+          } catch (error) {
+            LOGGER.error('Failed to add token badge shapes', error);
+          }
+        }
+
+        if (badgeShapesToUpdate.length > 0) {
+          try {
+            await OBR.scene.local.updateItems(badgeShapesToUpdate.map((shape) => shape.id), (updateItems) => {
+              updateItems.forEach((itemToUpdate) => {
+                const desired = desiredTokenBadgeShapes.get(itemToUpdate.id);
+                if (!desired || !isCurve(itemToUpdate)) {
+                  return;
+                }
+
+                itemToUpdate.attachedTo = desired.unitId;
+                itemToUpdate.position = desired.position;
+                itemToUpdate.points = desired.points;
+                itemToUpdate.visible = desired.visible;
+                itemToUpdate.style = {
+                  ...itemToUpdate.style,
+                  fillColor: desired.color,
+                  fillOpacity: 0.95,
+                  strokeColor: tokenBadgeStrokeColor,
+                  strokeOpacity: 1,
+                  strokeWidth: desired.strokeWidth,
+                  strokeDash: [],
+                  tension: 0,
+                  closed: true,
+                };
+                itemToUpdate.metadata = {
+                  ...itemToUpdate.metadata,
+                  [TOKEN_BADGE_SHAPE_FLAG]: true,
+                  [TOKEN_BADGE_SHAPE_OWNER]: desired.unitId,
+                  [TOKEN_BADGE_SHAPE_SLOT]: desired.slot,
+                };
+              });
+            });
+          } catch (error) {
+            LOGGER.error('Failed to update token badge shapes', error);
+          }
+        }
+
+        const existingTextsById = new Map(existingTokenBadgeTexts.map((textItem) => [textItem.id, textItem]));
+        const badgeTextsToAdd = Array.from(desiredTokenBadgeTexts.entries()).filter(([textId]) => !existingTextsById.has(textId));
+        const badgeTextsToRemove = existingTokenBadgeTexts.filter((textItem) => !desiredTokenBadgeTexts.has(textItem.id));
+        const badgeTextsToUpdate = existingTokenBadgeTexts.filter((textItem) => {
+          const desired = desiredTokenBadgeTexts.get(textItem.id);
+          if (!desired) {
+            return false;
+          }
+
+          const textContent = (textItem as typeof textItem & { text?: { plainText?: string; width?: number | 'AUTO'; height?: number | 'AUTO'; style?: { fontSize?: number } } }).text;
+          const plainText = textContent?.plainText;
+          const currentFontSize = textContent?.style?.fontSize;
+          const currentWidth = typeof textContent?.width === 'number' ? textContent.width : null;
+          const currentHeight = typeof textContent?.height === 'number' ? textContent.height : null;
+          return textItem.attachedTo !== desired.unitId
+            || Math.abs(textItem.position.x - desired.position.x) > 0.01
+            || Math.abs(textItem.position.y - desired.position.y) > 0.01
+            || currentWidth === null
+            || Math.abs(currentWidth - desired.width) > 0.01
+            || currentHeight === null
+            || Math.abs(currentHeight - desired.height) > 0.01
+            || plainText !== desired.text
+            || currentFontSize !== desired.fontSize
+            || textItem.visible !== desired.visible;
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        if (badgeTextsToRemove.length > 0) {
+          try {
+            await OBR.scene.local.deleteItems(badgeTextsToRemove.map((textItem) => textItem.id));
+          } catch (error) {
+            LOGGER.error('Failed to remove stale token badge texts', error);
+          }
+        }
+
+        if (badgeTextsToAdd.length > 0) {
+          const textsToAdd = badgeTextsToAdd.map(([textId, desired]) => (
+            buildText()
+              .id(textId)
+              .name(`Token Badge ${desired.slot} Text`)
+              .layer('TEXT')
+              .plainText(desired.text)
+              .textType('PLAIN')
+              .width(desired.width)
+              .height(desired.height)
+              .padding(0)
+              .fontWeight(900)
+              .fillOpacity(1)
+              .fillColor('white')
+              .strokeWidth(4)
+              .strokeColor('black')
+              .strokeOpacity(1)
+              .fontSize(desired.fontSize)
+              .fontFamily('Segoe UI')
+              .textAlign('CENTER')
+              .textAlignVertical('MIDDLE')
+              .position(desired.position)
+              .metadata({
+                [TOKEN_BADGE_TEXT_FLAG]: true,
+                [TOKEN_BADGE_TEXT_OWNER]: desired.unitId,
+                [TOKEN_BADGE_TEXT_SLOT]: desired.slot,
+              })
+              .attachedTo(desired.unitId)
+              .visible(desired.visible)
+              .locked(true)
+              .disableHit(true)
+              .disableAttachmentBehavior(['ROTATION', 'SCALE'])
+              .build()
+          ));
+
+          try {
+            await OBR.scene.local.addItems(textsToAdd);
+          } catch (error) {
+            LOGGER.error('Failed to add token badge texts', error);
+          }
+        }
+
+        if (badgeTextsToUpdate.length > 0) {
+          try {
+            await OBR.scene.local.updateItems(badgeTextsToUpdate.map((textItem) => textItem.id), (updateItems) => {
+              updateItems.forEach((itemToUpdate) => {
+                const desired = desiredTokenBadgeTexts.get(itemToUpdate.id);
+                if (!desired || !isText(itemToUpdate)) {
+                  return;
+                }
+
+                itemToUpdate.attachedTo = desired.unitId;
+                itemToUpdate.position = desired.position;
+                itemToUpdate.visible = desired.visible;
+                const textToUpdate = itemToUpdate as typeof itemToUpdate & { text?: { plainText?: string; width?: number | 'AUTO'; height?: number | 'AUTO'; style?: { fontSize?: number } } };
+                if (textToUpdate.text) {
+                  textToUpdate.text.plainText = desired.text;
+                  textToUpdate.text.width = desired.width;
+                  textToUpdate.text.height = desired.height;
+                  if (textToUpdate.text.style) {
+                    textToUpdate.text.style.fontSize = desired.fontSize;
+                  }
+                }
+                itemToUpdate.metadata = {
+                  ...itemToUpdate.metadata,
+                  [TOKEN_BADGE_TEXT_FLAG]: true,
+                  [TOKEN_BADGE_TEXT_OWNER]: desired.unitId,
+                  [TOKEN_BADGE_TEXT_SLOT]: desired.slot,
+                };
+              });
+            });
+          } catch (error) {
+            LOGGER.error('Failed to update token badge texts', error);
           }
         }
       }

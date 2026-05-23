@@ -1,6 +1,7 @@
 import { EXTENSION_ID, MOCK_BIDS } from './MockData';
 import { SettingsConstants } from '../interfaces/MetadataKeys';
 import { SystemAttribute } from '../interfaces/SystemResponse';
+import { buildCompleteValueMaps } from './DerivedValueResolution';
 
 export type HpValuePart = 'current' | 'max';
 
@@ -43,6 +44,10 @@ export const isResourceAttribute = (attribute: SystemAttribute | null | undefine
   return String(attribute?.attr_type || '').toLowerCase() === 'resource';
 };
 
+export const isDerivedAttribute = (attribute: SystemAttribute | null | undefined) => {
+  return String(attribute?.attr_type || '').toLowerCase() === 'derived';
+};
+
 export const getHpBidKeys = (attributes: SystemAttribute[]) => {
   const currentHp = attributes.find(isHpNameAttribute) || null;
   const maxHp = attributes.find(isMaxHpNameAttribute) || null;
@@ -77,11 +82,11 @@ export const getConfiguredHpBidKeys = (
 
 export const getHpMetadataKey = (bid: string) => `${EXTENSION_ID}/${bid}`;
 
-export const getHpValueFromMetadata = (
+const getNumericMetadataValue = (
   metadata: ItemMetadata,
   bid: string,
   attributes: SystemAttribute[],
-  part: HpValuePart
+  part: HpValuePart,
 ) => {
   const raw = metadata?.[getHpMetadataKey(bid)];
   const attribute = getAttributeByBid(attributes, bid);
@@ -91,6 +96,31 @@ export const getHpValueFromMetadata = (
   }
 
   return parseNumeric(raw);
+};
+
+export const getHpValueFromMetadata = (
+  metadata: ItemMetadata,
+  bid: string,
+  attributes: SystemAttribute[],
+  part: HpValuePart
+) => {
+  const attribute = getAttributeByBid(attributes, bid);
+
+  if (isDerivedAttribute(attribute)) {
+    const { bidValueMap } = buildCompleteValueMaps(
+      attributes,
+      (attributeBid) => getNumericMetadataValue(metadata, attributeBid, attributes, part),
+      (attr) => attr.attr_bid,
+      (attr) => String(attr.attr_type || '').toLowerCase(),
+      (attr) => attr.attr_meta?.derived?.formula || attr.attr_func || '',
+      (attr) => attr.attr_name || '',
+      (attr) => attr.attr_abbr || '',
+    );
+
+    return typeof bidValueMap[bid] === 'number' ? bidValueMap[bid] : null;
+  }
+
+  return getNumericMetadataValue(metadata, bid, attributes, part);
 };
 
 export const buildHpMetadataValue = (

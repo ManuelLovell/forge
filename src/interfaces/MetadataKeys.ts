@@ -55,6 +55,12 @@ export class SettingsConstants {
   static HP_MAX_BID = `${EXTENSION_ID}/hpmaxbid`;
   static BUFF_VISUAL_PRESET = `${EXTENSION_ID}/buffvis`;
   static DEBUFF_VISUAL_PRESET = `${EXTENSION_ID}/debfvis`;
+  static TOKEN_BADGE_ONE_SHAPE = `${EXTENSION_ID}/tkbdg1s`;
+  static TOKEN_BADGE_ONE_COLOR = `${EXTENSION_ID}/tkbdg1c`;
+  static TOKEN_BADGE_ONE_ATTRIBUTE = `${EXTENSION_ID}/tkbdg1a`;
+  static TOKEN_BADGE_TWO_SHAPE = `${EXTENSION_ID}/tkbdg2s`;
+  static TOKEN_BADGE_TWO_COLOR = `${EXTENSION_ID}/tkbdg2c`;
+  static TOKEN_BADGE_TWO_ATTRIBUTE = `${EXTENSION_ID}/tkbdg2a`;
   static SHOW_HP_NUMBERS = `${EXTENSION_ID}/showhpnum`;
   static SHOW_NAMES = `${EXTENSION_ID}/showname`;
   static SHOW_NAMES_TO_GM = `${EXTENSION_ID}/showngm`;

@@ -302,6 +302,51 @@ const pageVariants = {
   exit: { opacity: 0, y: -20 }
 };
 
+const TOKEN_BADGE_SHAPE_OPTIONS = ['circle', 'square', 'diamond', 'hex', 'shield'] as const;
+type TokenBadgeShape = typeof TOKEN_BADGE_SHAPE_OPTIONS[number];
+
+interface TokenBadgeSettings {
+  shape: TokenBadgeShape;
+  color: string;
+  attribute: string;
+}
+
+const DEFAULT_TOKEN_BADGE_SETTINGS: TokenBadgeSettings = {
+  shape: 'circle',
+  color: '#f5c542',
+  attribute: '',
+};
+
+const isTokenBadgeShape = (value: unknown): value is TokenBadgeShape => (
+  typeof value === 'string' && TOKEN_BADGE_SHAPE_OPTIONS.includes(value as TokenBadgeShape)
+);
+
+const normalizeHexColor = (value: unknown, fallback: string): string => {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return fallback;
+};
+
+const getTokenBadgeSettings = (
+  storage: Record<string, unknown>,
+  shapeKey: string,
+  colorKey: string,
+  attributeKey: string,
+): TokenBadgeSettings => ({
+  shape: isTokenBadgeShape(storage[shapeKey])
+    ? storage[shapeKey] as TokenBadgeShape
+    : DEFAULT_TOKEN_BADGE_SETTINGS.shape,
+  color: normalizeHexColor(storage[colorKey], DEFAULT_TOKEN_BADGE_SETTINGS.color),
+  attribute: typeof storage[attributeKey] === 'string' ? storage[attributeKey] as string : DEFAULT_TOKEN_BADGE_SETTINGS.attribute,
+});
+
 export const SystemPage = () => {
   const { theme, updateThemeFromSystem } = useForgeTheme();
   const { t, locale } = useTranslation();
@@ -330,6 +375,11 @@ export const SystemPage = () => {
   const [isUpdatingDebuffVisualPreset, setIsUpdatingDebuffVisualPreset] = useState(false);
   const [pendingBuffVisualPreset, setPendingBuffVisualPreset] = useState<BuffVisualPreset | null>(null);
   const [pendingDebuffVisualPreset, setPendingDebuffVisualPreset] = useState<DebuffVisualPreset | null>(null);
+  const [tokenBadgeOne, setTokenBadgeOne] = useState<TokenBadgeSettings>(DEFAULT_TOKEN_BADGE_SETTINGS);
+  const [tokenBadgeTwo, setTokenBadgeTwo] = useState<TokenBadgeSettings>({
+    ...DEFAULT_TOKEN_BADGE_SETTINGS,
+    color: '#5bb5ff',
+  });
 
   // Backup management
   const [backups, setBackups] = useState<SystemBackup[]>([]);
@@ -345,6 +395,14 @@ export const SystemPage = () => {
   const debuffVisualPresetLabels: Record<DebuffVisualPreset, string> = {
     debuff_effect_one: t('system.debuffVisualPreset.debuff_effect_one'),
     debuff_effect_two: t('system.debuffVisualPreset.debuff_effect_two'),
+  };
+
+  const tokenBadgeShapeLabels: Record<TokenBadgeShape, string> = {
+    circle: t('system.tokenBadgeShape.circle'),
+    square: t('system.tokenBadgeShape.square'),
+    diamond: t('system.tokenBadgeShape.diamond'),
+    hex: t('system.tokenBadgeShape.hex'),
+    shield: t('system.tokenBadgeShape.shield'),
   };
 
   // Keep premium lock state in sync with auth changes (including connect from Settings).
@@ -380,34 +438,6 @@ export const SystemPage = () => {
 
   const loadCurrentSystemFromCache = () => {
     try {
-      if (!isPremiumAuth) {
-        const defaultTheme: ThemeData = {
-          primary: defaultGameSystem.theme_primary,
-          offset: defaultGameSystem.theme_offset,
-          background: defaultGameSystem.theme_background,
-          border: defaultGameSystem.theme_border,
-          background_url: defaultGameSystem.background_url,
-        };
-        const configuredBuffVisualPreset = storageContainer[SettingsConstants.BUFF_VISUAL_PRESET];
-        const configuredDebuffVisualPreset = storageContainer[SettingsConstants.DEBUFF_VISUAL_PRESET];
-        const resolvedBuffPreset = isBuffVisualPreset(configuredBuffVisualPreset)
-          ? configuredBuffVisualPreset
-          : DEFAULT_BUFF_VISUAL_PRESET;
-        const resolvedDebuffPreset = isDebuffVisualPreset(configuredDebuffVisualPreset)
-          ? configuredDebuffVisualPreset
-          : DEFAULT_DEBUFF_VISUAL_PRESET;
-
-        setCurrentSystemName(defaultGameSystem.name);
-        setCurrentImportDate(null);
-        setCurrentTheme(defaultTheme);
-        setSystemAttributes(defaultGameSystem.attributes as SystemAttribute[]);
-        setHpCurrentBid(DEFAULT_HP_BID_KEYS.currentHpBid);
-        setHpMaxBid(DEFAULT_HP_BID_KEYS.maxHpBid);
-        setBuffVisualPreset(resolvedBuffPreset);
-        setDebuffVisualPreset(resolvedDebuffPreset);
-        return;
-      }
-
       if (runtimeSystemData) {
         const configuredCurrentHpBid = storageContainer[SettingsConstants.HP_CURRENT_BID] as string | undefined;
         const configuredMaxHpBid = storageContainer[SettingsConstants.HP_MAX_BID] as string | undefined;
@@ -415,6 +445,18 @@ export const SystemPage = () => {
         const configuredDebuffVisualPreset = storageContainer[SettingsConstants.DEBUFF_VISUAL_PRESET];
         const resolvedBuffPreset = isBuffVisualPreset(configuredBuffVisualPreset) ? configuredBuffVisualPreset : null;
         const resolvedDebuffPreset = isDebuffVisualPreset(configuredDebuffVisualPreset) ? configuredDebuffVisualPreset : null;
+        const resolvedTokenBadgeOne = getTokenBadgeSettings(
+          storageContainer,
+          SettingsConstants.TOKEN_BADGE_ONE_SHAPE,
+          SettingsConstants.TOKEN_BADGE_ONE_COLOR,
+          SettingsConstants.TOKEN_BADGE_ONE_ATTRIBUTE,
+        );
+        const resolvedTokenBadgeTwo = getTokenBadgeSettings(
+          storageContainer,
+          SettingsConstants.TOKEN_BADGE_TWO_SHAPE,
+          SettingsConstants.TOKEN_BADGE_TWO_COLOR,
+          SettingsConstants.TOKEN_BADGE_TWO_ATTRIBUTE,
+        );
 
         setCurrentSystemName(runtimeSystemData.systemName);
         setCurrentImportDate(runtimeSystemData.importDate);
@@ -442,6 +484,50 @@ export const SystemPage = () => {
               : prev
           ));
         }
+        setTokenBadgeOne(resolvedTokenBadgeOne);
+        setTokenBadgeTwo(resolvedTokenBadgeTwo);
+        return;
+      }
+
+      if (!isPremiumAuth) {
+        const defaultTheme: ThemeData = {
+          primary: defaultGameSystem.theme_primary,
+          offset: defaultGameSystem.theme_offset,
+          background: defaultGameSystem.theme_background,
+          border: defaultGameSystem.theme_border,
+          background_url: defaultGameSystem.background_url,
+        };
+        const configuredBuffVisualPreset = storageContainer[SettingsConstants.BUFF_VISUAL_PRESET];
+        const configuredDebuffVisualPreset = storageContainer[SettingsConstants.DEBUFF_VISUAL_PRESET];
+        const resolvedBuffPreset = isBuffVisualPreset(configuredBuffVisualPreset)
+          ? configuredBuffVisualPreset
+          : DEFAULT_BUFF_VISUAL_PRESET;
+        const resolvedDebuffPreset = isDebuffVisualPreset(configuredDebuffVisualPreset)
+          ? configuredDebuffVisualPreset
+          : DEFAULT_DEBUFF_VISUAL_PRESET;
+        const resolvedTokenBadgeOne = getTokenBadgeSettings(
+          storageContainer,
+          SettingsConstants.TOKEN_BADGE_ONE_SHAPE,
+          SettingsConstants.TOKEN_BADGE_ONE_COLOR,
+          SettingsConstants.TOKEN_BADGE_ONE_ATTRIBUTE,
+        );
+        const resolvedTokenBadgeTwo = getTokenBadgeSettings(
+          storageContainer,
+          SettingsConstants.TOKEN_BADGE_TWO_SHAPE,
+          SettingsConstants.TOKEN_BADGE_TWO_COLOR,
+          SettingsConstants.TOKEN_BADGE_TWO_ATTRIBUTE,
+        );
+
+        setCurrentSystemName(defaultGameSystem.name);
+        setCurrentImportDate(null);
+        setCurrentTheme(defaultTheme);
+        setSystemAttributes(defaultGameSystem.attributes as SystemAttribute[]);
+        setHpCurrentBid(DEFAULT_HP_BID_KEYS.currentHpBid);
+        setHpMaxBid(DEFAULT_HP_BID_KEYS.maxHpBid);
+        setBuffVisualPreset(resolvedBuffPreset);
+        setDebuffVisualPreset(resolvedDebuffPreset);
+        setTokenBadgeOne(resolvedTokenBadgeOne);
+        setTokenBadgeTwo(resolvedTokenBadgeTwo);
         return;
       }
 
@@ -453,6 +539,18 @@ export const SystemPage = () => {
       const configuredDebuffVisualPreset = storageContainer[SettingsConstants.DEBUFF_VISUAL_PRESET];
       const resolvedBuffPreset = isBuffVisualPreset(configuredBuffVisualPreset) ? configuredBuffVisualPreset : null;
       const resolvedDebuffPreset = isDebuffVisualPreset(configuredDebuffVisualPreset) ? configuredDebuffVisualPreset : null;
+      const resolvedTokenBadgeOne = getTokenBadgeSettings(
+        storageContainer,
+        SettingsConstants.TOKEN_BADGE_ONE_SHAPE,
+        SettingsConstants.TOKEN_BADGE_ONE_COLOR,
+        SettingsConstants.TOKEN_BADGE_ONE_ATTRIBUTE,
+      );
+      const resolvedTokenBadgeTwo = getTokenBadgeSettings(
+        storageContainer,
+        SettingsConstants.TOKEN_BADGE_TWO_SHAPE,
+        SettingsConstants.TOKEN_BADGE_TWO_COLOR,
+        SettingsConstants.TOKEN_BADGE_TWO_ATTRIBUTE,
+      );
 
       setCurrentSystemName(roomSystemName || defaultGameSystem.name);
       setCurrentImportDate(roomImportDate || null);
@@ -486,13 +584,15 @@ export const SystemPage = () => {
             : prev
         ));
       }
+      setTokenBadgeOne(resolvedTokenBadgeOne);
+      setTokenBadgeTwo(resolvedTokenBadgeTwo);
 
     } catch (err) {
       LOGGER.error('Error loading system from cache:', err);
     }
   };
 
-  const saveHpAttributeMapping = async (key: string, value: string) => {
+  const saveSystemSetting = async (key: string, value: string) => {
     if (DATA_STORED_IN_ROOM) {
       await OBR.room.setMetadata({ [key]: value });
       return;
@@ -527,6 +627,37 @@ export const SystemPage = () => {
     const type = String(attribute.attr_type || '').toLowerCase();
     return type === 'numb' || type === 'resource';
   });
+
+  const tokenBadgeMappableAttributes = systemAttributes.filter((attribute) => {
+    const type = String(attribute.attr_type || '').toLowerCase();
+    return type === 'numb' || type === 'resource' || type === 'derived';
+  });
+
+  const updateTokenBadgeSetting = async (
+    badgeNumber: 1 | 2,
+    field: keyof TokenBadgeSettings,
+    value: string,
+  ) => {
+    const setter = badgeNumber === 1 ? setTokenBadgeOne : setTokenBadgeTwo;
+    const keyMap = badgeNumber === 1
+      ? {
+        shape: SettingsConstants.TOKEN_BADGE_ONE_SHAPE,
+        color: SettingsConstants.TOKEN_BADGE_ONE_COLOR,
+        attribute: SettingsConstants.TOKEN_BADGE_ONE_ATTRIBUTE,
+      }
+      : {
+        shape: SettingsConstants.TOKEN_BADGE_TWO_SHAPE,
+        color: SettingsConstants.TOKEN_BADGE_TWO_COLOR,
+        attribute: SettingsConstants.TOKEN_BADGE_TWO_ATTRIBUTE,
+      };
+
+    setter((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    await saveSystemSetting(keyMap[field], value);
+  };
 
   const loadBackups = () => {
     try {
@@ -977,7 +1108,7 @@ export const SystemPage = () => {
                     }
                     const value = e.target.value;
                     setHpCurrentBid(value);
-                    await saveHpAttributeMapping(SettingsConstants.HP_CURRENT_BID, value);
+                    await saveSystemSetting(SettingsConstants.HP_CURRENT_BID, value);
                   }}
                 >
                   <option value="">{t('system.selectAttribute')}</option>
@@ -1000,7 +1131,7 @@ export const SystemPage = () => {
                     }
                     const value = e.target.value;
                     setHpMaxBid(value);
-                    await saveHpAttributeMapping(SettingsConstants.HP_MAX_BID, value);
+                    await saveSystemSetting(SettingsConstants.HP_MAX_BID, value);
                   }}
                 >
                   <option value="">{t('system.selectAttribute')}</option>
@@ -1030,7 +1161,7 @@ export const SystemPage = () => {
                     setPendingBuffVisualPreset(value);
                     setIsUpdatingBuffVisualPreset(true);
                     try {
-                      await saveHpAttributeMapping(SettingsConstants.BUFF_VISUAL_PRESET, value);
+                      await saveSystemSetting(SettingsConstants.BUFF_VISUAL_PRESET, value);
                     } finally {
                       setIsUpdatingBuffVisualPreset(false);
                     }
@@ -1057,7 +1188,7 @@ export const SystemPage = () => {
                     setPendingDebuffVisualPreset(value);
                     setIsUpdatingDebuffVisualPreset(true);
                     try {
-                      await saveHpAttributeMapping(SettingsConstants.DEBUFF_VISUAL_PRESET, value);
+                      await saveSystemSetting(SettingsConstants.DEBUFF_VISUAL_PRESET, value);
                     } finally {
                       setIsUpdatingDebuffVisualPreset(false);
                     }
@@ -1069,6 +1200,110 @@ export const SystemPage = () => {
                     </option>
                   ))}
                 </MappingSelect>
+              </MappingRow>
+              <MappingRow>
+                <MappingLabel theme={theme}>{t('system.tokenBadgeOne')}</MappingLabel>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                  <div style={{ display: 'flex', gap: '8px', width: '100%', alignItems: 'center' }}>
+                    <MappingSelect
+                      theme={theme}
+                      value={tokenBadgeOne.shape}
+                      aria-label={t('system.tokenBadgeShape')}
+                      onChange={async (e) => {
+                        const value = e.target.value;
+                        if (!isTokenBadgeShape(value)) {
+                          return;
+                        }
+                        await updateTokenBadgeSetting(1, 'shape', value);
+                      }}
+                    >
+                      {TOKEN_BADGE_SHAPE_OPTIONS.map((shape) => (
+                        <option key={shape} value={shape}>
+                          {tokenBadgeShapeLabels[shape]}
+                        </option>
+                      ))}
+                    </MappingSelect>
+                    <Input
+                      theme={theme}
+                      type="color"
+                      aria-label={t('system.tokenBadgeColor')}
+                      value={tokenBadgeOne.color}
+                      onChange={async (e) => {
+                        await updateTokenBadgeSetting(1, 'color', e.target.value);
+                      }}
+                      style={{ width: '56px', padding: '4px', minHeight: '36px', flexShrink: 0 }}
+                    />
+                  </div>
+                  <div style={{ width: '100%', boxSizing: 'border-box' }}>
+                    <MappingSelect
+                      theme={theme}
+                      value={tokenBadgeOne.attribute}
+                      aria-label={t('system.tokenBadgeAttribute')}
+                      onChange={async (e) => {
+                        await updateTokenBadgeSetting(1, 'attribute', e.target.value);
+                      }}
+                    >
+                      <option value="">{t('system.tokenBadgeNoAttribute')}</option>
+                      {tokenBadgeMappableAttributes.map((attribute) => (
+                        <option key={`badge-one-${attribute.attr_bid}`} value={attribute.attr_bid}>
+                          {attribute.attr_abbr} — {attribute.attr_name}{String(attribute.attr_type || '').toLowerCase() === 'resource' ? t('system.resourceOptionSuffix') : ''}
+                        </option>
+                      ))}
+                    </MappingSelect>
+                  </div>
+                </div>
+              </MappingRow>
+              <MappingRow>
+                <MappingLabel theme={theme}>{t('system.tokenBadgeTwo')}</MappingLabel>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                  <div style={{ display: 'flex', gap: '8px', width: '100%', alignItems: 'center' }}>
+                    <MappingSelect
+                      theme={theme}
+                      value={tokenBadgeTwo.shape}
+                      aria-label={t('system.tokenBadgeShape')}
+                      onChange={async (e) => {
+                        const value = e.target.value;
+                        if (!isTokenBadgeShape(value)) {
+                          return;
+                        }
+                        await updateTokenBadgeSetting(2, 'shape', value);
+                      }}
+                    >
+                      {TOKEN_BADGE_SHAPE_OPTIONS.map((shape) => (
+                        <option key={shape} value={shape}>
+                          {tokenBadgeShapeLabels[shape]}
+                        </option>
+                      ))}
+                    </MappingSelect>
+                    <Input
+                      theme={theme}
+                      type="color"
+                      aria-label={t('system.tokenBadgeColor')}
+                      value={tokenBadgeTwo.color}
+                      onChange={async (e) => {
+                        await updateTokenBadgeSetting(2, 'color', e.target.value);
+                      }}
+                      style={{ width: '56px', padding: '4px', minHeight: '36px', flexShrink: 0 }}
+                    />
+                  </div>
+                  <div style={{ width: '100%', boxSizing: 'border-box' }}>
+                    <MappingSelect
+                      theme={theme}
+                      value={tokenBadgeTwo.attribute}
+                      aria-label={t('system.tokenBadgeAttribute')}
+                      onChange={async (e) => {
+                        await updateTokenBadgeSetting(2, 'attribute', e.target.value);
+                      }}
+                    >
+                      <option value="">{t('system.tokenBadgeNoAttribute')}</option>
+                      {tokenBadgeMappableAttributes.map((attribute) => (
+                        <option key={`badge-two-${attribute.attr_bid}`} value={attribute.attr_bid}>
+                          {attribute.attr_abbr} — {attribute.attr_name}{String(attribute.attr_type || '').toLowerCase() === 'resource' ? t('system.resourceOptionSuffix') : ''}
+                        </option>
+                      ))}
+                    </MappingSelect>
+                  </div>
+                </div>
               </MappingRow>
             </MappingSection>
           </>

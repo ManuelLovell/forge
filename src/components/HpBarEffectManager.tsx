@@ -300,6 +300,7 @@ export const HpBarEffectManager = () => {
             unit,
             gridDpi,
             orientation as HpOverlayOrientation,
+            effectiveShowHpNumbers,
             attributes,
             tokenBadgeConfigs,
           );

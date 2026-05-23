@@ -183,10 +183,18 @@ const getTokenBadgePlacement = (
   orientation: HpOverlayOrientation,
   stackIndex: number,
   badgeSize: number,
+  offsetForHpNumbers: boolean,
 ) => {
   const hpBarRect = getHpBarRect(unitItem, sceneGridDpi, orientation);
   const gap = clamp(Math.round(badgeSize * 0.12), 4, 10);
   const columnX = hpBarRect.maxX - (badgeSize * 0.5);
+  const verticalNumberOffset = offsetForHpNumbers && (orientation === 'left' || orientation === 'right')
+    ? 70
+    : 0;
+    
+  const horizontalNumberOffset = offsetForHpNumbers && (orientation === 'left' || orientation === 'right')
+    ? 35
+    : 0;
 
   let topLeftPosition: { x: number; y: number };
 
@@ -199,14 +207,14 @@ const getTokenBadgePlacement = (
       break;
     case 'left':
       topLeftPosition = {
-        x: hpBarRect.maxX + gap,
-        y: hpBarRect.minY + (stackIndex * (badgeSize + gap)),
+        x: hpBarRect.maxX - horizontalNumberOffset + gap,
+        y: hpBarRect.minY + verticalNumberOffset + (stackIndex * (badgeSize + gap)),
       };
       break;
     case 'right':
       topLeftPosition = {
-        x: hpBarRect.minX - badgeSize - gap,
-        y: hpBarRect.minY + (stackIndex * (badgeSize + gap)),
+        x: hpBarRect.minX - badgeSize + horizontalNumberOffset - gap,
+        y: hpBarRect.minY + verticalNumberOffset + (stackIndex * (badgeSize + gap)),
       };
       break;
     case 'bottom':
@@ -314,6 +322,7 @@ export const buildDesiredTokenBadgesForUnit = (
   unit: ImageBoundsItem,
   sceneGridDpi: number,
   orientation: HpOverlayOrientation,
+  showHpNumbers: boolean,
   attributes: SystemAttribute[],
   tokenBadgeConfigs: TokenBadgeConfig[],
 ) => {
@@ -337,7 +346,7 @@ export const buildDesiredTokenBadgesForUnit = (
   activeBadges.forEach((badge, stackIndex) => {
     const baseSize = getTokenBadgeBaseSize(unit, sceneGridDpi);
     const visualSize = getTokenBadgeVisualSize(baseSize, badge.shape);
-    const placement = getTokenBadgePlacement(unit, sceneGridDpi, orientation, stackIndex, visualSize);
+    const placement = getTokenBadgePlacement(unit, sceneGridDpi, orientation, stackIndex, visualSize, showHpNumbers);
     const curvePoints = getTokenBadgeCurvePoints(
       visualSize,
       visualSize,

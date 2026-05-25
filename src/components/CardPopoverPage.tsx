@@ -80,7 +80,7 @@ const DEFAULT_THEME: ThemeData = {
 const Root = styled.div<{ $theme: ThemeData }>`
   height: 100vh;
   width: 100%;
-  background-color: #00000081;
+  background-color: rgba(0, 0, 0, 0.5);
   color: ${props => props.$theme.primary};
   border: 2px solid ${props => props.$theme.border};
   border-radius: 16px;
@@ -95,7 +95,7 @@ const Root = styled.div<{ $theme: ThemeData }>`
   background-repeat: no-repeat;
 `;
 
-const ContentViewport = styled.div`
+const ContentViewport = styled.div<{ $theme: ThemeData }>`
   height: 100%;
   overflow: hidden;
   padding: 40px 4px 4px;
@@ -103,6 +103,7 @@ const ContentViewport = styled.div`
   display: flex;
   justify-content: center;
   position: relative;
+  background: ${props => rgbaFromHex(props.$theme.background, 0.5)};
 `;
 
 const Message = styled.p<{ $theme: ThemeData }>`
@@ -1525,7 +1526,7 @@ export const CardPopoverPage = () => {
 
   return (
     <Root $theme={theme}>
-      <ContentViewport>
+      <ContentViewport $theme={theme}>
         <FloatingCardControls>
           <CardControls>
             <UnitSelect

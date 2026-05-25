@@ -232,9 +232,6 @@ const DisabledInput = styled.input<{ $theme: CardLayoutTheme; $fontSize: string;
   -webkit-backdrop-filter: blur(2px);
   color: ${props => rgbaFromHex(props.$theme.primary, 0.9)};
   text-shadow: ${props => props.$isRollable ? getRollableInputTextShadow(props.$theme) : 'none'};
-  box-shadow: ${props => props.$isRollable
-    ? `inset 0 0 0 1px ${rgbaFromHex(props.$theme.background, 0.28)}, 0 0 0 1px ${rgbaFromHex(props.$theme.offset, 0.18)}`
-    : 'none'};
   box-sizing: border-box;
   font-size: ${props => props.$fontSize};
   text-align: ${props => props.$align || 'left'};
@@ -243,9 +240,6 @@ const DisabledInput = styled.input<{ $theme: CardLayoutTheme; $fontSize: string;
   &:focus {
     outline: none;
     border-color: ${props => props.$theme.offset};
-    box-shadow: ${props => props.$isRollable
-    ? `0 0 0 2px ${rgbaFromHex(props.$theme.offset, 0.35)}, inset 0 0 0 1px ${rgbaFromHex(props.$theme.background, 0.35)}`
-    : 'none'};
   }
 
   &::placeholder {
@@ -311,9 +305,6 @@ const TextValueInput = styled.input<{
   -webkit-backdrop-filter: blur(2px);
   color: ${props => rgbaFromHex(props.$theme.primary, 0.9)};
   text-shadow: ${props => props.$isRollable ? getRollableInputTextShadow(props.$theme) : 'none'};
-  box-shadow: ${props => props.$isRollable
-    ? `inset 0 0 0 1px ${rgbaFromHex(props.$theme.background, 0.28)}, 0 0 0 1px ${rgbaFromHex(props.$theme.offset, 0.18)}`
-    : 'none'};
   padding: 0 8px;
   box-sizing: border-box;
   font-size: ${props => props.$fontSize};
@@ -328,9 +319,6 @@ const TextValueInput = styled.input<{
   &:focus {
     outline: none;
     border-color: ${props => props.$theme.offset};
-    box-shadow: ${props => props.$isRollable
-    ? `0 0 0 2px ${rgbaFromHex(props.$theme.offset, 0.35)}, inset 0 0 0 1px ${rgbaFromHex(props.$theme.background, 0.35)}`
-    : 'none'};
   }
 
   &::placeholder {
@@ -408,7 +396,6 @@ const DerivedReadOnlyValue = styled(ReadOnlyValue)<{
   border-style: solid;
   background: ${props => rgbaFromHex(props.$theme.primary, 0.75)};
   color: ${props => rgbaFromHex(props.$theme.offset, 0.96)};
-  box-shadow: ${props => `0 4px 14px ${rgbaFromHex(props.$theme.background, 0.65)}`};
   text-shadow: ${props => `1px 1px 0 ${rgbaFromHex(props.$theme.background, 0.95)}`};
   font-weight: 700;
   font-style: italic;
@@ -711,7 +698,6 @@ const RollableModalContainer = styled.div<{ $theme: CardLayoutTheme }>`
   border-radius: 10px;
   border: 2px solid ${props => rgbaFromHex(props.$theme.border, 0.9)};
   background: ${props => rgbaFromHex(props.$theme.background, 0.95)};
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
   padding: 14px;
   box-sizing: border-box;
   z-index: 10000;
@@ -790,7 +776,6 @@ const ItemUseCheckbox = styled.input<{ $theme: CardLayoutTheme }>`
 
   &:focus {
     outline: none;
-    box-shadow: ${props => `0 0 0 2px ${rgbaFromHex(props.$theme.primary, 0.6)}`};
   }
 
   &:disabled {
@@ -859,7 +844,6 @@ const CheckboxInput = styled.input<{ $theme: CardLayoutTheme }>`
 
   &:focus {
     outline: none;
-    box-shadow: ${props => `0 0 0 2px ${rgbaFromHex(props.$theme.primary, 0.6)}`};
   }
 
   &:disabled {

@@ -54,6 +54,8 @@ import {
   HeartPlus,
   HeartCrack,
   Fan,
+  ChevronRight,
+  ChevronDown,
   BookOpen, ArrowRightCircle, CheckCircle, Circle, FileText,
   ArrowLeft, ArrowRight, OctagonX, Minimize2, Maximize2
 } from 'lucide-react';
@@ -680,10 +682,22 @@ const NameCellContent = styled.div<{ $depth: number }>`
   padding-left: ${props => `${props.$depth * 12}px`};
 `;
 
-const NestedBranchMarker = styled.span<{ theme: ForgeTheme }>`
-  color: ${props => rgbaFromHex(props.theme.OFFSET, 0.85)};
-  font-weight: 700;
-  min-width: 10px;
+const ParentChevronButton = styled.button<{ theme: ForgeTheme }>`
+  border: none;
+  background: transparent;
+  color: ${props => rgbaFromHex(props.theme.OFFSET, 0.9)};
+  padding: 0;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  svg {
+    width: 12px;
+    height: 12px;
+  }
 `;
 
 const NestedInitiativeMarker = styled.span<{ theme: ForgeTheme; $depth: number }>`
@@ -1289,6 +1303,7 @@ export const InitiativeList: React.FC = () => {
   const [groupRollSelectedIds, setGroupRollSelectedIds] = useState<Set<string>>(new Set());
   const [draggingUnitId, setDraggingUnitId] = useState<string | null>(null);
   const [dropTargetUnitId, setDropTargetUnitId] = useState<string | null>(null);
+  const [collapsedParentIds, setCollapsedParentIds] = useState<Set<string>>(new Set());
   const [headerTooltip, setHeaderTooltip] = useState<{ text: string; anchorX: number; left: number; y: number; placement: 'top' | 'bottom'; arrowX: number } | null>(null);
   const headerTooltipRef = useRef<HTMLDivElement | null>(null);
   const longPressTimersRef = useRef<Record<string, number>>({});
@@ -1626,6 +1641,10 @@ export const InitiativeList: React.FC = () => {
 
     const appendWithChildren = (unit: Unit) => {
       ordered.push(unit);
+      if (collapsedParentIds.has(unit.id)) {
+        return;
+      }
+
       const children = groupChildrenByParentId.get(unit.id) || [];
       children.forEach((child) => appendWithChildren(child));
     };
@@ -1633,7 +1652,34 @@ export const InitiativeList: React.FC = () => {
     rootTurnUnits.forEach((unit) => appendWithChildren(unit));
 
     return ordered;
-  }, [groupChildrenByParentId, rootTurnUnits]);
+  }, [groupChildrenByParentId, rootTurnUnits, collapsedParentIds]);
+
+  useEffect(() => {
+    setCollapsedParentIds((previous) => {
+      if (previous.size === 0) {
+        return previous;
+      }
+
+      const validParentIds = new Set<string>();
+      groupChildrenByParentId.forEach((children, parentId) => {
+        if (children.length > 0) {
+          validParentIds.add(parentId);
+        }
+      });
+
+      let changed = false;
+      const next = new Set<string>();
+      previous.forEach((parentId) => {
+        if (validParentIds.has(parentId)) {
+          next.add(parentId);
+        } else {
+          changed = true;
+        }
+      });
+
+      return changed ? next : previous;
+    });
+  }, [groupChildrenByParentId]);
 
   const effectsManager = useEffectsManager({
     items,
@@ -2009,6 +2055,18 @@ export const InitiativeList: React.FC = () => {
 
   const resolveNormalizedGroupTargetId = (candidateParentId: string): string => {
     return resolveRootGroupParentId(candidateParentId);
+  };
+
+  const toggleParentCollapsed = (parentUnitId: string) => {
+    setCollapsedParentIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(parentUnitId)) {
+        next.delete(parentUnitId);
+      } else {
+        next.add(parentUnitId);
+      }
+      return next;
+    });
   };
 
   const assignGroupParent = async (childUnitId: string, parentUnitId: string) => {
@@ -3412,6 +3470,8 @@ export const InitiativeList: React.FC = () => {
     const shouldHideHpNumbersForPlayer = !isCurrentUserGm && !showListHpNumbers;
     const isNestedUnit = nestedUnitIds.has(unit.id);
     const nestedDepth = nestedDepthByUnitId.get(unit.id) || 0;
+    const hasChildren = (groupChildrenByParentId.get(unit.id)?.length || 0) > 0;
+    const isCollapsedParent = collapsedParentIds.has(unit.id);
 
     if (shouldObscureStats && col.type !== 'initiative' && col.type !== 'name' && col.type !== 'divider-column') {
       return (
@@ -3598,7 +3658,8 @@ export const InitiativeList: React.FC = () => {
               setDropTargetUnitId(normalizedTargetId);
             } : undefined}
             onDragLeave={canInteract ? () => {
-              setDropTargetUnitId((previous) => (previous === unit.id ? null : previous));
+              const normalizedTargetId = resolveNormalizedGroupTargetId(unit.id);
+              setDropTargetUnitId((previous) => (previous === normalizedTargetId ? null : previous));
             } : undefined}
             onDrop={canInteract ? (event) => {
               event.preventDefault();
@@ -3621,6 +3682,19 @@ export const InitiativeList: React.FC = () => {
             onContextMenu={canInteract ? (event) => handleUnitContextMenu(event, unit.id) : undefined}
           >
             <NameCellContent $depth={nestedDepth}>
+              {hasChildren && (
+                <ParentChevronButton
+                  type="button"
+                  theme={theme}
+                  aria-label={isCollapsedParent ? 'Show children' : 'Hide children'}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleParentCollapsed(unit.id);
+                  }}
+                >
+                  {isCollapsedParent ? <ChevronRight /> : <ChevronDown />}
+                </ParentChevronButton>
+              )}
               <span>{unit.isBoss ? `💀 ${unit.name}` : unit.name}</span>
             </NameCellContent>
           </NameCell>

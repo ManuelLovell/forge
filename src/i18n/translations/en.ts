@@ -359,7 +359,7 @@ export const enTranslations = {
   'card.recordDeleteFailed': 'Could not delete collection record.',
   'initiative.next': 'Next',
   'initiative.nameHeader': 'Name',
-  'initiative.defaultInitiativeDescription': 'Initiative value used for turn order. Can be edited via Right-Click or rolled with Click.',
+  'initiative.defaultInitiativeDescription': 'Initiative value used for turn order. Can be edited via Right-Click or rolled with Click. Header dice can enable group roll mode: click initiative inputs to mark them, then click the header dice again to roll all selected units.',
   'initiative.defaultNameDescription': 'Name of the unit or character.',
   'initiative.switchToCompactList': 'Switch to Compact list',
   'initiative.resetRoundTurnState': 'Reset round/turn state',

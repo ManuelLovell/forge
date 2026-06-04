@@ -361,7 +361,7 @@ export const esTranslations: TranslationDictionary = {
   'card.recordDeleteFailed': 'No se pudo eliminar el registro de coleccion.',
   'initiative.next': 'Siguiente',
   'initiative.nameHeader': 'Nombre',
-  'initiative.defaultInitiativeDescription': 'Valor de iniciativa usado para el orden de turnos. Puede editarse con clic derecho o tirarse con clic.',
+  'initiative.defaultInitiativeDescription': 'Valor de iniciativa usado para el orden de turnos. Puede editarse con clic derecho o tirarse con clic. El icono de dados del encabezado puede activar el modo de tirada grupal: haz clic en los campos de iniciativa para marcarlos y vuelve a hacer clic en el icono de dados para tirar todas las unidades seleccionadas.',
   'initiative.defaultNameDescription': 'Nombre de la unidad o del personaje.',
   'initiative.switchToCompactList': 'Cambiar a lista compacta',
   'initiative.resetRoundTurnState': 'Restablecer estado de ronda/turno',

@@ -361,7 +361,7 @@ export const deTranslations: TranslationDictionary = {
   'card.recordDeleteFailed': 'Sammlungseintrag konnte nicht geloscht werden.',
   'initiative.next': 'Weiter',
   'initiative.nameHeader': 'Name',
-  'initiative.defaultInitiativeDescription': 'Initiativewert fur die Zugreihenfolge. Kann per Rechtsklick bearbeitet oder per Klick gewurfelt werden.',
+  'initiative.defaultInitiativeDescription': 'Initiativewert fur die Zugreihenfolge. Kann per Rechtsklick bearbeitet oder per Klick gewurfelt werden. Das Wurfel-Symbol in der Kopfzeile kann den Gruppenwurf-Modus aktivieren: Klicke auf Initiativfelder, um sie zu markieren, und klicke das Kopfzeilen-Wurfel erneut, um alle ausgewahlten Einheiten zu wurfeln.',
   'initiative.defaultNameDescription': 'Name der Einheit oder des Charakters.',
   'initiative.switchToCompactList': 'Zur kompakten Liste wechseln',
   'initiative.resetRoundTurnState': 'Runden-/Zugstatus zurucksetzen',

@@ -361,7 +361,7 @@ export const frTranslations: TranslationDictionary = {
   'card.recordDeleteFailed': 'Impossible de supprimer l\'enregistrement de collection.',
   'initiative.next': 'Suivant',
   'initiative.nameHeader': 'Nom',
-  'initiative.defaultInitiativeDescription': 'Valeur d\'initiative utilisee pour l\'ordre des tours. Peut etre modifiee par clic droit ou lancee par clic.',
+  'initiative.defaultInitiativeDescription': 'Valeur d\'initiative utilisee pour l\'ordre des tours. Peut etre modifiee par clic droit ou lancee par clic. L\'icone de des de l\'en-tete peut activer le mode de lancer de groupe : cliquez sur les champs d\'initiative pour les marquer, puis recliquez sur l\'icone de des de l\'en-tete pour lancer toutes les unites selectionnees.',
   'initiative.defaultNameDescription': 'Nom de l\'unite ou du personnage.',
   'initiative.switchToCompactList': 'Passer a la liste compacte',
   'initiative.resetRoundTurnState': 'Reinitialiser l\'etat manche/tour',

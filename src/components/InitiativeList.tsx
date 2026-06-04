@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import OBR, { buildText, isImage } from '@owlbear-rodeo/sdk';
 import { useSystemData } from '../helpers/useSystemData';
 import { useForgeTheme } from '../helpers/ThemeContext';
@@ -33,6 +33,7 @@ import {
   Sun,
   Target,
   Users,
+  Dices,
   Wind,
   Zap,
   Sword,
@@ -201,6 +202,18 @@ const getRollableInputTextShadow = (theme: ForgeTheme): string => {
 };
 
 const ADVANTAGE_DICE_PATTERN = /(\d+)d(\d+)([kd][hl]\d+|!)?/ig;
+
+const groupRollComplementPulse = keyframes`
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+`;
 
 // Icon mapping
 const iconMap: Record<string, React.ComponentType> = {
@@ -408,6 +421,30 @@ const HeaderCell = styled.th<{ theme: ForgeTheme; $minWidth?: number; $fixedWidt
   }
 `;
 
+const HeaderIconButton = styled.button<{ theme: ForgeTheme; $active?: boolean }>`
+  border: 1px solid ${props => rgbaFromHex(props.theme.BORDER, props.$active ? 0.95 : 0.5)};
+  background: ${props => props.$active ? rgbaFromHex(props.theme.OFFSET, 0.28) : 'transparent'};
+  color: ${props => props.theme.OFFSET};
+  border-radius: 6px;
+  width: 75%;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  &:hover {
+    border-color: ${props => rgbaFromHex(props.theme.OFFSET, 0.95)};
+    background: ${props => rgbaFromHex(props.theme.OFFSET, props.$active ? 0.38 : 0.18)};
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+`;
+
 const HeaderTooltipBubble = styled.div<{ theme: ForgeTheme; $left: number; $y: number; $placement: 'top' | 'bottom'; $arrowX: number }>`
   position: fixed;
   left: ${props => `${props.$left}px`};
@@ -548,6 +585,64 @@ const InitiativeInput = styled.input<{ theme: ForgeTheme; $isRollable?: boolean 
     box-shadow: ${props => props.$isRollable
     ? `0 0 0 2px ${rgbaFromHex(props.theme.OFFSET, 0.35)}, inset 0 0 0 1px ${rgbaFromHex(props.theme.BACKGROUND, 0.35)}`
     : 'none'};
+  }
+`;
+
+const InitiativeInputWrap = styled.div`
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const GroupRollOverlay = styled.div<{ theme: ForgeTheme }>`
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: ${props => rgbaFromHex(props.theme.OFFSET, 0.2)};
+  border: 1px solid ${props => rgbaFromHex(props.theme.OFFSET, 0.95)};
+  border-radius: 4px;
+  box-shadow:
+    0 0 0 1px ${props => rgbaFromHex(props.theme.BACKGROUND, 0.65)} inset,
+    0 0 10px ${props => rgbaFromHex(props.theme.OFFSET, 0.55)};
+`;
+
+const GroupRollBaseLayer = styled.div<{ theme: ForgeTheme }>`
+  position: absolute;
+  inset: 0;
+  background: ${props => rgbaFromHex(props.theme.OFFSET, 0.2)};
+  border-radius: inherit;
+`;
+
+const GroupRollComplementLayer = styled.div<{ theme: ForgeTheme }>`
+  position: absolute;
+  inset: 0;
+  background: ${props => rgbaFromHex(props.theme.OFFSET, 0.5)};
+  border-radius: inherit;
+  opacity: 0;
+  animation: ${groupRollComplementPulse} 2.8s ease-in-out infinite;
+
+  filter: hue-rotate(180deg) saturate(1.15) brightness(1.08);
+`;
+
+const GroupRollIcon = styled.div<{ theme: ForgeTheme }>`
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: 100%;
+    height: 100%;
+    color: ${props => props.theme.OFFSET};
+    filter:
+      drop-shadow(0 1px 1px ${props => rgbaFromHex(props.theme.BACKGROUND, 0.95)})
+      drop-shadow(0 0 3px ${props => rgbaFromHex(props.theme.BACKGROUND, 0.85)});
   }
 `;
 
@@ -1163,6 +1258,8 @@ export const InitiativeList: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
   const [isListCompact, setIsListCompact] = useState(false);
   const [isCompactControlLayout, setIsCompactControlLayout] = useState(() => window.innerWidth < 400);
+  const [isGroupRollMode, setIsGroupRollMode] = useState(false);
+  const [groupRollSelectedIds, setGroupRollSelectedIds] = useState<Set<string>>(new Set());
   const [headerTooltip, setHeaderTooltip] = useState<{ text: string; anchorX: number; left: number; y: number; placement: 'top' | 'bottom'; arrowX: number } | null>(null);
   const headerTooltipRef = useRef<HTMLDivElement | null>(null);
   const longPressTimersRef = useRef<Record<string, number>>({});
@@ -1180,6 +1277,31 @@ export const InitiativeList: React.FC = () => {
       window.removeEventListener('resize', onResize);
     };
   }, []);
+
+  useEffect(() => {
+    setGroupRollSelectedIds((previous) => {
+      if (previous.size === 0) {
+        return previous;
+      }
+
+      const liveIds = new Set(units.map((unit) => unit.id));
+      let changed = false;
+      const filtered = new Set<string>();
+      previous.forEach((unitId) => {
+        if (liveIds.has(unitId)) {
+          filtered.add(unitId);
+        } else {
+          changed = true;
+        }
+      });
+
+      if (!changed) {
+        return previous;
+      }
+
+      return filtered;
+    });
+  }, [units]);
 
   const selectedTokenIds = useMemo(() => {
     const selection = Array.isArray(playerData?.selection) ? playerData.selection : [];
@@ -1205,6 +1327,15 @@ export const InitiativeList: React.FC = () => {
   const isCurrentUserGm = String((playerData as RoleLike | null | undefined)?.role || '').toUpperCase() === 'GM';
   const currentPlayerId = playerData?.id || '';
   const listCompactSettingKey = getPerPlayerSettingKey(SettingsConstants.INITIATIVE_LIST_COMPACT, currentPlayerId);
+
+  useEffect(() => {
+    if (!popcornInitiative) {
+      return;
+    }
+
+    setIsGroupRollMode(false);
+    setGroupRollSelectedIds(new Set());
+  }, [popcornInitiative]);
 
   useEffect(() => {
     const perPlayerValue = storageContainer[listCompactSettingKey];
@@ -1546,6 +1677,42 @@ export const InitiativeList: React.FC = () => {
     const rolledValue = baseRoll + modifierValue;
     handleInitiativeChange(unitId, String(rolledValue));
     commitInitiativeChange(unitId, rolledValue);
+  };
+
+  const toggleGroupRollSelection = (unitId: string) => {
+    setGroupRollSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(unitId)) {
+        next.delete(unitId);
+      } else {
+        next.add(unitId);
+      }
+      return next;
+    });
+  };
+
+  const handleInitiativeHeaderGroupRollClick = () => {
+    if (popcornInitiative) {
+      return;
+    }
+
+    if (!isGroupRollMode) {
+      setIsGroupRollMode(true);
+      return;
+    }
+
+    const targetUnitIds = Array.from(groupRollSelectedIds);
+    targetUnitIds.forEach((unitId) => {
+      const liveUnit = units.find((unit) => unit.id === unitId);
+      if (!liveUnit || !canInteractWithUnit(liveUnit)) {
+        return;
+      }
+
+      handleRollInitiative(unitId);
+    });
+
+    setGroupRollSelectedIds(new Set());
+    setIsGroupRollMode(false);
   };
 
   const handleInitiativeDraftChange = (unitId: string, newValue: string) => {
@@ -2756,7 +2923,26 @@ export const InitiativeList: React.FC = () => {
   }, [headerTooltip]);
 
   const renderHeader = (col: ListColumn) => {
-    if (col.type === 'initiative') return <Users />;
+    if (col.type === 'initiative') {
+      if (popcornInitiative) {
+        return <Users />;
+      }
+
+      return (
+        <HeaderIconButton
+          type="button"
+          theme={theme}
+          $active={isGroupRollMode}
+          aria-pressed={isGroupRollMode}
+          onClick={(event) => {
+            event.stopPropagation();
+            handleInitiativeHeaderGroupRollClick();
+          }}
+        >
+          {isGroupRollMode ? <Dices /> : <Users />}
+        </HeaderIconButton>
+      );
+    }
     if (col.type === 'roller') return null;
     if (col.type === 'name') return t('initiative.nameHeader');
     if (col.type === 'card-column') return <FileText />;
@@ -2837,77 +3023,98 @@ export const InitiativeList: React.FC = () => {
         // Normal mode: show initiative input
         const initiativeFieldKey = `initiative:${unit.id}`;
         const isEditingInitiative = isRollableEditing(initiativeFieldKey);
+        const isGroupRollSelected = groupRollSelectedIds.has(unit.id);
         return (
           <InitiativeCell theme={theme}>
-            <InitiativeInput
-              theme={theme}
-              $isRollable={canInteract && !isEditingInitiative}
-              type="text"
-              inputMode="decimal"
-              value={initiativeDrafts[unit.id] ?? String(unit.initiative)}
-              readOnly={!canInteract || !isEditingInitiative}
-              onChange={!canInteract || !isEditingInitiative ? undefined : (e) => handleInitiativeDraftChange(unit.id, e.target.value)}
-              onBlur={!canInteract || !isEditingInitiative ? undefined : (e) => {
-                commitInitiativeInput(unit.id, e.target.value);
-                disableRollableEditMode(initiativeFieldKey);
-              }}
-              onClick={() => {
-                if (!canInteract) {
-                  return;
-                }
-                if (isEditingInitiative) {
-                  return;
-                }
+            <InitiativeInputWrap>
+              <InitiativeInput
+                theme={theme}
+                $isRollable={canInteract && !isEditingInitiative}
+                type="text"
+                inputMode="decimal"
+                value={initiativeDrafts[unit.id] ?? String(unit.initiative)}
+                readOnly={!canInteract || !isEditingInitiative}
+                onChange={!canInteract || !isEditingInitiative ? undefined : (e) => handleInitiativeDraftChange(unit.id, e.target.value)}
+                onBlur={!canInteract || !isEditingInitiative ? undefined : (e) => {
+                  commitInitiativeInput(unit.id, e.target.value);
+                  disableRollableEditMode(initiativeFieldKey);
+                }}
+                onClick={() => {
+                  if (!canInteract) {
+                    return;
+                  }
+                  if (isEditingInitiative) {
+                    return;
+                  }
 
-                if (shouldSuppressRollClick(initiativeFieldKey)) {
-                  return;
-                }
+                  if (isGroupRollMode) {
+                    toggleGroupRollSelection(unit.id);
+                    return;
+                  }
 
-                handleRollInitiative(unit.id);
-              }}
-              onContextMenu={(event) => {
-                if (!canInteract) {
-                  return;
-                }
-                event.preventDefault();
-                openRollableContextMenu({
-                  kind: 'initiative',
-                  fieldKey: initiativeFieldKey,
-                  unitId: unit.id,
-                  input: event.currentTarget,
-                });
-              }}
-              onTouchStart={(event) => {
-                if (!canInteract) {
-                  return;
-                }
-                if (isEditingInitiative) {
-                  return;
-                }
-                startLongPressEditMode(initiativeFieldKey, event.currentTarget);
-              }}
-              onTouchEnd={() => {
-                cancelLongPressEditMode(initiativeFieldKey);
-              }}
-              onTouchCancel={() => {
-                cancelLongPressEditMode(initiativeFieldKey);
-              }}
-              onKeyDown={(e) => {
-                if (!canInteract) {
-                  return;
-                }
-                if (!isEditingInitiative && (e.key === 'Enter' || e.key === ' ')) {
-                  e.preventDefault();
+                  if (shouldSuppressRollClick(initiativeFieldKey)) {
+                    return;
+                  }
+
                   handleRollInitiative(unit.id);
-                  return;
-                }
+                }}
+                onContextMenu={(event) => {
+                  if (!canInteract) {
+                    return;
+                  }
+                  event.preventDefault();
+                  openRollableContextMenu({
+                    kind: 'initiative',
+                    fieldKey: initiativeFieldKey,
+                    unitId: unit.id,
+                    input: event.currentTarget,
+                  });
+                }}
+                onTouchStart={(event) => {
+                  if (!canInteract) {
+                    return;
+                  }
+                  if (isEditingInitiative) {
+                    return;
+                  }
+                  startLongPressEditMode(initiativeFieldKey, event.currentTarget);
+                }}
+                onTouchEnd={() => {
+                  cancelLongPressEditMode(initiativeFieldKey);
+                }}
+                onTouchCancel={() => {
+                  cancelLongPressEditMode(initiativeFieldKey);
+                }}
+                onKeyDown={(e) => {
+                  if (!canInteract) {
+                    return;
+                  }
+                  if (!isEditingInitiative && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    if (isGroupRollMode) {
+                      toggleGroupRollSelection(unit.id);
+                    } else {
+                      handleRollInitiative(unit.id);
+                    }
+                    return;
+                  }
 
-                if (isEditingInitiative && e.key === 'Enter') {
-                  e.preventDefault();
-                  e.currentTarget.blur();
-                }
-              }}
-            />
+                  if (isEditingInitiative && e.key === 'Enter') {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
+              />
+              {isGroupRollMode && isGroupRollSelected && (
+                <GroupRollOverlay theme={theme}>
+                  <GroupRollBaseLayer theme={theme} />
+                  <GroupRollComplementLayer theme={theme} />
+                  <GroupRollIcon theme={theme}>
+                    <Dices />
+                  </GroupRollIcon>
+                </GroupRollOverlay>
+              )}
+            </InitiativeInputWrap>
           </InitiativeCell>
         );
 

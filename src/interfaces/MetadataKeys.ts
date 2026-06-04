@@ -20,6 +20,7 @@ export class UnitConstants {
   static FABRICATED = `${EXTENSION_ID}/fabd`;
   static UNIT_NAME = `${EXTENSION_ID}/name`;
   static INITIATIVE = `${EXTENSION_ID}/init`;
+  static GROUP_PARENT = `${EXTENSION_ID}/grppar`;
   static BOSS_MODE = `${EXTENSION_ID}/bossmod`;
   static PORTRAIT_URL = `${EXTENSION_ID}/porturl`;
 }

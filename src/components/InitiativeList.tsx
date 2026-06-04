@@ -103,6 +103,7 @@ interface Unit {
   id: string;
   initiative: number;
   name: string;
+  groupParentId?: string | null;
   isBoss?: boolean;
   elevation: number;
   attributes: Record<string, unknown>;
@@ -646,7 +647,7 @@ const GroupRollIcon = styled.div<{ theme: ForgeTheme }>`
   }
 `;
 
-const NameCell = styled(DataCell) <{ theme: ForgeTheme; $outlineColor?: string; $isSelected?: boolean }>`
+const NameCell = styled(DataCell) <{ theme: ForgeTheme; $outlineColor?: string; $isSelected?: boolean; $isDropTarget?: boolean }>`
   text-align: left;
   font-weight: 500;
   min-width: 120px;
@@ -659,6 +660,9 @@ const NameCell = styled(DataCell) <{ theme: ForgeTheme; $outlineColor?: string; 
   -webkit-user-select: none;
   -moz-user-select: none;
   color: ${props => props.$isSelected ? props.theme.OFFSET : props.theme.PRIMARY};
+  background: ${props => props.$isDropTarget ? rgbaFromHex(props.theme.OFFSET, 0.2) : 'transparent'};
+  outline: ${props => props.$isDropTarget ? `1px dashed ${rgbaFromHex(props.theme.OFFSET, 0.9)}` : 'none'};
+  outline-offset: -2px;
   text-shadow: ${props =>
     props.$outlineColor
       ? `
@@ -667,6 +671,27 @@ const NameCell = styled(DataCell) <{ theme: ForgeTheme; $outlineColor?: string; 
         4px 4px 4px ${props.$outlineColor}
       `
       : 'none'};
+`;
+
+const NameCellContent = styled.div<{ $depth: number }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: ${props => `${props.$depth * 12}px`};
+`;
+
+const NestedBranchMarker = styled.span<{ theme: ForgeTheme }>`
+  color: ${props => rgbaFromHex(props.theme.OFFSET, 0.85)};
+  font-weight: 700;
+  min-width: 10px;
+`;
+
+const NestedInitiativeMarker = styled.span<{ theme: ForgeTheme; $depth: number }>`
+  color: ${props => rgbaFromHex(props.theme.OFFSET, 0.9)};
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  display: inline-block;
+  padding-left: ${props => `${Math.max(0, props.$depth - 1) * 10}px`};
 `;
 
 const ValueInput = styled.input<{ $small?: boolean; $isRollable?: boolean; theme: ForgeTheme }>`
@@ -1247,6 +1272,8 @@ export const InitiativeList: React.FC = () => {
   const [isAssigningOwner, setIsAssigningOwner] = useState(false);
   const [isUpdatingBossMode, setIsUpdatingBossMode] = useState(false);
   const [isRemovingUnit, setIsRemovingUnit] = useState(false);
+  const [isRemovingFromGroup, setIsRemovingFromGroup] = useState(false);
+  const [isUngroupingChildren, setIsUngroupingChildren] = useState(false);
   const [initiativeDrafts, setInitiativeDrafts] = useState<Record<string, string>>({});
   const [elevationDrafts, setElevationDrafts] = useState<Record<string, string>>({});
   const [valueDrafts, setValueDrafts] = useState<Record<string, string>>({});
@@ -1260,6 +1287,8 @@ export const InitiativeList: React.FC = () => {
   const [isCompactControlLayout, setIsCompactControlLayout] = useState(() => window.innerWidth < 400);
   const [isGroupRollMode, setIsGroupRollMode] = useState(false);
   const [groupRollSelectedIds, setGroupRollSelectedIds] = useState<Set<string>>(new Set());
+  const [draggingUnitId, setDraggingUnitId] = useState<string | null>(null);
+  const [dropTargetUnitId, setDropTargetUnitId] = useState<string | null>(null);
   const [headerTooltip, setHeaderTooltip] = useState<{ text: string; anchorX: number; left: number; y: number; placement: 'top' | 'bottom'; arrowX: number } | null>(null);
   const headerTooltipRef = useRef<HTMLDivElement | null>(null);
   const longPressTimersRef = useRef<Record<string, number>>({});
@@ -1438,6 +1467,10 @@ export const InitiativeList: React.FC = () => {
         const initiativeRaw = item.metadata?.[UnitConstants.INITIATIVE];
         const initiativeParsed = Number(initiativeRaw);
         const initiative = Number.isFinite(initiativeParsed) ? initiativeParsed : 0;
+        const groupParentRaw = item.metadata?.[UnitConstants.GROUP_PARENT];
+        const groupParentId = typeof groupParentRaw === 'string' && groupParentRaw.trim().length > 0
+          ? groupParentRaw.trim()
+          : null;
         const name = item.metadata[UnitConstants.UNIT_NAME] as string || item.name || 'Unknown';
         const isBoss = item.metadata?.[UnitConstants.BOSS_MODE] === true;
         const elevation = item.metadata?.[ELEVATION_METADATA_KEY] as number || 0;
@@ -1462,6 +1495,7 @@ export const InitiativeList: React.FC = () => {
           id: item.id,
           initiative,
           name,
+          groupParentId,
           isBoss,
           elevation,
           attributes,
@@ -1496,6 +1530,111 @@ export const InitiativeList: React.FC = () => {
     });
   }, [units, reverseInitiative, popcornInitiative]);
 
+  const effectiveGroupParentById = useMemo(() => {
+    const unitIds = new Set(sortedUnits.map((unit) => unit.id));
+    const rawParentById = new Map<string, string | null>();
+
+    sortedUnits.forEach((unit) => {
+      const parentId = unit.groupParentId;
+      if (!parentId || parentId === unit.id || !unitIds.has(parentId)) {
+        rawParentById.set(unit.id, null);
+        return;
+      }
+
+      rawParentById.set(unit.id, parentId);
+    });
+
+    const resolved = new Map<string, string | null>();
+
+    sortedUnits.forEach((unit) => {
+      const directParent = rawParentById.get(unit.id) || null;
+      if (!directParent) {
+        resolved.set(unit.id, null);
+        return;
+      }
+
+      const seen = new Set<string>([unit.id]);
+      let cursor: string | null = directParent;
+      let isCycle = false;
+
+      while (cursor) {
+        if (seen.has(cursor)) {
+          isCycle = true;
+          break;
+        }
+        seen.add(cursor);
+        cursor = rawParentById.get(cursor) || null;
+      }
+
+      resolved.set(unit.id, isCycle ? null : directParent);
+    });
+
+    return resolved;
+  }, [sortedUnits]);
+
+  const groupChildrenByParentId = useMemo(() => {
+    const map = new Map<string, Unit[]>();
+
+    sortedUnits.forEach((unit) => {
+      const parentId = effectiveGroupParentById.get(unit.id) || null;
+      if (!parentId) {
+        return;
+      }
+
+      const children = map.get(parentId) || [];
+      children.push(unit);
+      map.set(parentId, children);
+    });
+
+    return map;
+  }, [sortedUnits, effectiveGroupParentById]);
+
+  const rootTurnUnits = useMemo(() => {
+    return sortedUnits.filter((unit) => !effectiveGroupParentById.get(unit.id));
+  }, [sortedUnits, effectiveGroupParentById]);
+
+  const nestedUnitIds = useMemo(() => {
+    const ids = new Set<string>();
+    effectiveGroupParentById.forEach((parentId, unitId) => {
+      if (parentId) {
+        ids.add(unitId);
+      }
+    });
+    return ids;
+  }, [effectiveGroupParentById]);
+
+  const nestedDepthByUnitId = useMemo(() => {
+    const depthMap = new Map<string, number>();
+
+    const visitChildren = (parentId: string, depth: number) => {
+      const children = groupChildrenByParentId.get(parentId) || [];
+      children.forEach((child) => {
+        depthMap.set(child.id, depth);
+        visitChildren(child.id, depth + 1);
+      });
+    };
+
+    rootTurnUnits.forEach((unit) => {
+      visitChildren(unit.id, 1);
+    });
+
+    return depthMap;
+  }, [groupChildrenByParentId, rootTurnUnits]);
+
+  const groupedUnits = useMemo(() => {
+    const ordered: Unit[] = [];
+
+    const appendWithChildren = (unit: Unit) => {
+      ordered.push(unit);
+      const children = groupChildrenByParentId.get(unit.id) || [];
+      children.forEach((child) => appendWithChildren(child));
+    };
+
+    rootTurnUnits.forEach((unit) => appendWithChildren(unit));
+
+    return ordered;
+  }, [groupChildrenByParentId, rootTurnUnits]);
+
   const effectsManager = useEffectsManager({
     items,
     units: sortedUnits,
@@ -1515,6 +1654,45 @@ export const InitiativeList: React.FC = () => {
 
     return Array.from(playersById.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [partyData, playerData]);
+
+  useEffect(() => {
+    setCompletedUnits((previous) => {
+      if (previous.size === 0) {
+        return previous;
+      }
+
+      const rootIds = new Set(rootTurnUnits.map((unit) => unit.id));
+      let changed = false;
+      const filtered = new Set<string>();
+
+      previous.forEach((unitId) => {
+        if (rootIds.has(unitId)) {
+          filtered.add(unitId);
+        } else {
+          changed = true;
+        }
+      });
+
+      return changed ? filtered : previous;
+    });
+  }, [rootTurnUnits]);
+
+  useEffect(() => {
+    if (!currentTurnId) {
+      return;
+    }
+
+    const validTurnIds = new Set(rootTurnUnits.map((unit) => unit.id));
+    if (validTurnIds.has(currentTurnId)) {
+      return;
+    }
+
+    const fallbackTurnId = rootTurnUnits[0]?.id ?? null;
+    setCurrentTurnId(fallbackTurnId);
+    void OBR.scene.setMetadata({
+      [SettingsConstants.CURRENT_TURN]: fallbackTurnId,
+    });
+  }, [currentTurnId, rootTurnUnits]);
 
   // Handler for updating initiative in local state only
   const handleInitiativeChange = (unitId: string, newInitiative: string) => {
@@ -1785,6 +1963,84 @@ export const InitiativeList: React.FC = () => {
 
     setGroupRollSelectedIds(new Set());
     setIsGroupRollMode(false);
+  };
+
+  const canNestUnitUnder = (childId: string, parentId: string): boolean => {
+    if (!childId || !parentId || childId === parentId) {
+      return false;
+    }
+
+    let cursor: string | null = parentId;
+    const seen = new Set<string>();
+
+    while (cursor) {
+      if (cursor === childId) {
+        return false;
+      }
+      if (seen.has(cursor)) {
+        break;
+      }
+
+      seen.add(cursor);
+      cursor = effectiveGroupParentById.get(cursor) || null;
+    }
+
+    return true;
+  };
+
+  const resolveRootGroupParentId = (unitId: string): string => {
+    let cursor: string = unitId;
+    const seen = new Set<string>();
+
+    while (true) {
+      if (seen.has(cursor)) {
+        return unitId;
+      }
+
+      seen.add(cursor);
+      const parentId = effectiveGroupParentById.get(cursor) || null;
+      if (!parentId) {
+        return cursor;
+      }
+
+      cursor = parentId;
+    }
+  };
+
+  const resolveNormalizedGroupTargetId = (candidateParentId: string): string => {
+    return resolveRootGroupParentId(candidateParentId);
+  };
+
+  const assignGroupParent = async (childUnitId: string, parentUnitId: string) => {
+    const normalizedParentId = resolveNormalizedGroupTargetId(parentUnitId);
+    if (!canNestUnitUnder(childUnitId, normalizedParentId)) {
+      return;
+    }
+
+    setUnits((previousUnits) => previousUnits.map((unit) => (
+      unit.id === childUnitId
+        ? { ...unit, groupParentId: normalizedParentId }
+        : unit
+    )));
+
+    const updatedItems = items.map((item) => {
+      if (item.id !== childUnitId) {
+        return item;
+      }
+
+      return {
+        ...item,
+        metadata: {
+          ...item.metadata,
+            [UnitConstants.GROUP_PARENT]: normalizedParentId,
+        },
+      };
+    });
+    setItems(updatedItems);
+
+    await OBR.scene.items.updateItems([childUnitId], (itemsToUpdate) => {
+      itemsToUpdate[0].metadata[UnitConstants.GROUP_PARENT] = normalizedParentId;
+    });
   };
 
   const handleInitiativeDraftChange = (unitId: string, newValue: string) => {
@@ -2372,67 +2628,67 @@ export const InitiativeList: React.FC = () => {
 
     if (savedTurnId) {
       setCurrentTurnId(savedTurnId);
-    } else if (sortedUnits.length > 0) {
+    } else if (rootTurnUnits.length > 0) {
       // Initialize with first unit if no saved turn
-      setCurrentTurnId(sortedUnits[0].id);
+      setCurrentTurnId(rootTurnUnits[0].id);
     }
 
     if (savedRound) {
       setCurrentRound(savedRound);
     }
-  }, [sceneMetadata, sortedUnits]);
+  }, [sceneMetadata, rootTurnUnits]);
 
   // Handlers for turn navigation
   const handleNext = async () => {
-    if (sortedUnits.length === 0) return;
+    if (rootTurnUnits.length === 0) return;
 
     if (currentTurnId) {
       await effectsManager.processEffectsForTurnEvent('end', currentTurnId);
     }
 
-    const currentIndex = sortedUnits.findIndex(u => u.id === currentTurnId);
+    const currentIndex = rootTurnUnits.findIndex(u => u.id === currentTurnId);
     const nextIndex = currentIndex + 1;
 
-    if (nextIndex >= sortedUnits.length) {
+    if (nextIndex >= rootTurnUnits.length) {
       // End of list, go back to top and increment round
       const newRound = currentRound + 1;
       setCurrentRound(newRound);
-      setCurrentTurnId(sortedUnits[0].id);
+      setCurrentTurnId(rootTurnUnits[0].id);
       await OBR.scene.setMetadata({
-        [SettingsConstants.CURRENT_TURN]: sortedUnits[0].id,
+        [SettingsConstants.CURRENT_TURN]: rootTurnUnits[0].id,
         [SettingsConstants.CURRENT_ROUND]: newRound
       });
-      await effectsManager.processEffectsForTurnEvent('start', sortedUnits[0].id);
+      await effectsManager.processEffectsForTurnEvent('start', rootTurnUnits[0].id);
     } else {
       // Move to next unit
-      setCurrentTurnId(sortedUnits[nextIndex].id);
+      setCurrentTurnId(rootTurnUnits[nextIndex].id);
       await OBR.scene.setMetadata({
-        [SettingsConstants.CURRENT_TURN]: sortedUnits[nextIndex].id
+        [SettingsConstants.CURRENT_TURN]: rootTurnUnits[nextIndex].id
       });
-      await effectsManager.processEffectsForTurnEvent('start', sortedUnits[nextIndex].id);
+      await effectsManager.processEffectsForTurnEvent('start', rootTurnUnits[nextIndex].id);
     }
   };
 
   const handlePrevious = async () => {
-    if (sortedUnits.length === 0) return;
+    if (rootTurnUnits.length === 0) return;
 
-    const currentIndex = sortedUnits.findIndex(u => u.id === currentTurnId);
+    const currentIndex = rootTurnUnits.findIndex(u => u.id === currentTurnId);
     const prevIndex = currentIndex - 1;
 
     if (prevIndex < 0) {
       // Beginning of list, go to end and decrement round
       const newRound = Math.max(1, currentRound - 1);
       setCurrentRound(newRound);
-      setCurrentTurnId(sortedUnits[sortedUnits.length - 1].id);
+      setCurrentTurnId(rootTurnUnits[rootTurnUnits.length - 1].id);
       await OBR.scene.setMetadata({
-        [SettingsConstants.CURRENT_TURN]: sortedUnits[sortedUnits.length - 1].id,
+        [SettingsConstants.CURRENT_TURN]: rootTurnUnits[rootTurnUnits.length - 1].id,
         [SettingsConstants.CURRENT_ROUND]: newRound
       });
     } else {
       // Move to previous unit
-      setCurrentTurnId(sortedUnits[prevIndex].id);
+      setCurrentTurnId(rootTurnUnits[prevIndex].id);
       await OBR.scene.setMetadata({
-        [SettingsConstants.CURRENT_TURN]: sortedUnits[prevIndex].id
+        [SettingsConstants.CURRENT_TURN]: rootTurnUnits[prevIndex].id
       });
     }
   };
@@ -2440,6 +2696,7 @@ export const InitiativeList: React.FC = () => {
   // Popcorn Initiative handlers
   const handleUnitClick = async (unitId: string) => {
     if (!popcornInitiative) return;
+    if (nestedUnitIds.has(unitId)) return;
     if (completedUnits.has(unitId)) return; // Can't select already completed units
 
     setCurrentTurnId(unitId);
@@ -2451,13 +2708,14 @@ export const InitiativeList: React.FC = () => {
 
   const handleEndTurn = async () => {
     if (!currentTurnId) return;
+    if (nestedUnitIds.has(currentTurnId)) return;
 
     await effectsManager.processEffectsForTurnEvent('end', currentTurnId);
 
     setCompletedUnits(prev => new Set([...prev, currentTurnId]));
 
     // Check if all units have gone
-    if (completedUnits.size + 1 >= sortedUnits.length) {
+    if (completedUnits.size + 1 >= rootTurnUnits.length) {
       // All done, but don't auto-advance - let user click New Round
     }
   };
@@ -2551,8 +2809,8 @@ export const InitiativeList: React.FC = () => {
       const defaultTurnId = mode === 'clear-list'
         ? null
         : mode === 'reset-initiative'
-          ? ([...sortedUnits].sort((a, b) => a.name.localeCompare(b.name))[0]?.id ?? null)
-          : (sortedUnits[0]?.id ?? null);
+          ? ([...rootTurnUnits].sort((a, b) => a.name.localeCompare(b.name))[0]?.id ?? null)
+          : (rootTurnUnits[0]?.id ?? null);
       setCurrentRound(1);
       setCurrentTurnId(defaultTurnId);
       setCompletedUnits(new Set());
@@ -2751,6 +3009,109 @@ export const InitiativeList: React.FC = () => {
     }
   };
 
+  const handleRemoveUnitFromGroup = async () => {
+    if (!ownerModalUnitId) {
+      return;
+    }
+
+    const targetUnit = units.find((unit) => unit.id === ownerModalUnitId);
+    if (!targetUnit || !targetUnit.groupParentId) {
+      return;
+    }
+
+    setIsRemovingFromGroup(true);
+    setOwnerModalError(null);
+
+    try {
+      await OBR.scene.items.updateItems([ownerModalUnitId], (itemsToUpdate) => {
+        const metadata = { ...(itemsToUpdate[0].metadata || {}) };
+        if (UnitConstants.GROUP_PARENT in metadata) {
+          delete metadata[UnitConstants.GROUP_PARENT];
+        }
+        itemsToUpdate[0].metadata = metadata;
+      });
+
+      const updatedItems = items.map((item) => {
+        if (item.id !== ownerModalUnitId) {
+          return item;
+        }
+
+        const metadata = { ...(item.metadata || {}) };
+        delete metadata[UnitConstants.GROUP_PARENT];
+        return {
+          ...item,
+          metadata,
+        };
+      });
+      setItems(updatedItems);
+
+      setUnits((prevUnits) => prevUnits.map((unit) => (
+        unit.id === ownerModalUnitId
+          ? { ...unit, groupParentId: null }
+          : unit
+      )));
+    } catch (error) {
+      LOGGER.error('Failed to remove unit from group', ownerModalUnitId, error);
+      setOwnerModalError(t('initiative.removeFromGroupError'));
+    } finally {
+      setIsRemovingFromGroup(false);
+    }
+  };
+
+  const handleUngroupAllChildren = async () => {
+    if (!ownerModalUnitId) {
+      return;
+    }
+
+    const childUnits = groupChildrenByParentId.get(ownerModalUnitId) || [];
+    if (childUnits.length === 0) {
+      return;
+    }
+
+    const childIds = childUnits.map((unit) => unit.id);
+
+    setIsUngroupingChildren(true);
+    setOwnerModalError(null);
+
+    try {
+      await OBR.scene.items.updateItems(childIds, (itemsToUpdate) => {
+        itemsToUpdate.forEach((itemToUpdate) => {
+          const metadata = { ...(itemToUpdate.metadata || {}) };
+          if (UnitConstants.GROUP_PARENT in metadata) {
+            delete metadata[UnitConstants.GROUP_PARENT];
+          }
+          itemToUpdate.metadata = metadata;
+        });
+      });
+
+      const childIdSet = new Set(childIds);
+      const updatedItems = items.map((item) => {
+        if (!childIdSet.has(item.id)) {
+          return item;
+        }
+
+        const metadata = { ...(item.metadata || {}) };
+        delete metadata[UnitConstants.GROUP_PARENT];
+        return {
+          ...item,
+          metadata,
+        };
+      });
+      setItems(updatedItems);
+
+      setUnits((prevUnits) => prevUnits.map((unit) => (
+        childIdSet.has(unit.id)
+          ? { ...unit, groupParentId: null }
+          : unit
+      )));
+    } catch (error) {
+      LOGGER.error('Failed to ungroup all children', ownerModalUnitId, error);
+      setOwnerModalError(t('initiative.ungroupAllChildrenError'));
+    } finally {
+      setIsUngroupingChildren(false);
+    }
+  };
+
   const selectedOwnerUnit = useMemo(
     () => (ownerModalUnitId ? sortedUnits.find((unit) => unit.id === ownerModalUnitId) || null : null),
     [ownerModalUnitId, sortedUnits]
@@ -2762,6 +3123,8 @@ export const InitiativeList: React.FC = () => {
   );
 
   const selectedOwnerIsBoss = selectedOwnerItem?.metadata?.[UnitConstants.BOSS_MODE] === true;
+  const selectedOwnerParentId = selectedOwnerUnit ? (effectiveGroupParentById.get(selectedOwnerUnit.id) || null) : null;
+  const selectedOwnerHasChildren = !!selectedOwnerUnit && (groupChildrenByParentId.get(selectedOwnerUnit.id)?.length || 0) > 0;
 
   const selectedListReferenceUnit = useMemo(
     () => (listReferenceModal ? sortedUnits.find((unit) => unit.id === listReferenceModal.unitId) || null : null),
@@ -2811,8 +3174,8 @@ export const InitiativeList: React.FC = () => {
   }, [attributes, storageContainer]);
 
   const displayedUnits = useMemo(
-    () => sortedUnits.filter((unit) => canPlayerSeeUnit(unit)),
-    [sortedUnits, isCurrentUserGm]
+    () => groupedUnits.filter((unit) => canPlayerSeeUnit(unit)),
+    [groupedUnits, isCurrentUserGm]
   );
 
   const selectedListBidValueMap = useMemo(() => {
@@ -3047,6 +3410,8 @@ export const InitiativeList: React.FC = () => {
     const canInteract = canInteractWithUnit(unit);
     const shouldObscureStats = shouldObscureUnitStatsForPlayer(unit);
     const shouldHideHpNumbersForPlayer = !isCurrentUserGm && !showListHpNumbers;
+    const isNestedUnit = nestedUnitIds.has(unit.id);
+    const nestedDepth = nestedDepthByUnitId.get(unit.id) || 0;
 
     if (shouldObscureStats && col.type !== 'initiative' && col.type !== 'name' && col.type !== 'divider-column') {
       return (
@@ -3058,6 +3423,14 @@ export const InitiativeList: React.FC = () => {
 
     switch (col.type) {
       case 'initiative':
+        if (isNestedUnit) {
+          return (
+            <InitiativeCell theme={theme}>
+              <NestedInitiativeMarker theme={theme} $depth={nestedDepth}>└</NestedInitiativeMarker>
+            </InitiativeCell>
+          );
+        }
+
         if (popcornInitiative) {
           // In popcorn mode, show completion indicator
           return (
@@ -3198,10 +3571,58 @@ export const InitiativeList: React.FC = () => {
             title={t('initiative.rightClickAssignOwner')}
             $outlineColor={unit.ownerNameOutlineColor}
             $isSelected={isSelectedByPlayer}
+            $isDropTarget={dropTargetUnitId === unit.id}
+            draggable={canInteract}
+            onDragStart={canInteract ? (event) => {
+              setDraggingUnitId(unit.id);
+              event.dataTransfer.setData('text/plain', unit.id);
+              event.dataTransfer.effectAllowed = 'move';
+            } : undefined}
+            onDragEnd={() => {
+              setDraggingUnitId(null);
+              setDropTargetUnitId(null);
+            }}
+            onDragOver={canInteract ? (event) => {
+              const candidateChildId = draggingUnitId || event.dataTransfer.getData('text/plain');
+              if (!candidateChildId) {
+                return;
+              }
+
+              const normalizedTargetId = resolveNormalizedGroupTargetId(unit.id);
+              if (!canNestUnitUnder(candidateChildId, normalizedTargetId)) {
+                return;
+              }
+
+              event.preventDefault();
+              event.dataTransfer.dropEffect = 'move';
+              setDropTargetUnitId(normalizedTargetId);
+            } : undefined}
+            onDragLeave={canInteract ? () => {
+              setDropTargetUnitId((previous) => (previous === unit.id ? null : previous));
+            } : undefined}
+            onDrop={canInteract ? (event) => {
+              event.preventDefault();
+              const candidateChildId = draggingUnitId || event.dataTransfer.getData('text/plain');
+              setDropTargetUnitId(null);
+              setDraggingUnitId(null);
+
+              if (!candidateChildId) {
+                return;
+              }
+
+              const normalizedTargetId = resolveNormalizedGroupTargetId(unit.id);
+              if (!canNestUnitUnder(candidateChildId, normalizedTargetId)) {
+                return;
+              }
+
+              void assignGroupParent(candidateChildId, normalizedTargetId);
+            } : undefined}
             onDoubleClick={() => handleUnitNameDoubleClick(unit.id)}
             onContextMenu={canInteract ? (event) => handleUnitContextMenu(event, unit.id) : undefined}
           >
-            {unit.isBoss ? `💀 ${unit.name}` : unit.name}
+            <NameCellContent $depth={nestedDepth}>
+              <span>{unit.isBoss ? `💀 ${unit.name}` : unit.name}</span>
+            </NameCellContent>
           </NameCell>
         );
 
@@ -3778,7 +4199,7 @@ export const InitiativeList: React.FC = () => {
                 theme={theme}
                 $compact={useCompactTurnControls}
                 onClick={handleNewRound}
-                disabled={completedUnits.size < sortedUnits.length}
+                disabled={completedUnits.size < rootTurnUnits.length}
               >
                 {useCompactTurnControls ? <ArrowRight /> : t('initiative.next')}
               </ControlButton>
@@ -3876,11 +4297,11 @@ export const InitiativeList: React.FC = () => {
         isOpen={!!ownerModalUnitId}
         title={selectedOwnerUnit ? t('initiative.unitTitle', { unit: selectedOwnerUnit.name }) : t('initiative.unitFallbackTitle')}
         onClose={() => {
-          if (isAssigningOwner || isUpdatingBossMode || isRemovingUnit) return;
+          if (isAssigningOwner || isUpdatingBossMode || isRemovingUnit || isRemovingFromGroup || isUngroupingChildren) return;
           setOwnerModalUnitId(null);
           setOwnerModalError(null);
         }}
-        closeOnOverlayClick={!isAssigningOwner && !isUpdatingBossMode && !isRemovingUnit}
+        closeOnOverlayClick={!isAssigningOwner && !isUpdatingBossMode && !isRemovingUnit && !isRemovingFromGroup && !isUngroupingChildren}
         maxWidth="520px"
       >
         <OwnerPickerHint theme={theme}>
@@ -3894,18 +4315,40 @@ export const InitiativeList: React.FC = () => {
               theme={theme}
               $isCurrent={selectedOwnerItem?.createdUserId === player.id}
               onClick={() => handleAssignOwner(player.id)}
-              disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit}
+              disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit || isRemovingFromGroup || isUngroupingChildren}
             >
               {player.name}
               {selectedOwnerItem?.createdUserId === player.id ? t('initiative.currentSuffix') : ''}
             </OwnerPickerButton>
           ))}
+          {selectedOwnerHasChildren && (
+            <OwnerPickerButton
+              theme={theme}
+              onClick={() => {
+                void handleUngroupAllChildren();
+              }}
+              disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit || isRemovingFromGroup || isUngroupingChildren}
+            >
+              {isUngroupingChildren ? t('initiative.ungroupingAllChildren') : t('initiative.ungroupAllChildren')}
+            </OwnerPickerButton>
+          )}
+          {selectedOwnerParentId && (
+            <OwnerPickerButton
+              theme={theme}
+              onClick={() => {
+                void handleRemoveUnitFromGroup();
+              }}
+              disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit || isRemovingFromGroup || isUngroupingChildren}
+            >
+              {isRemovingFromGroup ? t('initiative.removingFromGroup') : t('initiative.removeFromGroup')}
+            </OwnerPickerButton>
+          )}
           <OwnerPickerButton
             theme={theme}
             onClick={() => {
               void handleRemoveUnitFromList();
             }}
-            disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit}
+            disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit || isRemovingFromGroup || isUngroupingChildren}
           >
             {isRemovingUnit ? t('initiative.removing') : t('initiative.removeUnitFromList')}
           </OwnerPickerButton>
@@ -3923,7 +4366,7 @@ export const InitiativeList: React.FC = () => {
               type="button"
               theme={theme}
               $active={selectedOwnerIsBoss}
-              disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit}
+              disabled={isAssigningOwner || isUpdatingBossMode || isRemovingUnit || isRemovingFromGroup || isUngroupingChildren}
               aria-label={t('initiative.toggleBossModeAria')}
               aria-pressed={selectedOwnerIsBoss}
               onClick={() => {

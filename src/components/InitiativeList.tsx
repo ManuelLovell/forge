@@ -1435,7 +1435,9 @@ export const InitiativeList: React.FC = () => {
         return item.metadata?.[UnitConstants.ON_LIST] === true;
       })
       .map(item => {
-        const initiative = item.metadata?.[UnitConstants.INITIATIVE] as number || 0;
+        const initiativeRaw = item.metadata?.[UnitConstants.INITIATIVE];
+        const initiativeParsed = Number(initiativeRaw);
+        const initiative = Number.isFinite(initiativeParsed) ? initiativeParsed : 0;
         const name = item.metadata[UnitConstants.UNIT_NAME] as string || item.name || 'Unknown';
         const isBoss = item.metadata?.[UnitConstants.BOSS_MODE] === true;
         const elevation = item.metadata?.[ELEVATION_METADATA_KEY] as number || 0;
@@ -1516,10 +1518,12 @@ export const InitiativeList: React.FC = () => {
 
   // Handler for updating initiative in local state only
   const handleInitiativeChange = (unitId: string, newInitiative: string) => {
-    const initiativeValue = parseInt(newInitiative) || 0;
+    const initiativeValue = Number.parseFloat(newInitiative);
     setUnits(prevUnits =>
       prevUnits.map(unit =>
-        unit.id === unitId ? { ...unit, initiative: initiativeValue } : unit
+        unit.id === unitId
+          ? { ...unit, initiative: Number.isFinite(initiativeValue) ? initiativeValue : 0 }
+          : unit
       )
     );
   };
@@ -1632,6 +1636,74 @@ export const InitiativeList: React.FC = () => {
     return clampNumber(Math.trunc(result), min, max);
   };
 
+  const resolveInitiativeInput = (
+    rawValue: string,
+    currentValue: number,
+    options?: { min?: number; max?: number }
+  ): number => {
+    const trimmed = rawValue.trim();
+    const { min, max } = options || {};
+
+    if (trimmed.length === 0) {
+      return clampNumber(0, min, max);
+    }
+
+    const relativeMatch = trimmed.match(/^([+\-*/])\s*(-?\d+(?:\.\d+)?)$/);
+    const infixMatch = trimmed.match(/^(-?\d+(?:\.\d+)?)\s*([+\-*/])\s*(-?\d+(?:\.\d+)?)$/);
+
+    let result: number | null = null;
+
+    if (relativeMatch) {
+      const operator = relativeMatch[1];
+      const operand = parseFloat(relativeMatch[2]);
+
+      switch (operator) {
+        case '+':
+          result = currentValue + operand;
+          break;
+        case '-':
+          result = currentValue - operand;
+          break;
+        case '*':
+          result = currentValue * operand;
+          break;
+        case '/':
+          result = operand === 0 ? currentValue : currentValue / operand;
+          break;
+      }
+    } else if (infixMatch) {
+      const left = parseFloat(infixMatch[1]);
+      const operator = infixMatch[2];
+      const right = parseFloat(infixMatch[3]);
+
+      switch (operator) {
+        case '+':
+          result = left + right;
+          break;
+        case '-':
+          result = left - right;
+          break;
+        case '*':
+          result = left * right;
+          break;
+        case '/':
+          result = right === 0 ? left : left / right;
+          break;
+      }
+    } else {
+      const absolute = parseFloat(trimmed);
+      if (!Number.isNaN(absolute)) {
+        result = absolute;
+      }
+    }
+
+    if (result === null || !Number.isFinite(result)) {
+      return clampNumber(currentValue, min, max);
+    }
+
+    return clampNumber(result, min, max);
+  };
+
   const resolveInitiativeModifierValue = (unitId: string): number => {
     let modifierValue = 0;
     if (initiativeModifierBid) {
@@ -1724,7 +1796,7 @@ export const InitiativeList: React.FC = () => {
 
   const commitInitiativeInput = (unitId: string, rawValue: string) => {
     const currentValue = units.find((unit) => unit.id === unitId)?.initiative ?? 0;
-    const nextValue = resolveNumericInput(rawValue, currentValue);
+    const nextValue = resolveInitiativeInput(rawValue, currentValue);
 
     setInitiativeDrafts((prev) => {
       const { [unitId]: _removed, ...rest } = prev;

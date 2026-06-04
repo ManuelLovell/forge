@@ -1,4 +1,4 @@
-import{P as e,b as t,j as n,k as r,o as i,s as a,t as o,v as s,w as c,y as l}from"./defaultgamesystem-CLGH9eTD.js";import{_ as u,a as d,g as f,n as p,o as m,r as h,t as g}from"./hpAttributeMapping-ZQP7zQoG.js";var _=e(r(),1),v=n(),y=t(),b={SNAPSHOT_PUBLIC_ID:`${u.EXTENSIONID}/SnapshotPublicId`},x={primary:o.theme_primary,offset:o.theme_offset,background:o.theme_background,border:o.theme_border,background_url:o.background_url},S=a.div`
+import{P as e,b as t,j as n,k as r,o as i,s as a,t as o,v as s,w as c,y as l}from"./defaultgamesystem-CLGH9eTD.js";import{_ as u,a as d,g as f,n as p,o as m,r as h,t as g}from"./hpAttributeMapping-CzMfhEfJ.js";var _=e(r(),1),v=n(),y=t(),b={SNAPSHOT_PUBLIC_ID:`${u.EXTENSIONID}/SnapshotPublicId`},x={primary:o.theme_primary,offset:o.theme_offset,background:o.theme_background,border:o.theme_border,background_url:o.background_url},S=a.div`
   width: 100%;
   height: 100%;
   min-height: 50px;

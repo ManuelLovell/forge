@@ -84,6 +84,9 @@ export class SettingsConstants {
   static SHOW_NOTIFICATION_TO_ALL = `${EXTENSION_ID}/shownote`;
   static ENABLE_DISCORD_LOGGING = `${EXTENSION_ID}/enabdisc`;
   static DISCORD_URL = `${EXTENSION_ID}/discurl`;
+  static ENABLE_ROLL_RESOLUTION = `${EXTENSION_ID}/rrapply`;
+  static ROLL_RESOLUTION_ALL_USERS = `${EXTENSION_ID}/rrapall`;
+  static ROLL_RESOLUTION_BID = `${EXTENSION_ID}/rrapbid`;
 
   // Other
   static ENABLE_CONSOLE_LOG = `${EXTENSION_ID}/conlog`;

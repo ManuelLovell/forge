@@ -21,7 +21,6 @@ import {
   getSharedAuthSnapshot,
   getUserTier,
   isConnected,
-  isPremiumAuthorized,
   type UserTier,
   validateCurrentConnection,
 } from '../auth/authHelpers';
@@ -173,6 +172,9 @@ export const SettingsPage = () => {
   const [enableBones, setEnableBones] = useState(false);
   const [enableDicePlus, setEnableDicePlus] = useState(false);
   const [enableTextBasedRolls, setEnableTextBasedRolls] = useState(false);
+  const [enableRollResolution, setEnableRollResolution] = useState(false);
+  const [rollResolutionAllUsers, setRollResolutionAllUsers] = useState(false);
+  const [rollResolutionBid, setRollResolutionBid] = useState('');
   const [enableObrNotification, setEnableObrNotification] = useState(false);
   const [showNotificationToAll, setShowNotificationToAll] = useState(false);
   const [enableDiscordLogging, setEnableDiscordLogging] = useState(false);
@@ -184,7 +186,6 @@ export const SettingsPage = () => {
   const clashImportFileInputRef = useRef<HTMLInputElement | null>(null);
   const [authConnected, setAuthConnected] = useState<boolean>(() => isConnected());
   const [authTier, setAuthTier] = useState<UserTier>(() => getUserTier());
-  const [premiumAuthorized, setPremiumAuthorized] = useState<boolean>(() => isPremiumAuthorized());
   const [isConnectingAuth, setIsConnectingAuth] = useState(false);
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const tooltips = getSettingsTooltips(t);
@@ -197,7 +198,6 @@ export const SettingsPage = () => {
       if (mounted) {
         setAuthConnected(valid && isConnected());
         setAuthTier(getUserTier());
-        setPremiumAuthorized(isPremiumAuthorized());
       }
     };
 
@@ -299,6 +299,21 @@ export const SettingsPage = () => {
     if (storageContainer[SettingsConstants.ENABLE_TEXT_BASED_ROLLS] !== undefined) {
       setEnableTextBasedRolls(storageContainer[SettingsConstants.ENABLE_TEXT_BASED_ROLLS] as boolean);
     }
+    if (storageContainer[SettingsConstants.ENABLE_ROLL_RESOLUTION] !== undefined) {
+      setEnableRollResolution(storageContainer[SettingsConstants.ENABLE_ROLL_RESOLUTION] as boolean);
+    } else {
+      setEnableRollResolution(false);
+    }
+    if (storageContainer[SettingsConstants.ROLL_RESOLUTION_ALL_USERS] !== undefined) {
+      setRollResolutionAllUsers(storageContainer[SettingsConstants.ROLL_RESOLUTION_ALL_USERS] as boolean);
+    } else {
+      setRollResolutionAllUsers(false);
+    }
+    if (storageContainer[SettingsConstants.ROLL_RESOLUTION_BID] !== undefined) {
+      setRollResolutionBid((storageContainer[SettingsConstants.ROLL_RESOLUTION_BID] as string) || '');
+    } else {
+      setRollResolutionBid('');
+    }
     if (storageContainer[SettingsConstants.ENABLE_OBR_NOTIFICATION] !== undefined) {
       setEnableObrNotification(storageContainer[SettingsConstants.ENABLE_OBR_NOTIFICATION] as boolean);
     }
@@ -337,6 +352,10 @@ export const SettingsPage = () => {
 
   const numericAttributes = attributes
     .filter((attribute) => attribute.attr_type === 'numb')
+    .sort((a, b) => (a.attr_name || '').localeCompare(b.attr_name || ''));
+
+  const rollResolutionAttributes = attributes
+    .filter((attribute) => attribute.attr_type === 'numb' || attribute.attr_type === 'resource')
     .sort((a, b) => (a.attr_name || '').localeCompare(b.attr_name || ''));
 
   const validateInitiativeModifierExpr = (expression: string, bid: string): { valid: boolean; error?: string } => {
@@ -530,14 +549,12 @@ export const SettingsPage = () => {
       );
       setAuthConnected(isConnected());
       setAuthTier(getUserTier());
-      setPremiumAuthorized(isPremiumAuthorized());
       await OBR.notification.show(t('settings.connectedAccount'), 'SUCCESS');
     } catch (error) {
       LOGGER.error('Battle-System auth connection failed', error);
       await OBR.notification.show(t('settings.unableToConnectAccount'), 'ERROR');
       setAuthConnected(isConnected());
       setAuthTier(getUserTier());
-      setPremiumAuthorized(isPremiumAuthorized());
     } finally {
       setIsConnectingAuth(false);
     }
@@ -623,7 +640,7 @@ export const SettingsPage = () => {
           </ButtonGroup>
           <AuthStatus theme={theme} $connected={authConnected}>
             {authConnected
-              ? t('settings.statusConnected', { tier: premiumAuthorized ? authTier : authTier })
+              ? t('settings.statusConnected', { tier: authTier })
               : t('settings.statusDisconnected')}
           </AuthStatus>
         </Card>
@@ -1132,6 +1149,59 @@ export const SettingsPage = () => {
               }}
             />
           </ControlRow>
+
+          <ControlRow theme={theme}>
+            <ControlLabel theme={theme}>
+              <SettingsTooltip theme={theme} text={tooltips.enableRollResolution}>{t('settings.enableRollResolution')}</SettingsTooltip>
+            </ControlLabel>
+            <ToggleControl
+              label={t('settings.enableRollResolution')}
+              isOn={enableRollResolution}
+              onChange={async (value) => {
+                setEnableRollResolution(value);
+                await saveData(SettingsConstants.ENABLE_ROLL_RESOLUTION, value);
+              }}
+            />
+          </ControlRow>
+          {enableRollResolution && (
+            <>
+              <SubControlRow theme={theme}>
+                <SubControlLabel theme={theme}>
+                  <SettingsTooltip theme={theme} text={tooltips.rollResolutionAllUsers}>{t('settings.rollResolutionAllUsers')}</SettingsTooltip>
+                </SubControlLabel>
+                <ToggleControl
+                  label={t('settings.rollResolutionAllUsers')}
+                  isOn={rollResolutionAllUsers}
+                  onChange={async (value) => {
+                    setRollResolutionAllUsers(value);
+                    await saveData(SettingsConstants.ROLL_RESOLUTION_ALL_USERS, value);
+                  }}
+                />
+              </SubControlRow>
+              <SubControlRow theme={theme}>
+                <SubControlLabel theme={theme}>
+                  <SettingsTooltip theme={theme} text={tooltips.rollResolutionAttribute}>{t('settings.rollResolutionAttribute')}</SettingsTooltip>
+                </SubControlLabel>
+                <SmallSelect
+                  theme={theme}
+                  value={rollResolutionBid}
+                  onChange={async (e) => {
+                    const value = e.target.value;
+                    setRollResolutionBid(value);
+                    await saveData(SettingsConstants.ROLL_RESOLUTION_BID, value);
+                  }}
+                >
+                  <option value="">{t('settings.none')}</option>
+                  {rollResolutionAttributes.map((attribute) => (
+                    <option key={attribute.attr_bid} value={attribute.attr_bid}>
+                      {attribute.attr_abbr} — {attribute.attr_name}{attribute.attr_type === 'resource' ? t('system.resourceOptionSuffix') : ''}
+                    </option>
+                  ))}
+                </SmallSelect>
+              </SubControlRow>
+              <SubControlHint theme={theme}>{t('settings.rollResolutionHint')}</SubControlHint>
+            </>
+          )}
 
           <ControlRow theme={theme}>
             <ControlLabel theme={theme}>

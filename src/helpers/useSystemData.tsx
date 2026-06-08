@@ -1,5 +1,4 @@
 import { SystemAttribute, CardLayoutComponent, ListLayoutComponent } from '../interfaces/SystemResponse';
-import defaultGameSystem from '../assets/defaultgamesystem.json';
 import { useSceneStore } from './BSCache';
 
 interface SystemData {
@@ -51,18 +50,12 @@ export const useSystemData = (): SystemData => {
   }
 
   return {
-    theme: {
-      primary: defaultGameSystem.theme_primary,
-      offset: defaultGameSystem.theme_offset,
-      background: defaultGameSystem.theme_background,
-      border: defaultGameSystem.theme_border,
-      background_url: defaultGameSystem.background_url,
-    },
-    cardLayout: defaultGameSystem.card_layout as CardLayoutComponent[],
-    listLayout: defaultGameSystem.list_layout as ListLayoutComponent[],
-    attributes: defaultGameSystem.attributes as SystemAttribute[],
-    systemName: defaultGameSystem.name,
+    theme: null,
+    cardLayout: [],
+    listLayout: [],
+    attributes: [],
+    systemName: '',
     importDate: null,
-    isLoading: false,
+    isLoading: true,
   };
 };

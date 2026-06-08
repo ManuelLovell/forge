@@ -27,27 +27,3 @@
         --vh: 100vh;
     }
 }
-
-/* Tooltip Design */
-.tippy-box[data-theme~='battlesystem'] {
-    font-style: italic;
-    background: #c53030;
-    color: white;
-    border: 1px solid maroon;
-}
-
-.tippy-box[data-theme~='battlesystem'][data-placement^='top']>.tippy-arrow::before {
-    border-top-color: #c53030;
-}
-
-.tippy-box[data-theme~='battlesystem'][data-placement^='bottom']>.tippy-arrow::before {
-    border-bottom-color: red;
-}
-
-.tippy-box[data-theme~='battlesystem'][data-placement^='left']>.tippy-arrow::before {
-    border-left-color: red;
-}
-
-.tippy-box[data-theme~='battlesystem'][data-placement^='right']>.tippy-arrow::before {
-    border-right-color: red;
-}

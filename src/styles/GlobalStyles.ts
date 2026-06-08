@@ -74,29 +74,6 @@ const GlobalStyles = createGlobalStyle<GlobalStylesProps>`
   .ReactModal__Overlay--before-close{
     transform: scale(0);
   }
-
-  .tippy-box[data-theme~='dynamic'] {
-    font-style: italic;
-    background: ${props => props.theme.BACKGROUND};
-    color: ${props => props.theme.PRIMARY};
-    border: 1px solid ${props => props.theme.BORDER};
-  }
-
-  .tippy-box[data-theme~='dynamic'][data-placement^='top']>.tippy-arrow::before {
-    border-top-color: ${props => props.theme.BACKGROUND};
-  }
-
-  .tippy-box[data-theme~='dynamic'][data-placement^='bottom']>.tippy-arrow::before {
-    border-bottom-color: ${props => props.theme.BACKGROUND};
-  }
-
-  .tippy-box[data-theme~='dynamic'][data-placement^='left']>.tippy-arrow::before {
-    border-left-color: ${props => props.theme.BACKGROUND};
-  }
-
-  .tippy-box[data-theme~='dynamic'][data-placement^='right']>.tippy-arrow::before {
-    border-right-color: ${props => props.theme.BACKGROUND};
-  }
 `;
 
 export default GlobalStyles;

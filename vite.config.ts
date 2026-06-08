@@ -22,6 +22,7 @@ export default defineConfig({
         card: path.resolve(__dirname, "pages/forgecard.html"),
         context: path.resolve(__dirname, "pages/forgecontext.html"),
         party: path.resolve(__dirname, "pages/forgeparty.html"),
+        rollresolution: path.resolve(__dirname, "pages/rollresolution.html"),
       }
     }
   }

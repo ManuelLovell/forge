@@ -5,8 +5,9 @@ import LOGGER from './Logger';
 import { initializeChatLogListener, useChatLogStore } from './ChatLogStore';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from './Constants';
 import { SettingsConstants } from '../interfaces/MetadataKeys';
-import { extractRollTotal, initializeBonesBroadcastResultListener, initializeRumbleBroadcastResultListener, initializeDicePlusResultListener, initializeTextBasedRollResultListener } from './DiceRollIntegration';
+import { consumePendingLocalRumbleRequest, extractRollTotal, extractRumbleRollTotal, initializeBonesBroadcastResultListener, initializeRumbleBroadcastResultListener, initializeDicePlusResultListener, initializeTextBasedRollResultListener } from './DiceRollIntegration';
 import { sendDiscordWebhookMessage } from './DiscordWebhook';
+import { useRollResolutionStore } from './rollResolutionStore';
 
 const CHATLOG_CHANNEL = `${OwlbearIds.EXTENSIONID}/chatlog`;
 const ROLL_NOTIFICATION_CHANNEL = `${OwlbearIds.EXTENSIONID}/roll-notification`;
@@ -82,6 +83,50 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
             return `${resolvedTokenName} rolled ${resolvedActionName}.`;
         };
 
+        const maybeOpenRollResolution = ({
+            total,
+            source,
+            senderId,
+            message,
+            isLocalRumbleResult = false,
+        }: {
+            total: number | null;
+            source: 'bones' | 'rumble' | 'dice-plus' | 'text';
+            senderId?: string | null;
+            message?: string;
+            isLocalRumbleResult?: boolean;
+        }) => {
+            if (typeof total !== 'number' || !Number.isFinite(total)) {
+                return;
+            }
+
+            const { sceneMetadata, roomMetadata, playerData } = useSceneStore.getState();
+            const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
+            const enabled = storageContainer[SettingsConstants.ENABLE_ROLL_RESOLUTION] === true;
+            const selectedBid = storageContainer[SettingsConstants.ROLL_RESOLUTION_BID];
+            if (!enabled || typeof selectedBid !== 'string' || selectedBid.trim().length === 0) {
+                return;
+            }
+
+            const allowAllUsers = storageContainer[SettingsConstants.ROLL_RESOLUTION_ALL_USERS] === true;
+            if (!allowAllUsers) {
+                if (source === 'rumble') {
+                    if (!isLocalRumbleResult) {
+                        return;
+                    }
+                } else if (!playerData?.id || senderId !== playerData.id) {
+                    return;
+                }
+            }
+
+            useRollResolutionStore.getState().openFromRoll({
+                total,
+                source,
+                message,
+                senderId: senderId || null,
+            });
+        };
+
         // Initialize System Log listener (only happens once)
         initializeChatLogListener();
 
@@ -103,11 +148,23 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
                 total,
             });
             publishRollMessage(message);
+            maybeOpenRollResolution({
+                total,
+                source: 'bones',
+                senderId: result.senderId,
+                message,
+            });
         });
 
         initializeRumbleBroadcastResultListener((result) => {
             const message = formatRollMessage({ explicitMessage: result.message });
             publishRollMessage(message);
+            maybeOpenRollResolution({
+                total: extractRumbleRollTotal(result.message),
+                source: 'rumble',
+                message,
+                isLocalRumbleResult: consumePendingLocalRumbleRequest(),
+            });
         });
 
         // Dice+ result listener
@@ -118,6 +175,12 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
                 total: result.result.totalValue,
             });
             publishRollMessage(message);
+            maybeOpenRollResolution({
+                total: result.result.totalValue,
+                source: 'dice-plus',
+                senderId: result.playerId,
+                message,
+            });
         });
 
         initializeTextBasedRollResultListener((result) => {
@@ -131,6 +194,12 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
                 });
 
             publishRollMessage(message);
+            maybeOpenRollResolution({
+                total: result.total,
+                source: 'text',
+                senderId: result.senderId,
+                message,
+            });
         });
 
         let unsubSceneReady: () => void;

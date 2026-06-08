@@ -32,12 +32,6 @@ import { hydrateAuthFromSession, isPremiumAuthorized } from '../auth/authHelpers
 import type { CardLayoutComponent, SystemAttribute } from '../interfaces/SystemResponse';
 import { supabase } from '../supabase/supabaseClient';
 import {
-  deleteRemoteUnitCollectionRecord as deleteRemoteCollectionRecord,
-  searchRemoteUnitCollection as searchPremiumRemoteCollection,
-  searchSharedUnitCollection,
-  upsertRemoteUnitFromMetadata as upsertPremiumRemoteUnit,
-} from '../helpers/unitCollectionRemote';
-import {
   buildHpMetadataValue,
   getAttributeByBid,
   getConfiguredHpBidKeys,
@@ -49,6 +43,18 @@ import { useTranslation } from '../i18n/Translation';
 const SYSTEM_KEYS = {
   SNAPSHOT_PUBLIC_ID: `${OwlbearIds.EXTENSIONID}/SnapshotPublicId`,
 } as const;
+
+type UnitCollectionRemoteModule = typeof import('../helpers/unitCollectionRemote');
+
+let remoteCollectionModulePromise: Promise<UnitCollectionRemoteModule> | null = null;
+
+const loadRemoteCollectionModule = async (): Promise<UnitCollectionRemoteModule> => {
+  if (!remoteCollectionModulePromise) {
+    remoteCollectionModulePromise = import('../helpers/unitCollectionRemote');
+  }
+
+  return remoteCollectionModulePromise;
+};
 
 type CardCache = {
   metadata: Record<string, unknown>;
@@ -1032,9 +1038,10 @@ export const CardPopoverPage = () => {
   };
 
   const searchSupabaseCollection = async (query: string): Promise<CollectionSearchRecord[]> => {
+    const remoteCollectionModule = await loadRemoteCollectionModule();
     const [shared, user] = await Promise.all([
-      searchSharedUnitCollection(query),
-      isPremiumAuthorized() ? searchPremiumRemoteCollection(query) : Promise.resolve([]),
+      remoteCollectionModule.searchSharedUnitCollection(query),
+      isPremiumAuthorized() ? remoteCollectionModule.searchRemoteUnitCollection(query) : Promise.resolve([]),
     ]);
 
     return [
@@ -1190,8 +1197,11 @@ export const CardPopoverPage = () => {
 
     try {
       const authorName = (await OBR.player.getName()).trim();
+      const remoteCollectionModule = isPremiumAuthorized()
+        ? await loadRemoteCollectionModule()
+        : null;
       const status = isPremiumAuthorized()
-        ? await upsertPremiumRemoteUnit(
+        ? await remoteCollectionModule!.upsertRemoteUnitFromMetadata(
           liveUnitItem.metadata as Record<string, unknown>,
           authorName,
           isFavoriteEnabled,
@@ -1487,7 +1497,8 @@ export const CardPopoverPage = () => {
   const handleCollectionRecordDelete = async (record: CollectionSearchRecord) => {
     try {
       if (record.source === 'remote-user') {
-        await deleteRemoteCollectionRecord(record.id);
+        const remoteCollectionModule = await loadRemoteCollectionModule();
+        await remoteCollectionModule.deleteRemoteUnitCollectionRecord(record.id);
         setRemoteCollectionRecords((previous) =>
           previous.filter((entry) => !(entry.source === 'remote-user' && entry.id === record.id)),
         );

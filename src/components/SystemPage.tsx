@@ -9,7 +9,7 @@ import { RuntimeSystemData, useSceneStore } from '../helpers/BSCache';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
 import { PageContainer, PageTitle, Card, Button, Input } from './SharedStyledComponents';
 import { PopupModal } from './PopupModal';
-import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
+import { DATA_STORED_IN_ROOM } from '../helpers/Constants';
 import { Upload, X } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import LOGGER from '../helpers/Logger';
@@ -31,18 +31,11 @@ import {
   isDebuffVisualPreset,
 } from '../helpers/EffectVisualPresets';
 import { getHpBidKeys } from '../helpers/hpAttributeMapping';
+import { SystemKeys } from '../helpers/systemKeys';
 import { useTranslation } from '../i18n/Translation';
 import type { BuffVisualPreset, DebuffVisualPreset } from '../helpers/EffectVisualPresets';
 
-const EXTENSION_ID = OwlbearIds.EXTENSIONID;
 const BACKUP_KEY_PREFIX = 'com.battle-system.forge';
-
-// Storage keys for system data
-export const SystemKeys = {
-  SYSTEM_NAME: `${EXTENSION_ID}/SystemName`,
-  IMPORT_DATE: `${EXTENSION_ID}/ImportDate`,
-  SNAPSHOT_PUBLIC_ID: `${EXTENSION_ID}/SnapshotPublicId`,
-} as const;
 
 interface SnapshotSystemRecord {
   snapshot_public_id: string;

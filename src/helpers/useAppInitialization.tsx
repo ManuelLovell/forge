@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useForgeTheme } from './ThemeContext';
-import { RuntimeSystemData, RuntimeSystemTheme, useSceneStore } from './BSCache';
-import { SystemKeys } from '../components/SystemPage';
+import { RuntimeSystemTheme, useSceneStore } from './BSCache';
 import { SystemAttribute, CardLayoutComponent, ListLayoutComponent } from '../interfaces/SystemResponse';
-import defaultGameSystem from '../assets/defaultgamesystem.json';
 import LOGGER from './Logger';
 import { supabase } from '../supabase/supabaseClient';
+import { buildDefaultRuntimeSystemData } from './defaultSystemLoader';
+import { SystemKeys } from './systemKeys';
 
 type ThemeData = RuntimeSystemTheme;
 
@@ -41,22 +41,6 @@ export const useAppInitialization = () => {
   const cacheReady = useSceneStore((state) => state.cacheReady);
   const runtimeSystemData = useSceneStore((state) => state.systemData);
   const setRuntimeSystemData = useSceneStore((state) => state.setSystemData);
-
-  const buildDefaultRuntimeSystemData = (): RuntimeSystemData => ({
-    theme: {
-      primary: defaultGameSystem.theme_primary,
-      offset: defaultGameSystem.theme_offset,
-      background: defaultGameSystem.theme_background,
-      border: defaultGameSystem.theme_border,
-      background_url: defaultGameSystem.background_url,
-    },
-    cardLayout: defaultGameSystem.card_layout as CardLayoutComponent[],
-    listLayout: defaultGameSystem.list_layout as ListLayoutComponent[],
-    attributes: defaultGameSystem.attributes as SystemAttribute[],
-    systemName: defaultGameSystem.name,
-    importDate: null,
-    snapshotPublicId: null,
-  });
 
   useEffect(() => {
     if (!cacheReady && isInitialized) {
@@ -200,7 +184,7 @@ export const useAppInitialization = () => {
     };
 
     const initializeDefaultSystem = async () => {
-      const defaultRuntimeData = buildDefaultRuntimeSystemData();
+      const defaultRuntimeData = await buildDefaultRuntimeSystemData();
       setRuntimeSystemData(defaultRuntimeData);
       LOGGER.log('Default system initialized');
     };
@@ -256,7 +240,8 @@ export const useAppInitialization = () => {
     const syncSnapshotChange = async () => {
       if (!roomSnapshotId) {
         if (!cancelled) {
-          setRuntimeSystemData(buildDefaultRuntimeSystemData());
+          const defaultRuntimeData = await buildDefaultRuntimeSystemData();
+          setRuntimeSystemData(defaultRuntimeData);
           LOGGER.log('Room snapshot reference cleared, reverted runtime system to defaults');
         }
         return;

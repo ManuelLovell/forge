@@ -1,22 +1,17 @@
 import './styles/App.css'
-import 'tippy.js/dist/tippy.css';
 import { useSceneStore } from './helpers/BSCache';
-import { useState, useEffect, useRef } from 'react';
+import { Suspense, lazy, useState, useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import OBR from '@owlbear-rodeo/sdk';
 import { Navigation, type PageType } from './components/NavigationComponent';
 import { AppContainer, ContentArea } from './components/NavigationStyles';
-import { SettingsPage } from './components/SettingsPage';
-import { ChatLogPage } from './components/ChatLogPage';
-import { SystemPage } from './components/SystemPage';
-import { InitiativeList } from './components/InitiativeList';
-import { PartyPage } from './components/PartyPage';
 import { HpBarEffectManager } from './components/HpBarEffectManager';
 import { DeathEffectManager } from './components/DeathEffectManager';
 import { EffectsTokenVisualManager } from './components/EffectsTokenVisualManager';
 import { BossHpViewportEffectManager } from './components/BossHpViewportEffectManager';
 import { TurnEffectManager } from './components/TurnEffectManager';
 import { GmNameLabelManager } from './components/GmNameLabelManager';
+import { RollResolutionManager } from './components/RollResolutionManager';
 import { useForgeTheme } from './helpers/ThemeContext';
 import { useAppInitialization } from './helpers/useAppInitialization';
 import GlobalStyles from './styles/GlobalStyles';
@@ -66,6 +61,19 @@ const LoadingText = styled.p`
   color: rgba(255, 255, 255, 0.8);
 `;
 
+const PageLoadingState = styled.div`
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const SettingsPage = lazy(async () => ({ default: (await import('./components/SettingsPage')).SettingsPage }));
+const ChatLogPage = lazy(async () => ({ default: (await import('./components/ChatLogPage')).ChatLogPage }));
+const SystemPage = lazy(async () => ({ default: (await import('./components/SystemPage')).SystemPage }));
+const InitiativeList = lazy(async () => ({ default: (await import('./components/InitiativeList')).InitiativeList }));
+const PartyPage = lazy(async () => ({ default: (await import('./components/PartyPage')).PartyPage }));
+
 function App() {
   const { sceneReady, cacheReady, playerData, roomMetadata, sceneMetadata } = useSceneStore();
   const { isInitialized } = useAppInitialization();
@@ -107,6 +115,8 @@ function App() {
           <ChatLogPage key="chatlog" />
         );
     }
+
+    return null;
   };
 
   const navigateTo = (page: PageType) => {
@@ -242,7 +252,7 @@ function App() {
   // Reset width when navigating away from ForgeMain
   useEffect(() => {
     if (currentPage !== 'ForgeMain') {
-      OBR.action.setWidth(350);
+      OBR.action.setWidth(360);
     }
   }, [currentPage]);
 
@@ -267,10 +277,13 @@ function App() {
           <BossHpViewportEffectManager />
           <TurnEffectManager />
           <GmNameLabelManager />
+          <RollResolutionManager />
           <ContentArea theme={theme} $backgroundUrl={theme.BACKGROUND_URL}>
-            <AnimatePresence mode="wait">
-              {renderPage()}
-            </AnimatePresence>
+            <Suspense fallback={<PageLoadingState><LoadingSpinner /></PageLoadingState>}>
+              <AnimatePresence mode="wait">
+                {renderPage()}
+              </AnimatePresence>
+            </Suspense>
           </ContentArea>
 
           <Navigation

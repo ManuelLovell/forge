@@ -275,6 +275,37 @@ export interface TextBasedRollResult {
 let responseListenerInitialized = false;
 let rumbleResponseListenerInitialized = false;
 let textBasedRollResponseListenerInitialized = false;
+let pendingLocalRumbleRequestCount = 0;
+
+export const consumePendingLocalRumbleRequest = (): boolean => {
+    if (pendingLocalRumbleRequestCount <= 0) {
+        return false;
+    }
+
+    pendingLocalRumbleRequestCount -= 1;
+    return true;
+};
+
+export const extractRumbleRollTotal = (message: string): number | null => {
+    const trimmed = message.trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    const contextualMatch = trimmed.match(/(?:for|=|total:?|result:?)[^\d-]*(-?\d+)(?!.*-?\d)/i);
+    if (contextualMatch) {
+        const parsed = Number(contextualMatch[1]);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    const lastNumberMatch = trimmed.match(/(-?\d+)(?!.*-?\d)/);
+    if (!lastNumberMatch) {
+        return null;
+    }
+
+    const parsed = Number(lastNumberMatch[1]);
+    return Number.isFinite(parsed) ? parsed : null;
+};
 
 export const requestRumbleBroadcastRoll = async (payload: RumbleRollBroadcastPayload): Promise<void> => {
     LOGGER.log('Rumble roll request sent', {
@@ -283,6 +314,7 @@ export const requestRumbleBroadcastRoll = async (payload: RumbleRollBroadcastPay
         notation: payload.notation,
     });
 
+    pendingLocalRumbleRequestCount += 1;
     await OBR.broadcast.sendMessage(RUMBLE_BROADCAST_LISTENER, payload, { destination: 'LOCAL' });
 };
 

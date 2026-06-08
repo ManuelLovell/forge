@@ -7,11 +7,22 @@ import { Regex } from '../helpers/Regex';
 import { useSceneStore } from '../helpers/BSCache';
 import { AddOrReplaceAdjective } from '../helpers/Adjectives';
 import { filterExtensionMetadata, getAllUnitCollectionRecords, type UnitCollectionRecord } from '../helpers/unitCollectionDb';
-import { findRemoteUnitCollectionByNames, findSharedUnitCollectionByNames } from '../helpers/unitCollectionRemote';
 import { getConfiguredHpBidKeys } from '../helpers/hpAttributeMapping';
 
 const VIEW_UNIT_CONTEXT_MENU_ID = 'com.battle-system.forge/view-unit';
 const VIEW_UNIT_PLAYER_CONTEXT_MENU_ID = 'com.battle-system.forge/view-unit-player';
+
+type UnitCollectionRemoteModule = typeof import('../helpers/unitCollectionRemote');
+
+let remoteCollectionModulePromise: Promise<UnitCollectionRemoteModule> | null = null;
+
+const loadRemoteCollectionModule = async (): Promise<UnitCollectionRemoteModule> => {
+    if (!remoteCollectionModulePromise) {
+        remoteCollectionModulePromise = import('../helpers/unitCollectionRemote');
+    }
+
+    return remoteCollectionModulePromise;
+};
 
 const normalizeLookupName = (name: string): string => name.trim().toLowerCase();
 
@@ -111,7 +122,8 @@ const getFirstCollectionMatchesByName = async (names: string[]): Promise<Map<str
     }
 
     try {
-        const remoteRecords = await findRemoteUnitCollectionByNames(normalizedNames);
+        const remoteCollectionModule = await loadRemoteCollectionModule();
+        const remoteRecords = await remoteCollectionModule.findRemoteUnitCollectionByNames(normalizedNames);
         for (const record of remoteRecords) {
             const normalized = normalizeLookupName(record.name);
             if (!normalized || byNormalizedName.has(normalized) || !record.metadata) {
@@ -121,7 +133,7 @@ const getFirstCollectionMatchesByName = async (names: string[]): Promise<Map<str
             byNormalizedName.set(normalized, filterExtensionMetadata(record.metadata));
         }
 
-        const sharedRecords = await findSharedUnitCollectionByNames(normalizedNames);
+        const sharedRecords = await remoteCollectionModule.findSharedUnitCollectionByNames(normalizedNames);
         for (const record of sharedRecords) {
             const normalized = normalizeLookupName(record.name);
             if (!normalized || byNormalizedName.has(normalized) || !record.metadata) {

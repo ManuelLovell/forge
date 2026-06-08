@@ -1,23 +1,20 @@
 import { useSyncExternalStore } from 'react';
-import { deTranslations } from './translations/de';
-import { enTranslations, type TranslationKey } from './translations/en';
-import { esTranslations } from './translations/es';
-import { frTranslations } from './translations/fr';
+import { enTranslations, type TranslationDictionary, type TranslationKey } from './translations/en';
 
 const LOCALE_STORAGE_KEY = 'forge.locale';
 
-const dictionaries = {
-  en: enTranslations,
-  es: esTranslations,
-  fr: frTranslations,
-  de: deTranslations,
+const localeLoaders = {
+  en: async () => enTranslations,
+  es: async () => (await import('./translations/es')).esTranslations,
+  fr: async () => (await import('./translations/fr')).frTranslations,
+  de: async () => (await import('./translations/de')).deTranslations,
 } as const;
 
-export type Locale = keyof typeof dictionaries;
+export type Locale = keyof typeof localeLoaders;
 
 type TranslationVariables = Record<string, string | number | boolean | null | undefined>;
 
-const availableLocales = Object.keys(dictionaries) as Locale[];
+const availableLocales = Object.keys(localeLoaders) as Locale[];
 
 const normalizeLocale = (value: string | null | undefined): Locale => {
   if (!value) {
@@ -48,10 +45,23 @@ const interpolate = (template: string, variables?: TranslationVariables): string
 class TranslationService {
   private locale: Locale;
 
+  private dictionary: TranslationDictionary;
+
+  private version = 0;
+
+  private readonly dictionaryCache = new Map<Locale, TranslationDictionary>([['en', enTranslations]]);
+
+  private readonly pendingLoads = new Map<Locale, Promise<void>>();
+
   private readonly listeners = new Set<() => void>();
 
   constructor() {
     this.locale = this.resolveInitialLocale();
+    this.dictionary = this.dictionaryCache.get(this.locale) || enTranslations;
+
+    if (this.locale !== 'en') {
+      void this.ensureLocaleLoaded(this.locale);
+    }
   }
 
   private resolveInitialLocale(): Locale {
@@ -78,6 +88,46 @@ class TranslationService {
     };
   };
 
+  private emit = (): void => {
+    this.listeners.forEach((listener) => listener());
+  };
+
+  private getSnapshot = (): string => {
+    return `${this.locale}:${this.version}`;
+  };
+
+  private ensureLocaleLoaded = async (locale: Locale): Promise<void> => {
+    const cachedDictionary = this.dictionaryCache.get(locale);
+    if (cachedDictionary) {
+      if (this.locale === locale && this.dictionary !== cachedDictionary) {
+        this.dictionary = cachedDictionary;
+        this.version += 1;
+        this.emit();
+      }
+      return;
+    }
+
+    const existingLoad = this.pendingLoads.get(locale);
+    if (existingLoad) {
+      return existingLoad;
+    }
+
+    const loadPromise = localeLoaders[locale]().then((dictionary) => {
+      this.dictionaryCache.set(locale, dictionary);
+
+      if (this.locale === locale) {
+        this.dictionary = dictionary;
+        this.version += 1;
+        this.emit();
+      }
+    }).finally(() => {
+      this.pendingLoads.delete(locale);
+    });
+
+    this.pendingLoads.set(locale, loadPromise);
+    return loadPromise;
+  };
+
   getLocale = (): Locale => {
     return this.locale;
   };
@@ -89,11 +139,18 @@ class TranslationService {
     }
 
     this.locale = resolvedLocale;
+    this.dictionary = this.dictionaryCache.get(resolvedLocale) || enTranslations;
+    this.version += 1;
+
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(LOCALE_STORAGE_KEY, resolvedLocale);
     }
 
-    this.listeners.forEach((listener) => listener());
+    this.emit();
+
+    if (!this.dictionaryCache.has(resolvedLocale)) {
+      void this.ensureLocaleLoaded(resolvedLocale);
+    }
   };
 
   getAvailableLocales = (): Locale[] => {
@@ -101,15 +158,15 @@ class TranslationService {
   };
 
   t = (key: TranslationKey, variables?: TranslationVariables): string => {
-    const dictionary = dictionaries[this.locale];
-    return interpolate(dictionary[key] || enTranslations[key], variables);
+    return interpolate(this.dictionary[key] || enTranslations[key], variables);
   };
 }
 
 export const Translation = new TranslationService();
 
 export const useTranslation = () => {
-  const locale = useSyncExternalStore(Translation.subscribe, Translation.getLocale, Translation.getLocale);
+  useSyncExternalStore(Translation.subscribe, Translation['getSnapshot'], Translation['getSnapshot']);
+  const locale = Translation.getLocale();
 
   return {
     locale,

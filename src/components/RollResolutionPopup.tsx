@@ -32,6 +32,10 @@ const Root = styled.div<{ $theme: RollResolutionThemeData }>`
   border: 2px solid ${props => props.$theme.border};
   border-radius: 16px;
   background-color: rgba(0, 0, 0, 0.5);
+  background-image: none !important;
+  background-size: initial !important;
+  background-position: initial !important;
+  background-repeat: no-repeat !important;
   backdrop-filter: blur(6px);
 `;
 
@@ -41,6 +45,10 @@ const Content = styled.div<{ $theme: RollResolutionThemeData; $compact: boolean 
   box-sizing: border-box;
   padding: ${props => props.$compact ? '8px 8px 6px' : '10px 8px 8px'};
   background: ${props => rgbaFromHex(props.$theme.background, 0.48)};
+  background-image: none !important;
+  background-size: initial !important;
+  background-position: initial !important;
+  background-repeat: no-repeat !important;
   display: flex;
   flex-direction: column;
 `;

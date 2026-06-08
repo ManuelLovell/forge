@@ -26,6 +26,7 @@ import{l as e}from"./tslib.es6-C783ynKN.js";import{n as t,t as n}from"./PluginGa
   margin: 0;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1.1;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -37,6 +38,7 @@ import{l as e}from"./tslib.es6-C783ynKN.js";import{n as t,t as n}from"./PluginGa
   color: ${e=>e.$theme.primary};
   font-size: 14px;
   font-weight: 700;
+  line-height: 1.1;
   cursor: pointer;
   min-width: 0;
   white-space: nowrap;
@@ -79,6 +81,7 @@ import{l as e}from"./tslib.es6-C783ynKN.js";import{n as t,t as n}from"./PluginGa
   cursor: pointer;
   font-weight: 700;
   font-size: 12px;
+  line-height: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -115,6 +118,7 @@ import{l as e}from"./tslib.es6-C783ynKN.js";import{n as t,t as n}from"./PluginGa
   color: ${e=>e.$theme.primary};
   font-size: 14px;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
   overflow: hidden;
 `;const z=({theme:e,isOpen:t,isProcessMode:n,total:r,mode:i,onModeChange:a,onApply:o,onExitProcessMode:s,onClose:c})=>{let{t:l}=m();return!t||r===null?null:(0,D.jsx)(O,{$theme:e,children:(0,D.jsxs)(k,{$theme:e,$compact:n,children:[(0,D.jsxs)(A,{children:[n?(0,D.jsx)(M,{type:`button`,$theme:e,onClick:s,children:l(`rollResolution.applyResult`)}):(0,D.jsx)(j,{children:l(`rollResolution.title`)}),(0,D.jsx)(N,{type:`button`,$theme:e,"aria-label":l(`rollResolution.close`),onClick:c,children:(0,D.jsx)(p,{size:14})})]}),n?(0,D.jsx)(L,{$theme:e,children:l(`rollResolution.processHint`)}):(0,D.jsxs)(D.Fragment,{children:[(0,D.jsxs)(P,{$theme:e,children:[(0,D.jsxs)(F,{type:`button`,$theme:e,$active:i===`subtract`,onClick:()=>a(`subtract`),children:[(0,D.jsx)(w,{size:14}),l(`rollResolution.modeSubtract`)]}),(0,D.jsxs)(F,{type:`button`,$theme:e,$active:i===`add`,onClick:()=>a(`add`),children:[(0,D.jsx)(f,{size:14}),l(`rollResolution.modeAdd`)]})]}),(0,D.jsx)(I,{$theme:e,children:Math.abs(r)}),(0,D.jsx)(R,{type:`button`,$theme:e,"aria-label":l(`rollResolution.apply`),onClick:o,children:(0,D.jsx)(d,{size:18})})]})]})})};var B=`${l.EXTENSIONID}/`,V=e=>`${B}${e}`,H=e=>e?Object.keys(e.metadata||{}).some(e=>e.startsWith(B)):!1,U=(e,t,n)=>{let r=V(t.bid),i=String(t.type||``).toLowerCase();if(i===`numb`){let t=Number(e.metadata?.[r]);return{key:r,value:(Number.isFinite(t)?t:0)+n}}if(i===`resource`){let i=e.metadata?.[r],a=i&&typeof i==`object`&&!Array.isArray(i)?i:{},o=Number(a.current),s=Number(a.max),c=Number(t.defaultMax),l=Number.isFinite(o)?o:0,u=Number.isFinite(s)?Math.max(0,s):Number.isFinite(c)?Math.max(0,c):null,d=l+n,f=Math.max(0,d);return{key:r,value:{current:typeof u==`number`?Math.min(f,u):f,max:typeof u==`number`?u:Number.isFinite(s)?s:0}}}return null};const W=async(e,t,n)=>{let r=(await i.scene.items.getItems()).find(t=>t.id===e);if(!H(r))return{status:`invalid-target`};if(!t?.bid)return{status:`missing-attribute`};let a=U(r,t,n);if(!a)return{status:`missing-attribute`};try{return await i.scene.items.updateItems([e],e=>{e[0].metadata[a.key]=a.value}),{status:`success`,itemId:e,delta:n}}catch(e){return{status:`write-failed`,error:e}}},G=async(e,t)=>{let n=t>=0?h(`buff_effect_two`):g(`debuff_effect_two`),r=`rrfx-${e}-${crypto.randomUUID()}`,a=o().id(r).name(`Roll Resolution Effect`).effectType(`ATTACHMENT`).layer(`ATTACHMENT`).attachedTo(e).locked(!0).disableHit(!0).disableAttachmentBehavior([`ROTATION`,`SCALE`]).sksl(n).build();try{await i.scene.local.addItems([a]),await new Promise(e=>{window.setTimeout(e,1e3)}),await i.scene.local.deleteItems([r])}catch{}};var K={primary:C.theme_primary,offset:C.theme_offset,background:C.theme_background,border:C.theme_border},q=240,J=84,Y=()=>{if(typeof window>`u`)return null;let e=new URLSearchParams(window.location.search),t=Number(e.get(`total`)),n=e.get(`source`),r=e.get(`bid`),i=e.get(`type`),a=Number(e.get(`defaultMax`)),o=e.get(`message`);return!Number.isFinite(t)||!n||!r||i!==`numb`&&i!==`resource`?null:{total:Math.abs(t),source:n,message:o?.trim()||null,attribute:{bid:r,type:i,defaultMax:Number.isFinite(a)?a:void 0}}};T.createRoot(document.getElementById(`root`)).render((0,D.jsx)(E.StrictMode,{children:(0,D.jsx)(n,{children:(0,D.jsx)(()=>{let{t:e}=m(),[t,n]=(0,E.useState)(()=>Y()),[r,a]=(0,E.useState)(K),[o,s]=(0,E.useState)(!1),[c,l]=(0,E.useState)(`subtract`),[u,d]=(0,E.useState)([]),f=(0,E.useRef)(null);return(0,E.useEffect)(()=>{let e=!0,t=async t=>{let n=t[_.SNAPSHOT_PUBLIC_ID];if(typeof n!=`string`||n.trim().length===0){e&&a(K);return}try{let{data:t,error:r}=await S.rpc(`bs_forge_get_snapshot_for_room`,{p_snapshot_public_id:n});if(r){e&&a(K);return}let i=Array.isArray(t)?t[0]:t;if(!i||typeof i.snapshot_public_id!=`string`){e&&a(K);return}e&&a({primary:i.theme_primary,offset:i.theme_offset,background:i.theme_background,border:i.theme_border})}catch{e&&a(K)}};return i.onReady(async()=>{if(!e)return;await t(await i.room.getMetadata());let n=i.room.onMetadataChange(n=>{e&&t(n)});e||n()}),()=>{e=!1}},[]),(0,E.useEffect)(()=>{let e=q,t=o?J:164;(async()=>{try{await i.popover.getWidth(y)!==e&&await i.popover.setWidth(y,e),await i.popover.getHeight(y)!==t&&await i.popover.setHeight(y,t)}catch{}})()},[o]),(0,E.useEffect)(()=>{let e=i.broadcast.onMessage(x,e=>{let t=e.data;v(t)&&(n({total:Math.abs(t.total),source:t.source,message:t.message?.trim()||null,attribute:t.attribute}),l(`subtract`),s(!1),f.current=null)});return()=>{e()}},[]),(0,E.useEffect)(()=>{let e=!0;(async()=>{let t=await i.player.getSelection();e&&d(Array.isArray(t)?t:[])})();let t=i.player.onChange(e=>{d(Array.isArray(e.selection)?e.selection:[])});return()=>{e=!1,t()}},[]),(0,E.useEffect)(()=>{if(!o||!t){f.current=null;return}if(u.length!==1)return;let n=u[0];!n||f.current===n||(f.current=n,(async()=>{let r=c===`subtract`?-Math.abs(t.total):Math.abs(t.total),a=await W(n,t.attribute,r);if(a.status===`success`){G(n,r),await i.player.deselect();return}if(a.status===`invalid-target`||a.status===`missing-attribute`){await i.player.deselect();return}await i.notification.show(e(`rollResolution.applyFailed`),`ERROR`)})().finally(()=>{f.current=null}))},[o,c,u,t,e]),t?(0,D.jsx)(z,{theme:r,isOpen:!0,isProcessMode:o,total:t.total,mode:c,onModeChange:l,onApply:()=>{s(!0),i.player.deselect()},onExitProcessMode:()=>s(!1),onClose:()=>{b()}}):null},{})})}));

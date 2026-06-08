@@ -7,6 +7,10 @@ import{l as e}from"./tslib.es6-C783ynKN.js";import{n as t,t as n}from"./PluginGa
   border: 2px solid ${e=>e.$theme.border};
   border-radius: 16px;
   background-color: rgba(0, 0, 0, 0.5);
+  background-image: none !important;
+  background-size: initial !important;
+  background-position: initial !important;
+  background-repeat: no-repeat !important;
   backdrop-filter: blur(6px);
 `,k=c.div`
   width: 100%;
@@ -14,6 +18,10 @@ import{l as e}from"./tslib.es6-C783ynKN.js";import{n as t,t as n}from"./PluginGa
   box-sizing: border-box;
   padding: ${e=>e.$compact?`8px 8px 6px`:`10px 8px 8px`};
   background: ${e=>a(e.$theme.background,.48)};
+  background-image: none !important;
+  background-size: initial !important;
+  background-position: initial !important;
+  background-repeat: no-repeat !important;
   display: flex;
   flex-direction: column;
 `,A=c.div`

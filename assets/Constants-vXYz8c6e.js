@@ -1,0 +1,1 @@
+const e=!0;let t=function(e){return e.EXTENSIONID=`com.battle-system.forge`,e.CARDSID=`com.battle-system.forge-card`,e.BONESID=`com.battle-system.bones`,e.RUMBLECHATCHANNEL=`RUMBLECHAT`,e.BROADCASTCHANNEL=`FORGE-BROADCAST`,e.AUTHSYNCCHANNEL=`battle-system-login`,e.MARKCONNECT=`com.battle-system.marked-connect`,e}({});export{t as n,e as t};

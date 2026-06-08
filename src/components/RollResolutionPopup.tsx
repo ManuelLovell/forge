@@ -57,6 +57,7 @@ const Title = styled.h3`
   margin: 0;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1.1;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -70,6 +71,7 @@ const ProcessToggle = styled.button<{ $theme: RollResolutionThemeData }>`
   color: ${props => props.$theme.primary};
   font-size: 14px;
   font-weight: 700;
+  line-height: 1.1;
   cursor: pointer;
   min-width: 0;
   white-space: nowrap;
@@ -120,6 +122,7 @@ const ModeButton = styled.button<{ $theme: RollResolutionThemeData; $active: boo
   cursor: pointer;
   font-weight: 700;
   font-size: 12px;
+  line-height: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -162,6 +165,7 @@ const ApplyButton = styled.button<{ $theme: RollResolutionThemeData }>`
   color: ${props => props.$theme.primary};
   font-size: 14px;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
   overflow: hidden;
 `;

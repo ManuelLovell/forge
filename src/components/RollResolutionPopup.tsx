@@ -50,12 +50,17 @@ const HeaderRow = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
 `;
 
 const Title = styled.h3`
   margin: 0;
   font-size: 14px;
   font-weight: 700;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const ProcessToggle = styled.button<{ $theme: RollResolutionThemeData }>`
@@ -66,6 +71,10 @@ const ProcessToggle = styled.button<{ $theme: RollResolutionThemeData }>`
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const CloseButton = styled.button<{ $theme: RollResolutionThemeData }>`
@@ -87,14 +96,15 @@ const CloseButton = styled.button<{ $theme: RollResolutionThemeData }>`
 `;
 
 const ModeRow = styled.div<{ $theme: RollResolutionThemeData }>`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: 6px;
   margin-top: 2px;
 `;
 
 const ModeButton = styled.button<{ $theme: RollResolutionThemeData; $active: boolean }>`
   display: inline-flex;
+  flex: 1 1 0;
+  min-width: 0;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
@@ -110,6 +120,9 @@ const ModeButton = styled.button<{ $theme: RollResolutionThemeData; $active: boo
   cursor: pointer;
   font-weight: 700;
   font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const TotalValue = styled.div<{ $theme: RollResolutionThemeData }>`

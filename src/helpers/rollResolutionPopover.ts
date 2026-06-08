@@ -53,8 +53,8 @@ export const openCenteredRollResolutionPopover = async (payload: RollResolutionP
   await OBR.popover.open({
     id: ROLL_RESOLUTION_POPOVER_ID,
     url: buildRollResolutionPopoverUrl(payload),
-    height: 220,
-    width: 210,
+    height: 164,
+    width: 240,
     anchorPosition: {
       left: viewportWidth / 2,
       top: viewportHeight / 2,

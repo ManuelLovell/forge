@@ -32,7 +32,7 @@ const DEFAULT_THEME: RollResolutionThemeData = {
   border: defaultGameSystem.theme_border,
 };
 
-const ROLL_RESOLUTION_COMPACT_WIDTH = 210;
+const ROLL_RESOLUTION_COMPACT_WIDTH = 240;
 const ROLL_RESOLUTION_COMPACT_HEIGHT = 84;
 
 const parseInitialState = (): RollResolutionPopoverState | null => {

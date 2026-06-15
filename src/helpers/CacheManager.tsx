@@ -33,8 +33,19 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
             }
         };
 
-        const publishRollMessage = (message: string) => {
-            void sendDiscordWebhookMessage(message);
+        const isCurrentPlayer = (senderId?: string | null): boolean => {
+            if (typeof senderId !== 'string' || senderId.trim().length === 0) {
+                return false;
+            }
+
+            const { playerData } = useSceneStore.getState();
+            return typeof playerData?.id === 'string' && playerData.id === senderId;
+        };
+
+        const publishRollMessage = (message: string, options?: { sendToDiscord?: boolean; isOriginClient?: boolean }) => {
+            if (options?.sendToDiscord === true) {
+                void sendDiscordWebhookMessage(message);
+            }
 
             const { sceneMetadata, roomMetadata } = useSceneStore.getState();
             const storageContainer = DATA_STORED_IN_ROOM ? roomMetadata : sceneMetadata;
@@ -42,6 +53,12 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
             const showNotificationToAll = storageContainer[SettingsConstants.SHOW_NOTIFICATION_TO_ALL] as boolean | undefined;
 
             if (showNotificationToAll === true) {
+                // Only the originating client broadcasts — all other clients receive
+                // the message via their CHATLOG and ROLL_NOTIFICATION_CHANNEL listeners.
+                if (options?.isOriginClient !== true) {
+                    return;
+                }
+
                 void OBR.broadcast.sendMessage(CHATLOG_CHANNEL, { message }, { destination: 'ALL' });
 
                 if (enableObrNotification === true) {
@@ -147,7 +164,8 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
                 actionName: result.actionName,
                 total,
             });
-            publishRollMessage(message);
+            const isOriginClient = isCurrentPlayer(result.senderId);
+            publishRollMessage(message, { sendToDiscord: isOriginClient, isOriginClient });
             maybeOpenRollResolution({
                 total,
                 source: 'bones',
@@ -158,12 +176,13 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
 
         initializeRumbleBroadcastResultListener((result) => {
             const message = formatRollMessage({ explicitMessage: result.message });
-            publishRollMessage(message);
+            const isLocalRumbleResult = consumePendingLocalRumbleRequest();
+            publishRollMessage(message, { sendToDiscord: isLocalRumbleResult, isOriginClient: isLocalRumbleResult });
             maybeOpenRollResolution({
                 total: extractRumbleRollTotal(result.message),
                 source: 'rumble',
                 message,
-                isLocalRumbleResult: consumePendingLocalRumbleRequest(),
+                isLocalRumbleResult,
             });
         });
 
@@ -174,7 +193,8 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
                 actionName: result.result.diceNotation,
                 total: result.result.totalValue,
             });
-            publishRollMessage(message);
+            const isOriginClient = isCurrentPlayer(result.playerId);
+            publishRollMessage(message, { sendToDiscord: isOriginClient, isOriginClient });
             maybeOpenRollResolution({
                 total: result.result.totalValue,
                 source: 'dice-plus',
@@ -193,7 +213,8 @@ export function CacheSync({ children }: { children: React.ReactNode }) {
                     total: result.total,
                 });
 
-            publishRollMessage(message);
+            const isOriginClient = isCurrentPlayer(result.senderId);
+            publishRollMessage(message, { sendToDiscord: isOriginClient, isOriginClient });
             maybeOpenRollResolution({
                 total: result.total,
                 source: 'text',

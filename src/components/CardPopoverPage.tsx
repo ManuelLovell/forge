@@ -687,6 +687,7 @@ export const CardPopoverPage = () => {
   const isGroupEditMode = initialSelectedUnitIds.length > 1;
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(() => readUnitIdFromQuery());
   const [groupEditDraftMetadata, setGroupEditDraftMetadata] = useState<Record<string, unknown>>({});
+  const [groupEditImportRenderVersion, setGroupEditImportRenderVersion] = useState(0);
   const [isGroupSaveCoolingDown, setIsGroupSaveCoolingDown] = useState(false);
   const [isGroupSaveFlashing, setIsGroupSaveFlashing] = useState(false);
   const isPinned = useMemo(() => readPinnedFromQuery(), []);
@@ -1374,6 +1375,8 @@ export const CardPopoverPage = () => {
   const applyImportedMetadataToActiveCard = async (extensionMetadata: Record<string, unknown>) => {
     if (isGroupEditMode) {
       setGroupEditDraftMetadata(extensionMetadata);
+      // Force a renderer remount so uncontrolled inputs pick up imported draft values.
+      setGroupEditImportRenderVersion((previous) => previous + 1);
       setIsFavoriteEnabled(false);
       return;
     }
@@ -1795,6 +1798,7 @@ export const CardPopoverPage = () => {
           <Message $theme={theme}>{t('card.unitNotFound')}</Message>
         ) : (
           <CardLayoutRenderer
+            key={isGroupEditMode ? `group-import-${groupEditImportRenderVersion}` : `single-${selectedUnitId || 'none'}`}
             systemTheme={theme}
             backgroundUrl={theme.background_url}
             cardLayout={cardLayout}

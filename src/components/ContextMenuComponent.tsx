@@ -11,6 +11,8 @@ import { getConfiguredHpBidKeys } from '../helpers/hpAttributeMapping';
 
 const VIEW_UNIT_CONTEXT_MENU_ID = 'com.battle-system.forge/view-unit';
 const VIEW_UNIT_PLAYER_CONTEXT_MENU_ID = 'com.battle-system.forge/view-unit-player';
+const GROUP_EDIT_CONTEXT_MENU_ID = 'com.battle-system.forge/group-edit';
+const GROUP_EDIT_PLAYER_CONTEXT_MENU_ID = 'com.battle-system.forge/group-edit-player';
 
 type UnitCollectionRemoteModule = typeof import('../helpers/unitCollectionRemote');
 
@@ -74,6 +76,32 @@ const openCardPopoverForUnit = async (unitId: string, elementId: string) => {
     await OBR.popover.open({
         id: OwlbearIds.CARDSID,
         url: `/pages/forgecard.html?unitid=${encodeURIComponent(unitId)}`,
+        height: viewableHeight,
+        width: 350,
+        anchorElementId: elementId,
+        hidePaper: true,
+        disableClickAway: true,
+    });
+};
+
+const openCardPopoverForUnits = async (unitIds: string[], elementId: string) => {
+    const normalizedUnitIds = Array.from(new Set(
+        unitIds
+            .map((id) => id.trim())
+            .filter((id) => id.length > 0)
+    ));
+
+    if (normalizedUnitIds.length === 0) {
+        return;
+    }
+
+    const windowHeight = await OBR.viewport.getHeight();
+    const modalBuffer = 100;
+    const viewableHeight = windowHeight > 800 ? 700 : windowHeight - modalBuffer;
+
+    await OBR.popover.open({
+        id: OwlbearIds.CARDSID,
+        url: `/pages/forgecard.html?unitid=${encodeURIComponent(normalizedUnitIds.join(','))}`,
         height: viewableHeight,
         width: 350,
         anchorElementId: elementId,
@@ -510,7 +538,36 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                     }
 
                     await openCardPopoverForUnit(selectedItem.id, elementId);
+                    await OBR.player.deselect();
 
+                }
+            });
+
+            OBR.contextMenu.create({
+                id: GROUP_EDIT_CONTEXT_MENU_ID,
+                icons: [
+                    {
+                        icon: "/icon.svg", // GM Version
+                        label: "Group Edit",
+                        filter: {
+                            min: 2,
+                            some: [
+                                { key: "layer", value: "CHARACTER", coordinator: "||" },
+                                { key: "layer", value: "MOUNT" }],
+                            roles: ["GM"],
+                        },
+                    }
+                ],
+                async onClick(context, elementId) {
+                    LOGGER.info(`Group Edit Clicked (${context.items.length} units)`);
+
+                    const selectedIds = context.items.map((item) => item.id).filter((id) => typeof id === 'string' && id.length > 0);
+                    if (selectedIds.length < 2) {
+                        return;
+                    }
+
+                    await openCardPopoverForUnits(selectedIds, elementId);
+                    await OBR.player.deselect();
                 }
             });
 
@@ -588,11 +645,46 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                         }
 
                         await openCardPopoverForUnit(selectedItem.id, elementId);
+                        await OBR.player.deselect();
+                    }
+                });
 
+                OBR.contextMenu.create({
+                    id: GROUP_EDIT_PLAYER_CONTEXT_MENU_ID,
+                    icons: [
+                        {
+                            icon: "/icon.svg", // Player Version
+                            label: "Group Edit",
+                            filter: {
+                                min: 2,
+                                every: [{ key: "createdUserId", operator: "==", value: playerData?.id }],
+                                some: [
+                                    { key: "layer", value: "CHARACTER", coordinator: "||" },
+                                    { key: "layer", value: "MOUNT" }],
+                                roles: ["PLAYER"],
+                            },
+                        }
+                    ],
+                    async onClick(context, elementId) {
+                        LOGGER.info(`Group Edit Clicked (${context.items.length} units)`);
+
+                        const currentPlayerId = playerData?.id;
+                        const playerOwnedItemIds = context.items
+                            .filter((item) => item.createdUserId === currentPlayerId)
+                            .map((item) => item.id)
+                            .filter((id) => typeof id === 'string' && id.length > 0);
+
+                        if (playerOwnedItemIds.length < 2) {
+                            return;
+                        }
+
+                        await openCardPopoverForUnits(playerOwnedItemIds, elementId);
+                        await OBR.player.deselect();
                     }
                 });
             } else {
                 OBR.contextMenu.remove(VIEW_UNIT_PLAYER_CONTEXT_MENU_ID).catch(() => { });
+                OBR.contextMenu.remove(GROUP_EDIT_PLAYER_CONTEXT_MENU_ID).catch(() => { });
             }
 
             if (healthAttrbEnabled && showModifyUnitContextMenu) {

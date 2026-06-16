@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Item } from '@owlbear-rodeo/sdk';
 import OBR from '@owlbear-rodeo/sdk';
 import styled from 'styled-components';
-import { CircleQuestionMark, Cloudy, Download, HardDrive, Menu, Pin, BookMarked, Search, Server, Star, Upload } from 'lucide-react';
+import { CircleQuestionMark, Cloudy, Download, Menu, Pin, BookMarked, Save, Search, Server, Star, Upload } from 'lucide-react';
 import defaultGameSystem from '../assets/defaultgamesystem.json';
 import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import LOGGER from '../helpers/Logger';
@@ -166,6 +166,51 @@ const CloseButton = styled.button<{ $theme: ThemeData }>`
   &:hover {
     background: ${props => rgbaFromHex(props.$theme.offset, 0.5)};
   }
+`;
+
+const SaveButton = styled.button<{ $theme: ThemeData; $flash: boolean }>`
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid hotpink;
+  border-radius: 4px;
+  background: ${props => props.$flash
+    ? rgbaFromHex(props.$theme.offset, 0.75)
+    : rgbaFromHex(props.$theme.background, 0.82)};
+  color: ${props => props.$theme.primary};
+  padding: 0;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: background-color 180ms ease, transform 180ms ease;
+
+  &:hover {
+    background: ${props => rgbaFromHex(props.$theme.offset, 0.5)};
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &:disabled:hover {
+    background: ${props => rgbaFromHex(props.$theme.background, 0.82)};
+  }
+`;
+
+const GroupEditLabel = styled.div`
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: hotpink;
+  padding: 0 6px;
+  box-sizing: border-box;
+  background: linear-gradient(90deg,rgba(42, 123, 155, 0) 0%, rgba(0, 0, 0, 0) 50%, rgba(237, 83, 234, 1) 100%);
 `;
 
 const CloseIcon = styled.img`
@@ -549,15 +594,24 @@ const LocalModalActions = styled.div`
   margin-top: 12px;
 `;
 
-const readUnitIdFromQuery = (): string | null => {
+const readUnitIdsFromQuery = (): string[] => {
   const params = new URLSearchParams(window.location.search);
   const raw = params.get('unitid');
   if (!raw) {
-    return null;
+    return [];
   }
 
-  const first = raw.split(',')[0]?.trim();
-  return first || null;
+  return Array.from(new Set(
+    raw
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0)
+  ));
+};
+
+const readUnitIdFromQuery = (): string | null => {
+  const ids = readUnitIdsFromQuery();
+  return ids[0] || null;
 };
 
 const readPinnedFromQuery = (): boolean => {
@@ -573,9 +627,19 @@ const readPinnedFromQuery = (): boolean => {
 
 const PINNED_CARD_POPOVER_ID = `POP_${OwlbearIds.CARDSID}`;
 
-const buildCardPopoverUrl = (unitId: string, pinned: boolean): string => {
+const buildCardPopoverUrl = (unitIds: string[], pinned: boolean): string => {
+  const normalizedUnitIds = Array.from(new Set(
+    unitIds
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0)
+  ));
+
+  if (normalizedUnitIds.length === 0) {
+    return '/pages/forgecard.html';
+  }
+
   const params = new URLSearchParams();
-  params.set('unitid', unitId);
+  params.set('unitid', normalizedUnitIds.join(','));
   if (pinned) {
     params.set('pinned', 'true');
   }
@@ -619,7 +683,12 @@ const isFabricatedTrue = (raw: unknown): boolean => {
 
 export const CardPopoverPage = () => {
   const { t } = useTranslation();
+  const initialSelectedUnitIds = useMemo(() => readUnitIdsFromQuery(), []);
+  const isGroupEditMode = initialSelectedUnitIds.length > 1;
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(() => readUnitIdFromQuery());
+  const [groupEditDraftMetadata, setGroupEditDraftMetadata] = useState<Record<string, unknown>>({});
+  const [isGroupSaveCoolingDown, setIsGroupSaveCoolingDown] = useState(false);
+  const [isGroupSaveFlashing, setIsGroupSaveFlashing] = useState(false);
   const isPinned = useMemo(() => readPinnedFromQuery(), []);
   const [cache, setCache] = useState<CardCache>({ metadata: {}, items: [] });
   const [snapshotTheme, setSnapshotTheme] = useState<ThemeData | null>(null);
@@ -867,12 +936,25 @@ export const CardPopoverPage = () => {
   }, [cache.items, selectedUnitId, isCurrentUserGm, currentPlayerId]);
 
   const unitItem = useMemo(() => {
+    if (isGroupEditMode) {
+      const fallbackItem = cache.items.find((item) => initialSelectedUnitIds.includes(item.id)) || null;
+      if (!fallbackItem) {
+        return null;
+      }
+
+      return {
+        ...fallbackItem,
+        name: '',
+        metadata: groupEditDraftMetadata,
+      } as Item;
+    }
+
     if (!selectedUnitId) {
       return null;
     }
 
     return cache.items.find((item) => item.id === selectedUnitId) || null;
-  }, [cache.items, selectedUnitId]);
+  }, [isGroupEditMode, cache.items, initialSelectedUnitIds, groupEditDraftMetadata, selectedUnitId]);
 
   const getSelectedUnitItemFromScene = async (): Promise<Item | null> => {
     if (!selectedUnitId) {
@@ -884,6 +966,21 @@ export const CardPopoverPage = () => {
   };
 
   const updateUnitMetadata = async (updates: Record<string, unknown>) => {
+    if (isGroupEditMode) {
+      setGroupEditDraftMetadata((previous) => {
+        const next = { ...previous };
+        for (const [key, value] of Object.entries(updates)) {
+          if (value === undefined) {
+            delete next[key];
+          } else {
+            next[key] = value;
+          }
+        }
+        return next;
+      });
+      return;
+    }
+
     if (!unitItem) {
       return;
     }
@@ -1109,7 +1206,9 @@ export const CardPopoverPage = () => {
   }, [collectionRecords, remoteCollectionRecords, appliedSearchQuery]);
 
   const handleTrayPinClick = async () => {
-    if (!selectedUnitId) {
+    const targetUnitIds = isGroupEditMode ? initialSelectedUnitIds : (selectedUnitId ? [selectedUnitId] : []);
+
+    if (targetUnitIds.length === 0) {
       await OBR.notification.show(t('card.noUnitSelectedToPin'), 'ERROR');
       return;
     }
@@ -1122,7 +1221,7 @@ export const CardPopoverPage = () => {
     if (!isPinned) {
       await OBR.popover.open({
         id: PINNED_CARD_POPOVER_ID,
-        url: buildCardPopoverUrl(selectedUnitId, true),
+        url: buildCardPopoverUrl(targetUnitIds, true),
         height: 400,
         width: 350,
         anchorPosition: {
@@ -1148,7 +1247,7 @@ export const CardPopoverPage = () => {
 
     await OBR.popover.open({
       id: OwlbearIds.CARDSID,
-      url: buildCardPopoverUrl(selectedUnitId, false),
+      url: buildCardPopoverUrl(targetUnitIds, false),
       height: viewableHeight,
       width: 350,
       anchorPosition: {
@@ -1272,6 +1371,17 @@ export const CardPopoverPage = () => {
     setImportText('');
   };
 
+  const applyImportedMetadataToActiveCard = async (extensionMetadata: Record<string, unknown>) => {
+    if (isGroupEditMode) {
+      setGroupEditDraftMetadata(extensionMetadata);
+      setIsFavoriteEnabled(false);
+      return;
+    }
+
+    await replaceUnitExtensionMetadata(extensionMetadata);
+    setIsFavoriteEnabled(false);
+  };
+
   const parseImportPayload = (raw: string): Record<string, unknown> => {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -1299,10 +1409,12 @@ export const CardPopoverPage = () => {
   };
 
   const handleImportModalApply = async () => {
-    const liveUnitItem = await getSelectedUnitItemFromScene();
-    if (!liveUnitItem) {
-      setImportError(t('card.noUnitSelectedToImportInto'));
-      return;
+    if (!isGroupEditMode) {
+      const liveUnitItem = await getSelectedUnitItemFromScene();
+      if (!liveUnitItem) {
+        setImportError(t('card.noUnitSelectedToImportInto'));
+        return;
+      }
     }
 
     const raw = importText.trim();
@@ -1313,8 +1425,7 @@ export const CardPopoverPage = () => {
 
     try {
       const extensionMetadata = parseImportPayload(raw);
-      await replaceUnitExtensionMetadata(extensionMetadata);
-      setIsFavoriteEnabled(false);
+      await applyImportedMetadataToActiveCard(extensionMetadata);
       handleImportModalClose();
       await OBR.notification.show(t('card.unitDataImported'));
     } catch (error) {
@@ -1477,14 +1588,13 @@ export const CardPopoverPage = () => {
   };
 
   const handleCollectionRecordImport = async (record: CollectionSearchRecord) => {
-    if (!unitItem) {
+    if (!unitItem && !isGroupEditMode) {
       await OBR.notification.show(t('card.noUnitSelectedToImportInto'), 'ERROR');
       return;
     }
 
     try {
-      await replaceUnitExtensionMetadata(record.metadata);
-      setIsFavoriteEnabled(false);
+      await applyImportedMetadataToActiveCard(record.metadata);
       await OBR.notification.show(record.source !== 'local'
         ? t('card.recordImportedOnline', { name: record.name })
         : t('card.recordImportedLocal', { name: record.name }));
@@ -1526,6 +1636,34 @@ export const CardPopoverPage = () => {
   }, [isTrayOpen]);
 
   useEffect(() => {
+    if (!isGroupSaveFlashing) {
+      return;
+    }
+
+    const flashTimer = window.setTimeout(() => {
+      setIsGroupSaveFlashing(false);
+    }, 650);
+
+    return () => {
+      window.clearTimeout(flashTimer);
+    };
+  }, [isGroupSaveFlashing]);
+
+  useEffect(() => {
+    if (!isGroupSaveCoolingDown) {
+      return;
+    }
+
+    const cooldownTimer = window.setTimeout(() => {
+      setIsGroupSaveCoolingDown(false);
+    }, 900);
+
+    return () => {
+      window.clearTimeout(cooldownTimer);
+    };
+  }, [isGroupSaveCoolingDown]);
+
+  useEffect(() => {
     if (!isTrayOpen) {
       return;
     }
@@ -1535,29 +1673,107 @@ export const CardPopoverPage = () => {
     setRemoteCollectionRecords([]);
   }, [isTrayOpen]);
 
+  const hasGroupEditChanges = useMemo(() => {
+    return Object.keys(groupEditDraftMetadata).length > 0;
+  }, [groupEditDraftMetadata]);
+
+  const handleGroupEditSave = async () => {
+    if (!isGroupEditMode || !hasGroupEditChanges || isGroupSaveCoolingDown) {
+      return;
+    }
+
+    const idsToUpdate = initialSelectedUnitIds.filter((id) => cache.items.some((item) => item.id === id));
+    if (idsToUpdate.length === 0) {
+      await OBR.notification.show(t('card.unitNotFound'), 'ERROR');
+      return;
+    }
+
+    const updates = groupEditDraftMetadata;
+
+    await OBR.scene.items.updateItems(idsToUpdate, (itemsToUpdate) => {
+      for (const item of itemsToUpdate) {
+        const metadata: Record<string, unknown> = { ...(item.metadata || {}) };
+        Object.entries(updates).forEach(([key, value]) => {
+          if (value === undefined) {
+            delete metadata[key];
+          } else {
+            metadata[key] = value;
+          }
+        });
+        item.metadata = metadata;
+      }
+    });
+
+    setCache((prev) => ({
+      ...prev,
+      items: prev.items.map((item) => {
+        if (!idsToUpdate.includes(item.id)) {
+          return item;
+        }
+
+        const metadata: Record<string, unknown> = { ...(item.metadata || {}) };
+        Object.entries(updates).forEach(([key, value]) => {
+          if (value === undefined) {
+            delete metadata[key];
+          } else {
+            metadata[key] = value;
+          }
+        });
+
+        return {
+          ...item,
+          metadata,
+        };
+      }),
+    }));
+
+    setGroupEditDraftMetadata({});
+    setIsGroupSaveFlashing(true);
+    setIsGroupSaveCoolingDown(true);
+    await OBR.notification.show('Group edits saved.');
+  };
+
   return (
     <Root $theme={theme}>
       <ContentViewport $theme={theme}>
         <FloatingCardControls>
           <CardControls>
-            <UnitSelect
-              $theme={theme}
-              aria-label={t('card.chooseUnitAria')}
-              value=""
-              onChange={(event) => {
-                const nextUnitId = event.target.value;
-                if (!nextUnitId) {
-                  return;
-                }
+            {isGroupEditMode ? (
+              <GroupEditLabel>Group-Edit</GroupEditLabel>
+            ) : (
+              <UnitSelect
+                $theme={theme}
+                aria-label={t('card.chooseUnitAria')}
+                value=""
+                onChange={(event) => {
+                  const nextUnitId = event.target.value;
+                  if (!nextUnitId) {
+                    return;
+                  }
 
-                setSelectedUnitId(nextUnitId);
-              }}
-            >
-              <option value="">{t('card.chooseUnitOption')}</option>
-              {selectableUnits.map((unit) => (
-                <option key={unit.id} value={unit.id}>{unit.name}</option>
-              ))}
-            </UnitSelect>
+                  setSelectedUnitId(nextUnitId);
+                }}
+              >
+                <option value="">{t('card.chooseUnitOption')}</option>
+                {selectableUnits.map((unit) => (
+                  <option key={unit.id} value={unit.id}>{unit.name}</option>
+                ))}
+              </UnitSelect>
+            )}
+            {isGroupEditMode ? (
+              <SaveButton
+                type="button"
+                $theme={theme}
+                $flash={isGroupSaveFlashing}
+                aria-label="Save group edits"
+                disabled={!hasGroupEditChanges || isGroupSaveCoolingDown}
+                onClick={() => {
+                  void handleGroupEditSave();
+                }}
+              >
+                <Save size={16} />
+              </SaveButton>
+            ) : null}
             <CloseButton
               type="button"
               $theme={theme}
@@ -1703,7 +1919,7 @@ export const CardPopoverPage = () => {
                             $theme={theme}
                             title={record.source === 'local' ? t('card.localSource') : (record.source === 'remote-user' ? t('card.myCloudSource') : t('card.sharedSource'))}
                           >
-                            {record.source === 'local' ? <HardDrive size={11} /> : null}
+                            {record.source === 'local' ? <Save size={11} /> : null}
                             {record.source === 'remote-user' ? <Cloudy size={11} /> : null}
                             {record.source === 'remote-shared' ? <Server size={11} /> : null}
                           </SourceTag>

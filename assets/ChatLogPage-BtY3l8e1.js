@@ -1,4 +1,4 @@
-import"./tslib.es6-C783ynKN.js";import{S as e,p as t,t as n}from"./styled-components.browser.esm-UVFsQtUm.js";import"./Constants-vXYz8c6e.js";import{t as r}from"./Translation-K1AcF_l-.js";import{d as i,l as a,u as o}from"./main-56y47jtu.js";import{a as s}from"./SharedStyledComponents-D81OPnYe.js";var c=e(),l=t(),u=n.div`
+import"./tslib.es6-C783ynKN.js";import{S as e,p as t,t as n}from"./styled-components.browser.esm-UVFsQtUm.js";import"./Constants-vXYz8c6e.js";import{t as r}from"./Translation-K1AcF_l-.js";import{d as i,l as a,u as o}from"./main-CIX8UHPE.js";import{a as s}from"./SharedStyledComponents-D81OPnYe.js";var c=e(),l=t(),u=n.div`
   ${{display:`flex`,height:`100%`,flexDirection:`column`,padding:`1rem`}}
 `,d=n.div`
   ${{flex:`1 1 0%`,overflowY:`auto`,borderRadius:`0.5rem`,borderWidth:`2px`,"--tw-border-opacity":`1`,borderColor:`rgb(255 255 255 / var(--tw-border-opacity, 1))`,padding:`0.5rem`}}

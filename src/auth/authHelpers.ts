@@ -2,6 +2,7 @@ import { connectAccessTokenViaHub } from './connectAccessTokenViaHub';
 import { getAccessToken, setAccessToken } from '../supabase/supabaseClient';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../supabase/supabaseClient';
 import { supabase } from '../supabase/supabaseClient';
+import { TrackForgeEvent } from '../helpers/forgeMetrics';
 
 const AUTH_STORAGE_PREFIX = 'forge.auth';
 const SESSION_ACCESS_TOKEN_KEY = `${AUTH_STORAGE_PREFIX}.accessToken`;
@@ -434,9 +435,22 @@ export const ensureConnected = async (): Promise<void> => {
 };
 
 export const clearConnection = () => {
+  const hadConnection = !!getAccessToken();
   setAccessToken(null);
   setUserTier('free');
   clearConnectionSnapshot();
+
+  if (hadConnection) {
+    void TrackForgeEvent({
+      eventName: 'auth_disconnected',
+      eventCategory: 'auth',
+      playerId: null,
+      success: true,
+      metadata: {
+        scope: 'forge',
+      },
+    });
+  }
 };
 
 export const initializeAuthOnStartup = async (): Promise<void> => {

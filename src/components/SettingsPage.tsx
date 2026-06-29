@@ -28,6 +28,7 @@ import { useSystemData } from '../helpers/useSystemData';
 import { toResolvedDiceNotation, validateFormula } from '../helpers/FormulaParser';
 import { getConfiguredHpBidKeys } from '../helpers/hpAttributeMapping';
 import { useTranslation } from '../i18n/Translation';
+import { TrackForgeEvent } from '../helpers/forgeMetrics';
 
 // Styled Components
 const SectionTitle = styled.h2<{ theme: ForgeTheme }>`
@@ -534,9 +535,11 @@ export const SettingsPage = () => {
   };
 
   const handleConnectBattleSystem = async () => {
+    const connectStartedAt = performance.now();
     setIsConnectingAuth(true);
 
     try {
+      const wasConnected = isConnected();
       await connectBattleSystem();
       await OBR.broadcast.sendMessage(
         OwlbearIds.AUTHSYNCCHANNEL,
@@ -547,11 +550,40 @@ export const SettingsPage = () => {
         },
         { destination: 'LOCAL' },
       );
-      setAuthConnected(isConnected());
-      setAuthTier(getUserTier());
+      const nowConnected = isConnected();
+      const currentTier = getUserTier();
+      setAuthConnected(nowConnected);
+      setAuthTier(currentTier);
+
+      if (!wasConnected && nowConnected) {
+        void TrackForgeEvent({
+          eventName: 'auth_connected',
+          eventCategory: 'auth',
+          playerId: useSceneStore.getState().playerData?.id ?? null,
+          success: true,
+          durationMs: Math.max(0, Math.round(performance.now() - connectStartedAt)),
+          metadata: {
+            scope: 'forge',
+            tier: currentTier,
+          },
+        });
+      }
+
       await OBR.notification.show(t('settings.connectedAccount'), 'SUCCESS');
     } catch (error) {
       LOGGER.error('Battle-System auth connection failed', error);
+      void TrackForgeEvent({
+        eventName: 'error_raised',
+        eventCategory: 'error',
+        playerId: useSceneStore.getState().playerData?.id ?? null,
+        success: false,
+        durationMs: Math.max(0, Math.round(performance.now() - connectStartedAt)),
+        errorCode: 'forge_auth_connect_failed',
+        errorMessage: error instanceof Error ? error.message : 'forge_auth_connect_failed',
+        metadata: {
+          operation: 'connect_battle_system',
+        },
+      });
       await OBR.notification.show(t('settings.unableToConnectAccount'), 'ERROR');
       setAuthConnected(isConnected());
       setAuthTier(getUserTier());

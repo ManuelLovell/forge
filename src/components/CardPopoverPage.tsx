@@ -12,6 +12,7 @@ import { SettingsTooltip } from './SettingsTooltip';
 import { createTheme } from '../helpers/ThemeConstants';
 import { SettingsConstants, UnitConstants } from '../interfaces/MetadataKeys';
 import { CardLayoutRenderer, type CardLayoutTheme } from './CardLayoutRenderer';
+import { TrackForgeEvent } from '../helpers/forgeMetrics';
 // Example central dice roll usage (add where dice rolls are triggered)
 // const metadata = DATA_STORED_IN_ROOM ? await OBR.room.getMetadata() : await OBR.scene.getMetadata();
 // await sendCentralDiceRoll({
@@ -749,6 +750,16 @@ export const CardPopoverPage = () => {
     theme.background_url,
   ), [theme]);
 
+  const trackCardAction = (eventName: string, metadata?: Record<string, unknown>) => {
+    void TrackForgeEvent({
+      eventName,
+      eventCategory: 'ui',
+      playerId: currentPlayerId,
+      success: true,
+      metadata,
+    });
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -1214,6 +1225,18 @@ export const CardPopoverPage = () => {
       return;
     }
 
+    await TrackForgeEvent({
+      eventName: 'card_pin_clicked',
+      eventCategory: 'ui',
+      playerId: currentPlayerId,
+      success: true,
+      metadata: {
+        group_edit: isGroupEditMode,
+        unit_count: targetUnitIds.length,
+        pinned: !isPinned,
+      },
+    });
+
     const viewportWidth = await OBR.viewport.getWidth();
     const viewportHeight = await OBR.viewport.getHeight();
     const modalBuffer = 100;
@@ -1275,7 +1298,6 @@ export const CardPopoverPage = () => {
     if (!isCurrentUserGm) {
       return;
     }
-
     setIsFavoriteEnabled((previous) => !previous);
   };
 
@@ -1771,6 +1793,9 @@ export const CardPopoverPage = () => {
                 aria-label="Save group edits"
                 disabled={!hasGroupEditChanges || isGroupSaveCoolingDown}
                 onClick={() => {
+                  trackCardAction('card_group_save_clicked', {
+                    has_changes: hasGroupEditChanges,
+                  });
                   void handleGroupEditSave();
                 }}
               >
@@ -1830,7 +1855,12 @@ export const CardPopoverPage = () => {
               $active={isFavoriteEnabled}
               aria-label={t('card.favoriteAria')}
               disabled={!isCurrentUserGm}
-              onClick={handleTrayFavoriteClick}
+              onClick={() => {
+                trackCardAction('card_favorite_clicked', {
+                  enabled: !isFavoriteEnabled,
+                });
+                handleTrayFavoriteClick();
+              }}
             >
               <SettingsTooltip theme={tooltipTheme} text={t('card.favoriteTooltip')}>
                 <Star size={16} fill={isFavoriteEnabled ? 'currentColor' : 'none'} />
@@ -1842,7 +1872,13 @@ export const CardPopoverPage = () => {
               $theme={theme}
               aria-label={t('card.collectionSaveAria')}
               disabled={!isCurrentUserGm}
-              onClick={handleTrayCollectionSaveClick}
+              onClick={() => {
+                trackCardAction('card_collection_saved', {
+                  favorite: isFavoriteEnabled,
+                  premium: isPremiumAuthorized(),
+                });
+                void handleTrayCollectionSaveClick();
+              }}
             >
               <SettingsTooltip theme={tooltipTheme} text={t('card.collectionSaveTooltip')}>
                 <BookMarked size={16} />
@@ -1855,7 +1891,12 @@ export const CardPopoverPage = () => {
               type="button"
               $theme={theme}
               aria-label={t('card.importAria')}
-              onClick={handleTrayImportClick}
+              onClick={() => {
+                trackCardAction('card_import_clicked', {
+                  group_edit: isGroupEditMode,
+                });
+                void handleTrayImportClick();
+              }}
             >
               <SettingsTooltip theme={tooltipTheme} text={t('card.importTooltip')}>
                 <Download size={16} />
@@ -1865,7 +1906,12 @@ export const CardPopoverPage = () => {
               type="button"
               $theme={theme}
               aria-label={t('card.exportAria')}
-              onClick={handleTrayExportClick}
+              onClick={() => {
+                trackCardAction('card_export_clicked', {
+                  group_edit: isGroupEditMode,
+                });
+                void handleTrayExportClick();
+              }}
             >
               <SettingsTooltip theme={tooltipTheme} text={t('card.exportTooltip')}>
                 <Upload size={16} />
@@ -1876,6 +1922,9 @@ export const CardPopoverPage = () => {
               $theme={theme}
               aria-label={t('card.helpAria')}
               onClick={() => {
+                trackCardAction('card_help_clicked', {
+                  tray_open: isTrayOpen,
+                });
                 setIsHelpModalOpen(true);
               }}
             >
@@ -1893,6 +1942,9 @@ export const CardPopoverPage = () => {
               $theme={theme}
               aria-label={isTrayOpen ? t('card.closeTrayAria') : t('card.openTrayAria')}
               onClick={() => {
+                trackCardAction('card_open_collection_clicked', {
+                  open: !isTrayOpen,
+                });
                 setIsTrayOpen((prev) => !prev);
               }}
             >

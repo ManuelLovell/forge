@@ -8,6 +8,7 @@ import { useSceneStore } from '../helpers/BSCache';
 import { AddOrReplaceAdjective } from '../helpers/Adjectives';
 import { filterExtensionMetadata, getAllUnitCollectionRecords, type UnitCollectionRecord } from '../helpers/unitCollectionDb';
 import { getConfiguredHpBidKeys } from '../helpers/hpAttributeMapping';
+import { TrackForgeEvent } from '../helpers/forgeMetrics';
 
 const VIEW_UNIT_CONTEXT_MENU_ID = 'com.battle-system.forge/view-unit';
 const VIEW_UNIT_PLAYER_CONTEXT_MENU_ID = 'com.battle-system.forge/view-unit-player';
@@ -201,6 +202,21 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
         ? true
         : storageContainer[SettingsConstants.SHOW_VIEW_UNIT_CONTEXT_MENU_FOR_PLAYERS] === true;
 
+    const trackContextMenuUse = (menuId: string, label: string, itemCount: number, extra?: Record<string, unknown>) => {
+        void TrackForgeEvent({
+            eventName: 'context_menu_button_used',
+            eventCategory: 'ui',
+            playerId: playerData?.id ?? null,
+            success: true,
+            metadata: {
+                menu_id: menuId,
+                label,
+                item_count: itemCount,
+                ...extra,
+            },
+        });
+    };
+
     useEffect(() => {
         // This is ran once, but this is a performative place to ensure this is not tried before the scene is ready
         OBR.onReady(() => {
@@ -260,6 +276,10 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                     const removeFromCombat = context.items.every(
                         (item) => item.metadata[UnitConstants.ON_LIST] === true
                     );
+
+                    trackContextMenuUse(UnitConstants.ON_LIST, removeFromCombat ? 'Exit Combat' : 'Enter Combat', context.items.length, {
+                        action: removeFromCombat ? 'remove' : 'add',
+                    });
 
                     if (removeFromCombat) {
                         // Remove from combat - possible cleanup of localitems here
@@ -449,6 +469,10 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                         (item) => item.metadata[UnitConstants.IN_PARTY] === true
                     );
 
+                    trackContextMenuUse(UnitConstants.IN_PARTY, removeFromParty ? 'Remove from Party' : 'Add to Party', context.items.length, {
+                        action: removeFromParty ? 'remove' : 'add',
+                    });
+
                     if (removeFromParty) {
                         await OBR.scene.items.updateItems(context.items, (items) => {
                             for (let item of items) {
@@ -483,6 +507,9 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                 ],
                 async onClick(context, elementId) {
                     LOGGER.info(`View Unit Clicked: ${context.items[0].name}`);
+                    trackContextMenuUse(VIEW_UNIT_CONTEXT_MENU_ID, 'View Unit', context.items.length, {
+                        role: 'gm',
+                    });
 
                     const selectedItem = context.items[0];
                     if (!selectedItem) {
@@ -560,6 +587,9 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                 ],
                 async onClick(context, elementId) {
                     LOGGER.info(`Group Edit Clicked (${context.items.length} units)`);
+                    trackContextMenuUse(GROUP_EDIT_CONTEXT_MENU_ID, 'Group Edit', context.items.length, {
+                        role: 'gm',
+                    });
 
                     const selectedIds = context.items.map((item) => item.id).filter((id) => typeof id === 'string' && id.length > 0);
                     if (selectedIds.length < 2) {
@@ -590,6 +620,9 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                     ],
                     async onClick(context, elementId) {
                         LOGGER.info(`View Unit Clicked: ${context.items[0].name}`);
+                        trackContextMenuUse(VIEW_UNIT_PLAYER_CONTEXT_MENU_ID, 'View Unit', context.items.length, {
+                            role: 'player',
+                        });
 
                         const selectedItem = context.items[0];
                         if (!selectedItem) {
@@ -667,6 +700,9 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                     ],
                     async onClick(context, elementId) {
                         LOGGER.info(`Group Edit Clicked (${context.items.length} units)`);
+                        trackContextMenuUse(GROUP_EDIT_PLAYER_CONTEXT_MENU_ID, 'Group Edit', context.items.length, {
+                            role: 'player',
+                        });
 
                         const currentPlayerId = playerData?.id;
                         const playerOwnedItemIds = context.items
@@ -717,6 +753,9 @@ export function SetupContextMenu({ children }: { children: React.ReactNode }) {
                     ],
                     async onClick(context, elementId) {
                         LOGGER.info(`Adjust HP Clicked: ${context.items[0].name}`);
+                        trackContextMenuUse(UnitConstants.MODIFY_UNIT, 'Adjust HP', context.items.length, {
+                            role: 'gm_or_player',
+                        });
                         await OBR.popover.open({
                             id: MenuConstants.CONTEXT_MENU,
                             url: `/pages/forgecontext.html`,

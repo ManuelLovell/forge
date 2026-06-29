@@ -3,6 +3,8 @@ import tw from 'twin.macro';
 import LOGGER from '../helpers/Logger';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { ForgeTheme, rgbaFromHex } from '../helpers/ThemeConstants';
+import { useSceneStore } from '../helpers/BSCache';
+import { TrackForgeEvent } from '../helpers/forgeMetrics';
 
 const ToggleSwitch = styled.button<{ $isOn: boolean; theme: ForgeTheme }>`
   ${tw`relative inline-flex h-6 w-12 items-center rounded-full transition-colors`}
@@ -32,6 +34,7 @@ interface ToggleControlProps {
 
 export const ToggleControl = ({ label, isOn, onChange }: ToggleControlProps) => {
   const { theme } = useForgeTheme();
+  const playerId = useSceneStore((state) => state.playerData?.id ?? null);
   
   return (
     <ToggleSwitch
@@ -40,6 +43,16 @@ export const ToggleControl = ({ label, isOn, onChange }: ToggleControlProps) => 
       onClick={() => {
         const newValue = !isOn;
         LOGGER.log(`${label}: ${newValue}`);
+        void TrackForgeEvent({
+          eventName: 'toggle_used',
+          eventCategory: 'ui',
+          playerId,
+          success: true,
+          metadata: {
+            label,
+            next_value: newValue,
+          },
+        });
         onChange(newValue);
       }}
       role="switch"

@@ -21,6 +21,8 @@ import { SettingsConstants, getPerPlayerSettingKey } from './interfaces/Metadata
 import { applySharedAuthSnapshot, getSharedAuthSnapshot, initializeAuthOnStartup, isConnected } from './auth/authHelpers';
 import { closePartyHudModal, openPartyHudModal } from './helpers/partyHudModal';
 import { useTranslation } from './i18n/Translation';
+import { TrackForgeEvent } from './helpers/forgeMetrics';
+import { initializeForgeMetricsQueue } from './helpers/forgeMetricsQueue';
 
 type AuthSyncMessage = {
   type: 'BS_AUTH_REQUEST' | 'BS_AUTH_STATE';
@@ -135,6 +137,34 @@ function App() {
     setCurrentPage(page);
     setIsMenuOpen(false);
   };
+
+  useEffect(() => {
+    if (!isAppReady) {
+      return;
+    }
+
+    const stopMetricsQueue = initializeForgeMetricsQueue();
+
+    return () => {
+      stopMetricsQueue();
+    };
+  }, [isAppReady]);
+
+  useEffect(() => {
+    if (!isAppReady) {
+      return;
+    }
+
+    void TrackForgeEvent({
+      eventName: 'app_opened',
+      eventCategory: 'app',
+      playerId: playerData?.id ?? null,
+      success: true,
+      metadata: {
+        role: playerData?.role ?? null,
+      },
+    });
+  }, [isAppReady, playerData?.id, playerData?.role]);
 
   useEffect(() => {
     if (!isAppReady) {

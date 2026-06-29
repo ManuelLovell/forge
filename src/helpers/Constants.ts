@@ -23,6 +23,12 @@ export enum OwlbearIds
     MARKCONNECT = "com.battle-system.marked-connect"
 }
 
+export const MetricsConfig = {
+    USE_APP_METRICS: true,
+    METRICS_BATCH_SIZE: 25,
+    METRICS_FLUSH_MS: 10000,
+} as const;
+
 export enum Names
 {
     //Component Names

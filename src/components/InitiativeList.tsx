@@ -70,6 +70,7 @@ import { buildCompleteValueMaps } from '../helpers/DerivedValueResolution';
 import { EffectsManagerModal, useEffectsManager } from './EffectsManager';
 import { ElevationSpecialCell, EffectsSpecialCell } from './InitiativeSpecialCells';
 import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
+import { TrackForgeEvent } from '../helpers/forgeMetrics';
 
 const ELEVATION_BADGE_FLAG = `${EXTENSION_ID}/elevation-badge`;
 const ELEVATION_BADGE_OWNER = `${EXTENSION_ID}/elevation-badge-owner`;
@@ -2913,6 +2914,17 @@ export const InitiativeList: React.FC = () => {
         anchorElementId: elementId,
         hidePaper: true,
         disableClickAway: true
+      });
+
+      void TrackForgeEvent({
+        eventName: 'card_popover_opened',
+        eventCategory: 'ui',
+        playerId: playerData?.id ?? null,
+        success: true,
+        metadata: {
+          unit_id: unitId,
+          element_id: elementId,
+        },
       });
     } catch (error) {
       LOGGER.error('Failed to open cards popover', error);

@@ -1,1 +1,0 @@
-import{a as e,c as t,d as n,i as r,l as i,n as a,o,r as s,s as c,t as l,u}from"./defaultgamesystem-BhmBTadj.js";export{l as attributes,a as background_url,s as card_layout,r as default,e as list_layout,o as name,c as share_id,t as theme_background,i as theme_border,u as theme_offset,n as theme_primary};

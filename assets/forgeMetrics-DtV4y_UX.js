@@ -1,0 +1,1 @@
+import{c as e}from"./tslib.es6-B50zIwoW.js";const t=`forge/metrics`;async function n(n){await e.broadcast.sendMessage(t,n,{destination:`LOCAL`})}export{n,t};

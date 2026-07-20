@@ -1562,7 +1562,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       }
 
       // Dice+ action text can include roll labels like "#Hope" / "#Fear".
-      // Validate using a sanitized copy, but preserve the authored formula for sending.
+      // Validate and resolve using a sanitized copy that strips those labels.
       const normalizedFormula = enableDicePlus
         ? formula.replace(/(\d+d\d+(?:[kd][hl]\d+|!|\{[^{}]+\})?)\s+#[a-z0-9_]+/gi, '$1')
         : formula;
@@ -1580,7 +1580,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
 
       tokens.push({
         raw,
-        notation: enableDicePlus ? formula : conversion.notation,
+        notation: conversion.notation,
       });
     }
 

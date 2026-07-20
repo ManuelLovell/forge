@@ -3327,7 +3327,7 @@ export const InitiativeList: React.FC = () => {
         continue;
       }
 
-      tokens.push(enableDicePlus ? formula : conversion.notation);
+      tokens.push(conversion.notation);
     }
 
     return tokens;

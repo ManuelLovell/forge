@@ -36,6 +36,11 @@ type ProfileEntitlementsRow = {
   premium_expires_at?: unknown;
 };
 
+type ProfileCollectionLimitRow = {
+  tier?: unknown;
+  max_attributes?: unknown;
+};
+
 type AuthIdentity = {
   id: string;
   email: string | null;
@@ -114,6 +119,41 @@ const toUserTier = (value: unknown): UserTier => {
 const toNumericOrNull = (value: unknown): number | null => {
   const numeric = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(numeric) ? numeric : null;
+};
+
+const getDefaultMaxAttributesForTier = (tierValue: unknown): number => {
+  const tier = typeof tierValue === 'string' ? tierValue.trim().toLowerCase() : '';
+
+  if (tier === 'hero') {
+    return 1500;
+  }
+
+  if (tier === 'champion') {
+    return 750;
+  }
+
+  if (tier === 'premium') {
+    return 500;
+  }
+
+  if (tier === 'free') {
+    return 50;
+  }
+
+  return activeUserTier === 'premium' ? 500 : 50;
+};
+
+const resolveCollectionStorageCapFromRow = (row: ProfileCollectionLimitRow | null): number => {
+  if (!row) {
+    return activeUserTier === 'premium' ? 500 : 50;
+  }
+
+  const maxAttributes = toNumericOrNull(row.max_attributes);
+  if (maxAttributes !== null && maxAttributes > 0) {
+    return maxAttributes;
+  }
+
+  return getDefaultMaxAttributesForTier(row.tier);
 };
 
 const resolveTierFromEntitlements = (row: ProfileEntitlementsRow): UserTier => {
@@ -496,6 +536,62 @@ export const hydrateAuthFromSession = async (): Promise<boolean> => {
   }
 
   return await validateCurrentConnection();
+};
+
+export const getCurrentUserCollectionStorageCap = async (): Promise<number> => {
+  if (!isConnected()) {
+    return activeUserTier === 'premium' ? 500 : 50;
+  }
+
+  const identity = await loadAuthIdentityFromToken();
+  if (!identity) {
+    return activeUserTier === 'premium' ? 500 : 50;
+  }
+
+  const selectColumns = 'tier,max_attributes';
+
+  const byAuthId = await withSupabaseAuthRetry(async () => {
+    return supabase
+      .from('users')
+      .select(selectColumns)
+      .eq('auth_id', identity.id)
+      .limit(1)
+      .maybeSingle();
+  });
+
+  if (byAuthId.data && typeof byAuthId.data === 'object') {
+    return resolveCollectionStorageCapFromRow(byAuthId.data as ProfileCollectionLimitRow);
+  }
+
+  const byId = await withSupabaseAuthRetry(async () => {
+    return supabase
+      .from('users')
+      .select(selectColumns)
+      .eq('id', identity.id)
+      .limit(1)
+      .maybeSingle();
+  });
+
+  if (byId.data && typeof byId.data === 'object') {
+    return resolveCollectionStorageCapFromRow(byId.data as ProfileCollectionLimitRow);
+  }
+
+  if (identity.email) {
+    const byPatreonId = await withSupabaseAuthRetry(async () => {
+      return supabase
+        .from('users')
+        .select(selectColumns)
+        .eq('patreon_id', identity.email)
+        .limit(1)
+        .maybeSingle();
+    });
+
+    if (byPatreonId.data && typeof byPatreonId.data === 'object') {
+      return resolveCollectionStorageCapFromRow(byPatreonId.data as ProfileCollectionLimitRow);
+    }
+  }
+
+  return activeUserTier === 'premium' ? 500 : 50;
 };
 
 export const withSupabaseAuthRetry = async <T>(operation: () => Promise<T>): Promise<T> => {

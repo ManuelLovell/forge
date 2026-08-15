@@ -1340,6 +1340,10 @@ export const CardPopoverPage = () => {
         : t('card.unitUpdatedInTarget', { target }));
     } catch (error) {
       LOGGER.log('Collection save failed', error);
+      if (error instanceof Error && error.message === 'COLLECTION_STORAGE_LIMIT_REACHED') {
+        await OBR.notification.show('Wow. You have hit your Collections storage limit! Clearout some old data first.', 'ERROR');
+        return;
+      }
       await OBR.notification.show(t('card.couldNotSaveToCollection'), 'ERROR');
     }
   };

@@ -1,10 +1,11 @@
 import { UnitConstants } from '../interfaces/MetadataKeys';
-import { isPremiumAuthorized, withSupabaseAuthRetry } from '../auth/authHelpers';
+import { getCurrentUserCollectionStorageCap, isPremiumAuthorized, withSupabaseAuthRetry } from '../auth/authHelpers';
 import { supabase } from '../supabase/supabaseClient';
 import { filterExtensionMetadata, type UnitCollectionRecord } from './unitCollectionDb';
 
 const USER_TABLE_NAME = 'bs_forge_user_collection';
 const SHARED_TABLE_NAME = 'bs_forge_creatures';
+export const COLLECTION_STORAGE_LIMIT_REACHED_ERROR = 'COLLECTION_STORAGE_LIMIT_REACHED';
 
 type SupabaseUserCollectionRow = {
   id: string;
@@ -186,6 +187,22 @@ export const upsertRemoteUnitFromMetadata = async (
     }
 
     return 'updated';
+  }
+
+  const collectionStorageCap = await getCurrentUserCollectionStorageCap();
+  const countResponse = await withSupabaseAuthRetry(async () => {
+    return supabase
+      .from(USER_TABLE_NAME)
+      .select('id', { count: 'exact', head: true });
+  });
+
+  if (countResponse.error) {
+    throw countResponse.error;
+  }
+
+  const currentCount = typeof countResponse.count === 'number' ? countResponse.count : 0;
+  if (currentCount >= collectionStorageCap) {
+    throw new Error(COLLECTION_STORAGE_LIMIT_REACHED_ERROR);
   }
 
   const insertResponse = await withSupabaseAuthRetry(async () => {

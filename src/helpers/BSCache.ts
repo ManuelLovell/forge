@@ -10,11 +10,21 @@ export interface RuntimeSystemTheme {
     background_url: string;
 }
 
+export interface RuntimeSystemConditionPreset {
+    id: string;
+    name: string;
+    type: 'neutral' | 'buff' | 'debuff';
+    duration: number;
+    durationType: 'rounds' | 'turns';
+    endTiming: 'start' | 'end';
+}
+
 export interface RuntimeSystemData {
     theme: RuntimeSystemTheme;
     cardLayout: CardLayoutComponent[];
     listLayout: ListLayoutComponent[];
     attributes: SystemAttribute[];
+    effectPresets: RuntimeSystemConditionPreset[];
     systemName: string;
     importDate: string | null;
     snapshotPublicId: string | null;

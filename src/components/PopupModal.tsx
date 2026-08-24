@@ -34,6 +34,8 @@ const ModalContainer = styled.div<{ theme: ForgeTheme; $minWidth?: string; $maxW
   border: 3px solid ${props => props.theme.BORDER};
   border-radius: 8px;
   padding: 25px;
+  max-height: 90%;
+  overflow: scroll;
   z-index: ${props => props.$zIndexBase + 1};
   min-width: ${props => props.$minWidth || '200px'};
   max-width: ${props => props.$maxWidth || '500px'};

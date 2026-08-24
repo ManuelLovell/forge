@@ -49,9 +49,70 @@ interface SnapshotSystemRecord {
   card_layout: unknown;
   list_layout: unknown;
   attributes: unknown;
+  effect_presets?: unknown;
   imported_at: string;
   updated_at: string;
 }
+
+const normalizePresetType = (rawType: unknown, name: string): 'neutral' | 'buff' | 'debuff' => {
+  if (rawType === 'buff' || rawType === 'debuff' || rawType === 'neutral') {
+    return rawType;
+  }
+
+  const normalizedName = name.toLowerCase();
+  if (/\b(buff|bless|haste|shield|inspiration|rage|fortif|quicken|resist)\b/.test(normalizedName)) {
+    return 'buff';
+  }
+
+  if (/\b(debuff|poison\w*|restrain|blind|charm|fright|paraly|stun|slow|exhaust|burn|bleed|daze|curse)\b/.test(normalizedName)) {
+    return 'debuff';
+  }
+
+  return 'neutral';
+};
+
+const normalizePresetDuration = (rawDuration: unknown): number => {
+  const parsed = Number(rawDuration);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 1;
+  }
+
+  return Math.max(1, Math.trunc(parsed));
+};
+
+const normalizePresetDurationType = (rawDurationType: unknown): 'rounds' | 'turns' => {
+  return rawDurationType === 'turns' ? 'turns' : 'rounds';
+};
+
+const normalizePresetEndTiming = (rawEndTiming: unknown): 'start' | 'end' => {
+  return rawEndTiming === 'end' ? 'end' : 'start';
+};
+
+const normalizeDefaultEffectPresets = (value: unknown): RuntimeSystemData['effectPresets'] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((preset): preset is Record<string, unknown> => !!preset && typeof preset === 'object')
+    .map((preset, index) => {
+      const name = typeof preset.name === 'string' ? preset.name.trim().slice(0, 80) : '';
+      if (!name) {
+        return null;
+      }
+
+      return {
+        id: typeof preset.id === 'string' && preset.id.trim() ? preset.id : `default-preset-${index + 1}`,
+        name,
+        type: normalizePresetType(preset.type, name),
+        duration: normalizePresetDuration(preset.duration),
+        durationType: normalizePresetDurationType(preset.durationType),
+        endTiming: normalizePresetEndTiming(preset.endTiming),
+      };
+    })
+    .filter((preset): preset is RuntimeSystemData['effectPresets'][number] => !!preset)
+    .slice(0, 30);
+};
 
 interface ThemeData {
   primary: string;
@@ -823,6 +884,16 @@ export const SystemPage = () => {
         cardLayout,
         listLayout,
         attributes,
+        effectPresets: Array.isArray(importedSnapshot.effect_presets)
+          ? importedSnapshot.effect_presets.filter((preset): preset is Record<string, unknown> => !!preset && typeof preset === 'object').map((preset) => ({
+              id: typeof preset.id === 'string' ? preset.id : crypto.randomUUID(),
+              name: typeof preset.name === 'string' ? preset.name.slice(0, 80) : '',
+              type: normalizePresetType(preset.type, typeof preset.name === 'string' ? preset.name : ''),
+              duration: normalizePresetDuration(preset.duration),
+              durationType: normalizePresetDurationType(preset.durationType),
+              endTiming: normalizePresetEndTiming(preset.endTiming),
+            })).filter((preset) => preset.name.length > 0)
+          : [],
         systemName: importedSnapshot.system_name,
         importDate: importTimestamp,
         snapshotPublicId: importedSnapshot.snapshot_public_id,
@@ -928,6 +999,7 @@ export const SystemPage = () => {
         cardLayout: backup.card_layout,
         listLayout: backup.list_layout,
         attributes: backup.attributes,
+        effectPresets: [],
         systemName: backup.name,
         importDate: restoreTimestamp,
         snapshotPublicId: publishedSnapshot.snapshot_public_id,
@@ -985,6 +1057,7 @@ export const SystemPage = () => {
         cardLayout: defaultGameSystem.card_layout as CardLayoutComponent[],
         listLayout: defaultGameSystem.list_layout as ListLayoutComponent[],
         attributes: defaultGameSystem.attributes as SystemAttribute[],
+        effectPresets: normalizeDefaultEffectPresets((defaultGameSystem as { effect_presets?: unknown }).effect_presets),
         systemName: defaultGameSystem.name,
         importDate: null,
         snapshotPublicId: null,

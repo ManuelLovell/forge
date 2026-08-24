@@ -4173,6 +4173,7 @@ export const InitiativeList: React.FC = () => {
               icon={specialIcon || <Sun />}
               activeEffectsCount={activeEffectsCount}
               onOpen={() => effectsManager.handleOpenEffectsModal(unit.id)}
+              onContextMenu={() => effectsManager.handleOpenQuickSetModal(unit.id)}
             />
           );
         }

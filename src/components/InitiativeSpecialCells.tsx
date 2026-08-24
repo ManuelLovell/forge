@@ -91,6 +91,7 @@ interface EffectsSpecialCellProps {
   icon?: React.ReactNode;
   activeEffectsCount: number;
   onOpen: () => void;
+  onContextMenu?: () => void;
 }
 
 export const EffectsSpecialCell: React.FC<EffectsSpecialCellProps> = ({
@@ -99,6 +100,7 @@ export const EffectsSpecialCell: React.FC<EffectsSpecialCellProps> = ({
   icon,
   activeEffectsCount,
   onOpen,
+  onContextMenu,
 }) => {
   return (
     <DataCell theme={theme}>
@@ -107,6 +109,7 @@ export const EffectsSpecialCell: React.FC<EffectsSpecialCellProps> = ({
         canInteract={canInteract}
         icon={icon || <Sun />}
         onOpen={onOpen}
+        onContextMenu={onContextMenu}
       />
     </DataCell>
   );

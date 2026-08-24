@@ -21,9 +21,44 @@ interface SnapshotRoomResponse {
   card_layout: unknown;
   list_layout: unknown;
   attributes: unknown;
+  effect_presets?: unknown;
   imported_at: string;
   updated_at: string;
 }
+
+const normalizePresetType = (rawType: unknown, name: string): 'neutral' | 'buff' | 'debuff' => {
+  if (rawType === 'buff' || rawType === 'debuff' || rawType === 'neutral') {
+    return rawType;
+  }
+
+  const normalizedName = name.toLowerCase();
+  if (/\b(buff|bless|haste|shield|inspiration|rage|fortif|quicken|resist)\b/.test(normalizedName)) {
+    return 'buff';
+  }
+
+  if (/\b(debuff|poison\w*|restrain|blind|charm|fright|paraly|stun|slow|exhaust|burn|bleed|daze|curse)\b/.test(normalizedName)) {
+    return 'debuff';
+  }
+
+  return 'neutral';
+};
+
+const normalizePresetDuration = (rawDuration: unknown): number => {
+  const parsed = Number(rawDuration);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 1;
+  }
+
+  return Math.max(1, Math.trunc(parsed));
+};
+
+const normalizePresetDurationType = (rawDurationType: unknown): 'rounds' | 'turns' => {
+  return rawDurationType === 'turns' ? 'turns' : 'rounds';
+};
+
+const normalizePresetEndTiming = (rawEndTiming: unknown): 'start' | 'end' => {
+  return rawEndTiming === 'end' ? 'end' : 'start';
+};
 
 /**
  * Central initialization hook for the application
@@ -148,11 +183,23 @@ export const useAppInitialization = () => {
           background_url: snapshotData.background_url,
         };
 
+        const effectPresets = Array.isArray(snapshotData.effect_presets)
+          ? snapshotData.effect_presets.filter((preset): preset is Record<string, unknown> => !!preset && typeof preset === 'object').map((preset) => ({
+              id: typeof preset.id === 'string' ? preset.id : crypto.randomUUID(),
+              name: typeof preset.name === 'string' ? preset.name.slice(0, 80) : '',
+              type: normalizePresetType(preset.type, typeof preset.name === 'string' ? preset.name : ''),
+              duration: normalizePresetDuration(preset.duration),
+              durationType: normalizePresetDurationType(preset.durationType),
+              endTiming: normalizePresetEndTiming(preset.endTiming),
+            })).filter((preset) => preset.name.length > 0)
+          : [];
+
         setRuntimeSystemData({
           theme: snapshotTheme,
           cardLayout,
           listLayout,
           attributes,
+          effectPresets,
           systemName: snapshotData.system_name,
           importDate: snapshotData.imported_at,
           snapshotPublicId: snapshotData.snapshot_public_id,
@@ -272,6 +319,17 @@ export const useAppInitialization = () => {
       }
 
       if (!cancelled) {
+        const effectPresets = Array.isArray(snapshotData.effect_presets)
+          ? snapshotData.effect_presets.filter((preset): preset is Record<string, unknown> => !!preset && typeof preset === 'object').map((preset) => ({
+              id: typeof preset.id === 'string' ? preset.id : crypto.randomUUID(),
+              name: typeof preset.name === 'string' ? preset.name.slice(0, 80) : '',
+              type: normalizePresetType(preset.type, typeof preset.name === 'string' ? preset.name : ''),
+              duration: normalizePresetDuration(preset.duration),
+              durationType: normalizePresetDurationType(preset.durationType),
+              endTiming: normalizePresetEndTiming(preset.endTiming),
+            })).filter((preset) => preset.name.length > 0)
+          : [];
+
         setRuntimeSystemData({
           theme: {
             primary: snapshotData.theme_primary,
@@ -283,6 +341,7 @@ export const useAppInitialization = () => {
           cardLayout,
           listLayout,
           attributes,
+          effectPresets,
           systemName: snapshotData.system_name,
           importDate: snapshotData.imported_at,
           snapshotPublicId: snapshotData.snapshot_public_id,

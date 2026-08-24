@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import OBR from '@owlbear-rodeo/sdk';
-import { Sun } from 'lucide-react';
+import { StepBack, Sun, X } from 'lucide-react';
 import { EXTENSION_ID } from '../helpers/MockData';
 import { OwlbearIds } from '../helpers/Constants';
 import { UnitConstants } from '../interfaces/MetadataKeys';
@@ -10,6 +10,7 @@ import LOGGER from '../helpers/Logger';
 import { PopupModal } from './PopupModal';
 import { useForgeTheme } from '../helpers/ThemeContext';
 import { useTranslation } from '../i18n/Translation';
+import { useSceneStore } from '../helpers/BSCache';
 
 export const EFFECTS_METADATA_KEY = `${EXTENSION_ID}/effects`;
 const EFFECTS_NOTIFICATION_CHANNEL = `${EXTENSION_ID}/effects-expired`;
@@ -17,6 +18,15 @@ const EFFECTS_NOTIFICATION_CHANNEL = `${EXTENSION_ID}/effects-expired`;
 export type EffectDurationType = 'turns' | 'rounds';
 export type EffectEndTiming = 'start' | 'end';
 export type TrackedEffectType = 'neutral' | 'buff' | 'debuff';
+
+interface RuntimeEffectPresetOption {
+  id: string;
+  name: string;
+  type: TrackedEffectType;
+  duration: number;
+  durationType: EffectDurationType;
+  endTiming: EffectEndTiming;
+}
 
 export interface TrackedEffect {
   id: string;
@@ -57,17 +67,41 @@ const EffectsSection = styled.div`
   gap: 10px;
 `;
 
-const EffectsFormRows = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+const EffectsModalCloseButton = styled.button<{ theme: ForgeTheme }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  position: absolute;
+  top: 4px;
+  right: 0px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: ${props => props.theme.PRIMARY};
+  cursor: pointer;
+
+  &:focus,
+  &:focus-visible,
+  &:active {
+    outline: none;
+    box-shadow: none;
+  }
+
+  &:hover {
+    color: ${props => props.theme.OFFSET};
+  }
 `;
 
-const EffectsFormRow = styled.div`
+const EffectsRowSection = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  width: 100%;
   justify-content: space-between;
-  align-items: flex-end;
+  flex-direction: row;
+  gap: 10px;
 `;
 
 const EffectsField = styled.div`
@@ -78,19 +112,13 @@ const EffectsField = styled.div`
   min-width: 0;
 `;
 
-const EffectsButtonCell = styled.div`
-  flex: 0 0 120px;
-  min-width: 120px;
-  display: flex;
-  align-items: flex-end;
-`;
-
 const EffectsFieldLabel = styled.label<{ theme: ForgeTheme }>`
   color: ${props => rgbaFromHex(props.theme.PRIMARY, 0.75)};
   font-size: 10px;
   line-height: 1;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  align-content: center;
 `;
 
 const EffectsInput = styled.input<{ theme: ForgeTheme }>`
@@ -110,48 +138,58 @@ const EffectsInput = styled.input<{ theme: ForgeTheme }>`
   }
 `;
 
-const EffectsSelect = styled.select<{ theme: ForgeTheme }>`
-  background: rgba(0, 0, 0, 0.45);
+const EffectsButton = styled.button<{ theme: ForgeTheme }>`
   border: 1px solid ${props => props.theme.BORDER};
-  border-radius: 4px;
+  border-radius: 8px;
+  height: 32px;
   color: ${props => props.theme.PRIMARY};
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: 6px 8px;
-  height: 38px;
-  font-size: 13px;
+  padding: 4px;
   cursor: pointer;
-  appearance: auto;
-  -webkit-appearance: menulist;
-  -moz-appearance: menulist;
-  padding-right: 22px;
+  font-size: 13px;
+  width: 100%;
+  justify-items: center;
 
-  &:focus {
+  &:hover {
     outline: none;
     border-color: ${props => props.theme.OFFSET};
   }
 `;
 
-const EffectsMultiSelect = styled(EffectsSelect)`
-  min-width: 180px;
-  height: 96px;
-  padding-right: 8px;
+const DeleteButton = styled.button<{ theme: ForgeTheme }>`
+  background: ${props => rgbaFromHex(props.theme.OFFSET, 0.25)};
+  border: 1px solid ${props => props.theme.BORDER};
+  border-radius: 8px;
+  height: 38px;
+  color: ${props => props.theme.PRIMARY};
+  padding: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  width: 38px;
+
+  &:hover {
+    background: ${props => rgbaFromHex(props.theme.OFFSET, 0.75)};
+  }
 `;
 
-const EffectsButton = styled.button<{ theme: ForgeTheme }>`
-    background: ${props => rgbaFromHex(props.theme.OFFSET, 0.5)};
+const EffectsQuickSetGrid = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+`;
+
+const EffectsQuickSetButton = styled.button<{ theme: ForgeTheme; $active?: boolean }>`
+  background: ${props => props.$active ? rgbaFromHex(props.theme.OFFSET, 0.8) : 'rgba(0,0,0,0.35)'};
   border: 1px solid ${props => props.theme.BORDER};
-  border-radius: 4px;
-  height: 38px;
+  border-radius: 8px;
   color: ${props => props.theme.PRIMARY};
   padding: 6px 10px;
   cursor: pointer;
-  font-size: 13px;
-  width: auto;
+  font-size: 12px;
+  text-align: center;
+  width: 100%;
 
   &:hover {
-    font-size: 16px;
+    border-color: ${props => props.theme.OFFSET};
   }
 `;
 
@@ -304,7 +342,9 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
   playerData,
 }: UseEffectsManagerParamsGeneric<TItem>) => {
   const { t } = useTranslation();
+  const runtimeSystemData = useSceneStore((state) => state.systemData);
   const [effectsModalUnitId, setEffectsModalUnitId] = useState<string | null>(null);
+  const [isSpeedyMode, setIsSpeedyMode] = useState(false);
   const [effectNameInput, setEffectNameInput] = useState('');
   const [effectDurationInput, setEffectDurationInput] = useState('1');
   const [effectDurationType, setEffectDurationType] = useState<EffectDurationType>('rounds');
@@ -448,6 +488,26 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
     }
   };
 
+  const effectPresetOptions = useMemo<RuntimeEffectPresetOption[]>(() => {
+    return (runtimeSystemData?.effectPresets ?? []).map((preset): RuntimeEffectPresetOption => {
+      const durationType: EffectDurationType = preset.durationType === 'turns' ? 'turns' : 'rounds';
+      const endTiming: EffectEndTiming = preset.endTiming === 'end' ? 'end' : 'start';
+
+      return {
+        id: preset.id,
+        name: preset.name.trim(),
+        type: preset.type === 'buff' || preset.type === 'debuff' || preset.type === 'neutral'
+          ? preset.type
+          : getPresetTypeForName(preset.name),
+        duration: Number.isFinite(Number(preset.duration)) && Number(preset.duration) > 0
+          ? Math.max(1, Math.trunc(Number(preset.duration)))
+          : 1,
+        durationType,
+        endTiming,
+      };
+    }).filter((preset) => preset.name.length > 0).slice(0, 30);
+  }, [runtimeSystemData]);
+
   const selectedEffectsUnit = useMemo(
     () => (effectsModalUnitId ? units.find((unit) => unit.id === effectsModalUnitId) || null : null),
     [effectsModalUnitId, units]
@@ -458,8 +518,30 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
     [effectsModalUnitId, effectsByUnitId]
   );
 
+  const getPresetTypeForName = (presetName: string): TrackedEffectType => {
+    const normalized = presetName.toLowerCase();
+    const buffHints = ['buff', 'blessed', 'haste', 'rage', 'inspiration', 'shield', 'fortified', 'quickened', 'resistance'];
+    const debuffHints = ['debuff', 'poison', 'restrain', 'blinded', 'charmed', 'frightened', 'paralyzed', 'stunned', 'slow', 'exhausted', 'burning', 'bleeding', 'dazed'];
+    if (buffHints.some((hint) => normalized.includes(hint))) return 'buff';
+    if (debuffHints.some((hint) => normalized.includes(hint))) return 'debuff';
+    return 'neutral';
+  };
+
   const handleOpenEffectsModal = (unitId: string) => {
     setEffectsModalError(null);
+    setIsSpeedyMode(false);
+    setEffectNameInput('');
+    setEffectDurationInput('1');
+    setEffectDurationType('rounds');
+    setEffectEndTiming('start');
+    setEffectType('neutral');
+    setEffectTargetIds([unitId]);
+    setEffectsModalUnitId(unitId);
+  };
+
+  const handleOpenQuickSetModal = (unitId: string) => {
+    setEffectsModalError(null);
+    setIsSpeedyMode(true);
     setEffectNameInput('');
     setEffectDurationInput('1');
     setEffectDurationType('rounds');
@@ -471,6 +553,7 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
 
   const handleCloseEffectsModal = () => {
     setEffectsModalUnitId(null);
+    setIsSpeedyMode(false);
     setEffectsModalError(null);
   };
 
@@ -562,6 +645,8 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
     effectsModalUnitId,
     selectedEffectsUnit,
     activeEffectsForSelectedUnit,
+    effectPresetOptions,
+    isSpeedyMode,
     effectNameInput,
     setEffectNameInput,
     effectDurationInput,
@@ -578,6 +663,7 @@ export const useEffectsManager = <TItem extends SceneItemLike>({
     units,
     getEffectsForUnit,
     handleOpenEffectsModal,
+    handleOpenQuickSetModal,
     handleCloseEffectsModal,
     handleAddEffect,
     handleDeleteEffect,
@@ -592,13 +678,19 @@ interface EffectsManagerModalProps {
 export const EffectsManagerModal: React.FC<EffectsManagerModalProps> = ({ manager }) => {
   const { theme } = useForgeTheme();
   const { t } = useTranslation();
-  const targetsById = useMemo(() => {
-    const map = new Map<string, string>();
-    manager.units.forEach((unit) => {
-      map.set(unit.id, unit.name);
-    });
-    return map;
-  }, [manager.units]);
+  const [guidedStep, setGuidedStep] = useState<'type' | 'name' | 'duration' | 'by' | 'ends' | 'targets'>('type');
+  const [speedyStep, setSpeedyStep] = useState<'type' | 'preset' | 'targets'>('type');
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!manager.effectsModalUnitId) {
+      return;
+    }
+
+    setGuidedStep('type');
+    setSpeedyStep('type');
+    setLocalError(null);
+  }, [manager.effectsModalUnitId, manager.isSpeedyMode]);
 
   const getEffectTypeLabel = (effectType: TrackedEffectType) => {
     if (effectType === 'buff') {
@@ -626,24 +718,121 @@ export const EffectsManagerModal: React.FC<EffectsManagerModalProps> = ({ manage
     return t('effectsManager.endTiming.end');
   };
 
-  const getTargetsLabel = (targets: string[]) => {
-    if (targets.length === 0) {
-      return t('effectsManager.targets.none');
+  const filteredSpeedyPresets = useMemo(
+    () => manager.effectPresetOptions.filter((preset) => preset.type === manager.effectType),
+    [manager.effectPresetOptions, manager.effectType],
+  );
+
+  const toggleTargetId = (targetId: string) => {
+    const exists = manager.effectTargetIds.includes(targetId);
+    if (exists) {
+      manager.setEffectTargetIds(manager.effectTargetIds.filter((id) => id !== targetId));
+      return;
     }
 
-    const names = targets
-      .map((targetId) => targetsById.get(targetId))
-      .filter((name): name is string => typeof name === 'string' && name.length > 0);
+    manager.setEffectTargetIds([...manager.effectTargetIds, targetId]);
+  };
 
-    if (names.length === 0) {
-      return t('effectsManager.targets.count', { count: targets.length });
+  const setTypeAndAdvance = (type: TrackedEffectType) => {
+    manager.setEffectType(type);
+    setLocalError(null);
+    if (manager.isSpeedyMode) {
+      setSpeedyStep('preset');
+      return;
+    }
+    setGuidedStep('name');
+  };
+
+  const submitGuidedName = () => {
+    const nextName = manager.effectNameInput.trim();
+    if (!nextName) {
+      setLocalError(t('effectsManager.error.enterName'));
+      return;
     }
 
-    if (names.length <= 2) {
-      return names.join(', ');
+    manager.setEffectNameInput(nextName);
+    setLocalError(null);
+    setGuidedStep('duration');
+  };
+
+  const submitGuidedDuration = () => {
+    const parsed = Number.parseInt(manager.effectDurationInput, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setLocalError(t('effectsManager.error.durationPositive'));
+      return;
     }
 
-    return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+    manager.setEffectDurationInput(String(parsed));
+    setLocalError(null);
+    setGuidedStep('by');
+  };
+
+  const submitTargets = async () => {
+    setLocalError(null);
+    await manager.handleAddEffect();
+    if (manager.isSpeedyMode) {
+      setSpeedyStep('type');
+    } else {
+      setGuidedStep('type');
+    }
+    manager.handleCloseEffectsModal();
+  };
+
+  const applySpeedyPreset = (preset: RuntimeEffectPresetOption) => {
+    const trimmedName = preset.name.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    manager.setEffectNameInput(trimmedName);
+    manager.setEffectDurationInput(String(preset.duration));
+    manager.setEffectDurationType(preset.durationType);
+    manager.setEffectEndTiming(preset.endTiming);
+    manager.setEffectType(preset.type);
+    if (manager.effectsModalUnitId) {
+      manager.setEffectTargetIds([manager.effectsModalUnitId]);
+    }
+    setLocalError(null);
+    setSpeedyStep('targets');
+  };
+
+  const canStepBackward = manager.isSpeedyMode
+    ? speedyStep !== 'type'
+    : guidedStep !== 'type';
+
+  const handleStepBackward = () => {
+    setLocalError(null);
+
+    if (manager.isSpeedyMode) {
+      if (speedyStep === 'targets') {
+        setSpeedyStep('preset');
+        return;
+      }
+      if (speedyStep === 'preset') {
+        setSpeedyStep('type');
+      }
+      return;
+    }
+
+    if (guidedStep === 'targets') {
+      setGuidedStep('ends');
+      return;
+    }
+    if (guidedStep === 'ends') {
+      setGuidedStep('by');
+      return;
+    }
+    if (guidedStep === 'by') {
+      setGuidedStep('duration');
+      return;
+    }
+    if (guidedStep === 'duration') {
+      setGuidedStep('name');
+      return;
+    }
+    if (guidedStep === 'name') {
+      setGuidedStep('type');
+    }
   };
 
   return (
@@ -653,95 +842,201 @@ export const EffectsManagerModal: React.FC<EffectsManagerModalProps> = ({ manage
         ? t('effectsManager.titleWithUnit', { unit: manager.selectedEffectsUnit.name })
         : t('effectsManager.title')}
       onClose={manager.handleCloseEffectsModal}
-      minWidth="520px"
-      maxWidth="600px"
+      minWidth="200px"
+      maxWidth="240px"
     >
       <EffectsSection>
-        <EffectsFormRows>
-          <EffectsFormRow>
-            <EffectsField style={{ flex: '0 0 120px' }}>
-              <EffectsFieldLabel theme={theme}>{t('effectsManager.field.effect')}</EffectsFieldLabel>
+        <EffectsModalCloseButton
+          type="button"
+          theme={theme}
+          aria-label="Close effects modal"
+          onClick={manager.handleCloseEffectsModal}
+        >
+          <X size={20} />
+        </EffectsModalCloseButton>
+
+        <EffectsRowSection>
+          <EffectsButton
+            type="button"
+            theme={theme}
+            onClick={handleStepBackward}
+            disabled={!canStepBackward}
+            aria-label="Previous step"
+          >
+            <StepBack size={24} />
+          </EffectsButton>
+          <EffectsFieldLabel theme={theme}>{manager.isSpeedyMode ? 'Presets' : 'Builder'}</EffectsFieldLabel>
+        </EffectsRowSection>
+
+        {(manager.isSpeedyMode ? speedyStep === 'type' : guidedStep === 'type') && (
+          <EffectsField>
+            <EffectsFieldLabel theme={theme}>{t('effectsManager.field.type')}</EffectsFieldLabel>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <EffectsQuickSetButton theme={theme} onClick={() => setTypeAndAdvance('buff')}>{t('effectsManager.type.buff')}</EffectsQuickSetButton>
+              <EffectsQuickSetButton theme={theme} onClick={() => setTypeAndAdvance('neutral')}>{t('effectsManager.type.neutral')}</EffectsQuickSetButton>
+              <EffectsQuickSetButton theme={theme} onClick={() => setTypeAndAdvance('debuff')}>{t('effectsManager.type.debuff')}</EffectsQuickSetButton>
+            </div>
+          </EffectsField>
+        )}
+
+        {!manager.isSpeedyMode && guidedStep === 'name' && (
+          <EffectsField>
+            <EffectsFieldLabel theme={theme}>{t('effectsManager.field.effect')}</EffectsFieldLabel>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <EffectsInput
                 theme={theme}
                 type="text"
                 placeholder={t('effectsManager.placeholder.name')}
                 value={manager.effectNameInput}
                 onChange={(e) => manager.setEffectNameInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitGuidedName();
+                  }
+                }}
               />
-            </EffectsField>
-            <EffectsField style={{ flex: '0 0 140px' }}>
-              <EffectsFieldLabel theme={theme}>{t('effectsManager.field.duration')}</EffectsFieldLabel>
+              <EffectsButton theme={theme} onClick={submitGuidedName}>Next</EffectsButton>
+            </div>
+          </EffectsField>
+        )}
+
+        {!manager.isSpeedyMode && guidedStep === 'duration' && (
+          <EffectsField>
+            <EffectsFieldLabel theme={theme}>{t('effectsManager.field.duration')}</EffectsFieldLabel>
+            <div style={{ display: 'flex', flexDirection: 'row', gap: '8px', marginBottom: '4px' }}>
+              {[1, 5, 10].map((presetValue) => (
+                <EffectsQuickSetButton
+                  key={`dur-${presetValue}`}
+                  theme={theme}
+                  onClick={() => {
+                    manager.setEffectDurationInput(String(presetValue));
+                    setLocalError(null);
+                    setGuidedStep('by');
+                  }}
+                >
+                  {presetValue}
+                </EffectsQuickSetButton>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <EffectsInput
                 theme={theme}
                 type="number"
                 min={1}
                 value={manager.effectDurationInput}
                 onChange={(e) => manager.setEffectDurationInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitGuidedDuration();
+                  }
+                }}
               />
-            </EffectsField>
-            <EffectsField style={{ flex: '0 0 120px' }}>
-              <EffectsFieldLabel theme={theme}>{t('effectsManager.field.durationBy')}</EffectsFieldLabel>
-              <EffectsSelect
-                theme={theme}
-                value={manager.effectDurationType}
-                onChange={(e) => manager.setEffectDurationType(e.target.value as EffectDurationType)}
-              >
-                <option value="turns">{t('effectsManager.durationType.turns')}</option>
-                <option value="rounds">{t('effectsManager.durationType.rounds')}</option>
-              </EffectsSelect>
-            </EffectsField>
-          </EffectsFormRow>
+              <EffectsButton theme={theme} onClick={submitGuidedDuration}>Next</EffectsButton>
+            </div>
+          </EffectsField>
+        )}
 
-          <EffectsFormRow>
-            <EffectsField style={{ flex: '0 0 120px' }}>
-              <EffectsFieldLabel theme={theme}>{t('effectsManager.field.type')}</EffectsFieldLabel>
-              <EffectsSelect
+        {!manager.isSpeedyMode && guidedStep === 'by' && (
+          <EffectsField>
+            <EffectsFieldLabel theme={theme}>{t('effectsManager.field.durationBy')}</EffectsFieldLabel>
+            <EffectsQuickSetGrid>
+              <EffectsQuickSetButton
                 theme={theme}
-                value={manager.effectType}
-                onChange={(e) => manager.setEffectType(e.target.value as TrackedEffectType)}
+                onClick={() => {
+                  manager.setEffectDurationType('rounds');
+                  setLocalError(null);
+                  setGuidedStep('ends');
+                }}
               >
-                <option value="neutral">{t('effectsManager.type.neutral')}</option>
-                <option value="buff">{t('effectsManager.type.buff')}</option>
-                <option value="debuff">{t('effectsManager.type.debuff')}</option>
-              </EffectsSelect>
-            </EffectsField>
-            <EffectsField style={{ flex: '0 0 140px' }}>
-              <EffectsFieldLabel theme={theme}>{t('effectsManager.field.endsAt')}</EffectsFieldLabel>
-              <EffectsSelect
+                {t('effectsManager.durationType.rounds')}
+              </EffectsQuickSetButton>
+              <EffectsQuickSetButton
                 theme={theme}
-                value={manager.effectEndTiming}
-                onChange={(e) => manager.setEffectEndTiming(e.target.value as EffectEndTiming)}
+                onClick={() => {
+                  manager.setEffectDurationType('turns');
+                  setLocalError(null);
+                  setGuidedStep('ends');
+                }}
               >
-                <option value="start">{t('effectsManager.endTiming.start')}</option>
-                <option value="end">{t('effectsManager.endTiming.end')}</option>
-              </EffectsSelect>
+                {t('effectsManager.durationType.turns')}
+              </EffectsQuickSetButton>
+            </EffectsQuickSetGrid>
+          </EffectsField>
+        )}
+
+        {!manager.isSpeedyMode && guidedStep === 'ends' && (
+          <EffectsField>
+            <EffectsFieldLabel theme={theme}>{t('effectsManager.field.endsAt')}</EffectsFieldLabel>
+            <EffectsQuickSetGrid>
+              <EffectsQuickSetButton
+                theme={theme}
+                onClick={() => {
+                  manager.setEffectEndTiming('start');
+                  setLocalError(null);
+                  setGuidedStep('targets');
+                }}
+              >
+                {t('effectsManager.endTiming.start')}
+              </EffectsQuickSetButton>
+              <EffectsQuickSetButton
+                theme={theme}
+                onClick={() => {
+                  manager.setEffectEndTiming('end');
+                  setLocalError(null);
+                  setGuidedStep('targets');
+                }}
+              >
+                {t('effectsManager.endTiming.end')}
+              </EffectsQuickSetButton>
+            </EffectsQuickSetGrid>
+          </EffectsField>
+        )}
+
+        {manager.isSpeedyMode && speedyStep === 'preset' && (
+          <EffectsField>
+            <EffectsFieldLabel theme={theme}>{t('effectsManager.field.effect')}</EffectsFieldLabel>
+            {filteredSpeedyPresets.length === 0 ? (
+              <EffectsEmpty theme={theme}>No presets configured for this type.</EffectsEmpty>
+            ) : (
+              <EffectsQuickSetGrid>
+                {filteredSpeedyPresets.map((preset) => (
+                  <EffectsQuickSetButton key={preset.id} theme={theme} onClick={() => applySpeedyPreset(preset)}>
+                    {preset.name}
+                  </EffectsQuickSetButton>
+                ))}
+              </EffectsQuickSetGrid>
+            )}
+          </EffectsField>
+        )}
+
+        {((!manager.isSpeedyMode && guidedStep === 'targets') || (manager.isSpeedyMode && speedyStep === 'targets')) && (
+          <>
+            <EffectsField>
+              <EffectsFieldLabel theme={theme}>{t('effectsManager.field.targets')}</EffectsFieldLabel>
+              <EffectsQuickSetGrid>
+                {manager.units.map((unit) => (
+                  <EffectsQuickSetButton
+                    key={unit.id}
+                    theme={theme}
+                    $active={manager.effectTargetIds.includes(unit.id)}
+                    onClick={() => toggleTargetId(unit.id)}
+                  >
+                    {unit.name}
+                  </EffectsQuickSetButton>
+                ))}
+              </EffectsQuickSetGrid>
             </EffectsField>
-            <EffectsButtonCell>
-              <EffectsButton theme={theme} onClick={manager.handleAddEffect} style={{ width: '100%' }}>{t('effectsManager.add')}</EffectsButton>
-            </EffectsButtonCell>
-          </EffectsFormRow>
-        </EffectsFormRows>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <EffectsButton theme={theme} onClick={() => { void submitTargets(); }}>Apply Effect</EffectsButton>
+            </div>
+          </>
+        )}
 
-        <EffectsField>
-          <EffectsFieldLabel theme={theme}>{t('effectsManager.field.targets')}</EffectsFieldLabel>
-          <EffectsMultiSelect
-            theme={theme}
-            multiple
-            value={manager.effectTargetIds}
-            onChange={(e) => {
-              const values = Array.from(e.target.selectedOptions).map((option) => option.value);
-              manager.setEffectTargetIds(values);
-            }}
-          >
-            {manager.units.map((unit) => (
-              <option key={unit.id} value={unit.id}>
-                {unit.name}
-              </option>
-            ))}
-          </EffectsMultiSelect>
-        </EffectsField>
-
-        {manager.effectsModalError && <EffectsError theme={theme}>{manager.effectsModalError}</EffectsError>}
+        {(localError || manager.effectsModalError) && (
+          <EffectsError theme={theme}>{localError || manager.effectsModalError}</EffectsError>
+        )}
 
         {manager.activeEffectsForSelectedUnit.length === 0 ? (
           <EffectsEmpty theme={theme}>{t('effectsManager.empty')}</EffectsEmpty>
@@ -760,18 +1055,15 @@ export const EffectsManagerModal: React.FC<EffectsManagerModalProps> = ({ manage
                       source: effect.createdByName,
                     })}
                   </EffectItemMeta>
-                  <EffectItemMeta theme={theme}>
-                    {t('effectsManager.targets.label', { targets: getTargetsLabel(effect.targets) })}
-                  </EffectItemMeta>
                 </div>
-                <EffectsButton
+                <DeleteButton
                   theme={theme}
                   onClick={() => {
                     void manager.handleDeleteEffect(effect.id);
                   }}
                 >
-                  {t('effectsManager.delete')}
-                </EffectsButton>
+                  <X size={24} />
+                </DeleteButton>
               </EffectItemRow>
             ))}
           </EffectsList>
@@ -785,6 +1077,7 @@ interface EffectsTriggerCellProps {
   activeEffectsCount: number;
   canInteract: boolean;
   onOpen: () => void;
+  onContextMenu?: () => void;
   icon?: React.ReactNode;
 }
 
@@ -792,6 +1085,7 @@ export const EffectsTriggerCell: React.FC<EffectsTriggerCellProps> = ({
   activeEffectsCount,
   canInteract,
   onOpen,
+  onContextMenu,
   icon,
 }) => {
   const { theme } = useForgeTheme();
@@ -808,6 +1102,15 @@ export const EffectsTriggerCell: React.FC<EffectsTriggerCellProps> = ({
             return;
           }
           onOpen();
+        }}
+        onContextMenu={(event) => {
+          if (!canInteract) {
+            return;
+          }
+          event.preventDefault();
+          if (onContextMenu) {
+            onContextMenu();
+          }
         }}
       >
         {icon || <Sun />}

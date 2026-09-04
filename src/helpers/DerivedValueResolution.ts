@@ -1,4 +1,5 @@
-import { toResolvedDiceNotation } from './FormulaParser';
+import { toResolvedDiceNotation, validateDiceFormula } from './FormulaParser';
+import type { ResolvedReferenceValue } from './FormulaParser';
 import { SystemAttribute } from '../interfaces/SystemResponse';
 
 // Runtime representation of attributes that may come from various sources
@@ -27,8 +28,8 @@ type RuntimeAttributeLike = SystemAttribute & {
  * @returns Object with bidValueMap and nameValueMap that include derived values
  */
 export interface DerivedValueMaps {
-  bidValueMap: Record<string, number>;
-  nameValueMap: Record<string, number>;
+  bidValueMap: Record<string, ResolvedReferenceValue>;
+  nameValueMap: Record<string, ResolvedReferenceValue>;
 }
 
 export function buildCompleteValueMaps(
@@ -40,8 +41,8 @@ export function buildCompleteValueMaps(
   getAttributeName: (attr: RuntimeAttributeLike) => string,
   getAttributeAbbr: (attr: RuntimeAttributeLike) => string
 ): DerivedValueMaps {
-  const bidValueMap: Record<string, number> = {};
-  const nameValueMap: Record<string, number> = {};
+  const bidValueMap: Record<string, ResolvedReferenceValue> = {};
+  const nameValueMap: Record<string, ResolvedReferenceValue> = {};
 
   // Phase 1: Add all base attribute values
   for (const attribute of attributes) {
@@ -55,19 +56,33 @@ export function buildCompleteValueMaps(
     const rawValue = valueGetter(bid);
     if (rawValue === undefined || rawValue === null || rawValue === '') continue;
 
-    const parsedValue = Number(rawValue);
-    if (!Number.isFinite(parsedValue)) continue;
+    const rawString = typeof rawValue === 'string' ? rawValue.trim() : String(rawValue).trim();
+    if (!rawString) continue;
 
-    bidValueMap[bid] = parsedValue;
+    const parsedValue = Number(rawString);
+    let resolvedBaseValue: ResolvedReferenceValue | null = null;
+
+    if (Number.isFinite(parsedValue)) {
+      resolvedBaseValue = parsedValue;
+    } else {
+      const formulaValidation = validateDiceFormula(rawString);
+      if (formulaValidation.valid) {
+        resolvedBaseValue = rawString;
+      }
+    }
+
+    if (resolvedBaseValue === null) continue;
+
+    bidValueMap[bid] = resolvedBaseValue;
 
     const name = getAttributeName(attribute);
     if (name) {
-      nameValueMap[name] = parsedValue;
+      nameValueMap[name] = resolvedBaseValue;
     }
 
     const abbr = getAttributeAbbr(attribute);
     if (abbr) {
-      nameValueMap[abbr] = parsedValue;
+      nameValueMap[abbr] = resolvedBaseValue;
     }
   }
 

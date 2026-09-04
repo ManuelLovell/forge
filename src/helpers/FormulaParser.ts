@@ -49,11 +49,13 @@ interface Roll20ConversionResult {
   error?: string;
 }
 
+export type ResolvedReferenceValue = number | string;
+
 interface ResolvedNotationOptions {
-  bidValueMap?: Record<string, number>;
-  resolveBidValue?: (bid: string) => number | undefined;
-  nameValueMap?: Record<string, number>;
-  resolveNameValue?: (name: string) => number | undefined;
+  bidValueMap?: Record<string, ResolvedReferenceValue>;
+  resolveBidValue?: (bid: string) => ResolvedReferenceValue | undefined;
+  nameValueMap?: Record<string, ResolvedReferenceValue>;
+  resolveNameValue?: (name: string) => ResolvedReferenceValue | undefined;
   onMissingBid?: 'error' | 'useZero';
   allowCurlyTags?: boolean;
 }
@@ -353,6 +355,11 @@ class FormulaParser {
       return;
     }
 
+    if (token.type === TokenType.NAME_REF) {
+      this.advance();
+      return;
+    }
+
     if (token.type === TokenType.FUNCTION) {
       this.parseFunction();
       return;
@@ -423,18 +430,24 @@ class FormulaEvaluator {
   private tokens: Token[];
   private current: number;
   private readonly options: ResolvedNotationOptions;
-  private readonly normalizedNameValueMap: Record<string, number>;
+  private readonly normalizedNameValueMap: Record<string, ResolvedReferenceValue>;
+  private readonly resolvingRefs: Set<string>;
 
-  constructor(tokens: Token[], options: ResolvedNotationOptions) {
+  constructor(tokens: Token[], options: ResolvedNotationOptions, resolvingRefs: Set<string> = new Set()) {
     this.tokens = tokens;
     this.current = 0;
     this.options = options;
     this.normalizedNameValueMap = {};
+    this.resolvingRefs = resolvingRefs;
 
     const entries = Object.entries(this.options.nameValueMap || {});
     for (const [key, value] of entries) {
       const normalized = normalizeReferenceKey(key);
-      if (!normalized || !Number.isFinite(value)) {
+      if (!normalized || value === undefined || value === null) {
+        continue;
+      }
+
+      if (typeof value === 'string' && value.trim().length === 0) {
         continue;
       }
 
@@ -458,7 +471,7 @@ class FormulaEvaluator {
     return this.advance();
   }
 
-  private resolveBidValueFlexible(bid: string): number | undefined {
+  private resolveBidValueFlexible(bid: string): ResolvedReferenceValue | undefined {
     const directValue = this.options.resolveBidValue?.(bid) ?? this.options.bidValueMap?.[bid];
     if (directValue !== undefined) {
       return directValue;
@@ -483,7 +496,7 @@ class FormulaEvaluator {
     return this.resolveNamedValueFlexible(bid);
   }
 
-  private resolveNamedValueFlexible(name: string): number | undefined {
+  private resolveNamedValueFlexible(name: string): ResolvedReferenceValue | undefined {
     const directValue = this.options.resolveNameValue?.(name) ?? this.options.nameValueMap?.[name];
     if (directValue !== undefined) {
       return directValue;
@@ -519,6 +532,60 @@ class FormulaEvaluator {
     }
 
     return undefined;
+  }
+
+  private resolveReferenceValue(
+    reference: string,
+    marker: '@' | '#',
+    resolvedValue: ResolvedReferenceValue | undefined
+  ): EvaluatedValue {
+    const onMissingBid = this.options.onMissingBid ?? 'error';
+
+    if (resolvedValue === undefined || resolvedValue === null) {
+      if (onMissingBid === 'useZero') {
+        return { kind: 'number', value: 0, precedence: 3 };
+      }
+      throw new Error(`No value found for reference ${marker}${reference}`);
+    }
+
+    if (typeof resolvedValue === 'number') {
+      if (!Number.isFinite(resolvedValue)) {
+        if (onMissingBid === 'useZero') {
+          return { kind: 'number', value: 0, precedence: 3 };
+        }
+        throw new Error(`No numeric value found for reference ${marker}${reference}`);
+      }
+
+      return { kind: 'number', value: resolvedValue, precedence: 3 };
+    }
+
+    const referenceFormula = resolvedValue.trim();
+    if (referenceFormula.length === 0) {
+      if (onMissingBid === 'useZero') {
+        return { kind: 'number', value: 0, precedence: 3 };
+      }
+      throw new Error(`No value found for reference ${marker}${reference}`);
+    }
+
+    const circularKey = `${marker}${reference}`.toUpperCase();
+    if (this.resolvingRefs.has(circularKey)) {
+      throw new Error(`Circular reference detected for ${marker}${reference}`);
+    }
+
+    const nestedValidation = validateDiceFormula(referenceFormula, { allowCurlyTags: this.options.allowCurlyTags });
+    if (!nestedValidation.valid) {
+      throw new Error(`Invalid formula value for reference ${marker}${reference}: ${nestedValidation.error}`);
+    }
+
+    this.resolvingRefs.add(circularKey);
+
+    try {
+      const nestedTokens = tokenize(referenceFormula, { allowCurlyTags: this.options.allowCurlyTags });
+      const nestedEvaluator = new FormulaEvaluator(nestedTokens, this.options, this.resolvingRefs);
+      return nestedEvaluator.parse();
+    } finally {
+      this.resolvingRefs.delete(circularKey);
+    }
   }
 
   parse(): EvaluatedValue {
@@ -570,32 +637,14 @@ class FormulaEvaluator {
       this.advance();
       const reference = token.value;
       const resolvedValue = this.resolveBidValueFlexible(reference);
-      const onMissingBid = this.options.onMissingBid ?? 'error';
-
-      if (resolvedValue === undefined || Number.isNaN(resolvedValue)) {
-        if (onMissingBid === 'useZero') {
-          return { kind: 'number', value: 0, precedence: 3 };
-        }
-        throw new Error(`No numeric value found for reference @${reference}`);
-      }
-
-      return { kind: 'number', value: resolvedValue, precedence: 3 };
+      return this.resolveReferenceValue(reference, '@', resolvedValue);
     }
 
     if (token.type === TokenType.NAME_REF) {
       this.advance();
       const reference = token.value;
       const resolvedValue = this.resolveNamedValueFlexible(reference);
-      const onMissingBid = this.options.onMissingBid ?? 'error';
-
-      if (resolvedValue === undefined || Number.isNaN(resolvedValue)) {
-        if (onMissingBid === 'useZero') {
-          return { kind: 'number', value: 0, precedence: 3 };
-        }
-        throw new Error(`No numeric value found for reference #${reference}`);
-      }
-
-      return { kind: 'number', value: resolvedValue, precedence: 3 };
+      return this.resolveReferenceValue(reference, '#', resolvedValue);
     }
 
     if (token.type === TokenType.FUNCTION) {

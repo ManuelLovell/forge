@@ -1,1 +1,0 @@
-import{f as e}from"./main-CB-EQrQ8.js";const t=()=>{let t=e(e=>e.systemData);return e(e=>e.cacheReady)&&t?{theme:t.theme,cardLayout:t.cardLayout,listLayout:t.listLayout,attributes:t.attributes,systemName:t.systemName,importDate:t.importDate,isLoading:!1}:{theme:null,cardLayout:[],listLayout:[],attributes:[],systemName:``,importDate:null,isLoading:!0}};export{t};

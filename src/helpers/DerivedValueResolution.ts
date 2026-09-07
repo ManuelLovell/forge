@@ -1,6 +1,6 @@
 import { toResolvedDiceNotation, validateDiceFormula } from './FormulaParser';
 import type { ResolvedReferenceValue } from './FormulaParser';
-import { SystemAttribute } from '../interfaces/SystemResponse';
+import type { SystemAttribute } from '../interfaces/SystemResponse';
 
 // Runtime representation of attributes that may come from various sources
 type RuntimeAttributeLike = SystemAttribute & {
@@ -32,6 +32,50 @@ export interface DerivedValueMaps {
   nameValueMap: Record<string, ResolvedReferenceValue>;
 }
 
+const toNumericValue = (rawValue: unknown): number | undefined => {
+  if (rawValue === undefined || rawValue === null) {
+    return undefined;
+  }
+
+  if (typeof rawValue === 'number') {
+    return Number.isFinite(rawValue) ? rawValue : undefined;
+  }
+
+  if (typeof rawValue === 'boolean') {
+    return rawValue ? 1 : 0;
+  }
+
+  if (typeof rawValue === 'string') {
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  if (typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+    const valueObj = rawValue as Record<string, unknown>;
+    const current = Number(valueObj.current);
+    if (Number.isFinite(current)) {
+      return current;
+    }
+
+    const value = Number(valueObj.value);
+    if (Number.isFinite(value)) {
+      return value;
+    }
+
+    const max = Number(valueObj.max);
+    if (Number.isFinite(max)) {
+      return max;
+    }
+  }
+
+  return undefined;
+};
+
 export function buildCompleteValueMaps(
   attributes: RuntimeAttributeLike[],
   valueGetter: (bid: string) => any,
@@ -54,17 +98,15 @@ export function buildCompleteValueMaps(
     if (attrType === 'derived') continue;
 
     const rawValue = valueGetter(bid);
-    if (rawValue === undefined || rawValue === null || rawValue === '') continue;
+    if (rawValue === undefined || rawValue === null) continue;
 
-    const rawString = typeof rawValue === 'string' ? rawValue.trim() : String(rawValue).trim();
-    if (!rawString) continue;
-
-    const parsedValue = Number(rawString);
+    const rawString = typeof rawValue === 'string' ? rawValue.trim() : '';
     let resolvedBaseValue: ResolvedReferenceValue | null = null;
 
+    const parsedValue = toNumericValue(rawValue);
     if (Number.isFinite(parsedValue)) {
       resolvedBaseValue = parsedValue;
-    } else {
+    } else if (rawString) {
       const formulaValidation = validateDiceFormula(rawString);
       if (formulaValidation.valid) {
         resolvedBaseValue = rawString;

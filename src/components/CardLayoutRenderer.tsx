@@ -53,6 +53,7 @@ import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
 import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 import { buildCompleteValueMaps } from '../helpers/DerivedValueResolution';
+import { getEffectiveAttributeFormula, hasEffectiveAttributeFormula } from '../helpers/attributeFormula';
 import LOGGER from '../helpers/Logger';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
 import { deserializeCardLayout } from '../helpers/deserializeCardLayout';
@@ -980,8 +981,7 @@ const getAttributeType = (attribute: RuntimeAttributeLike | null | undefined): s
 };
 
 const getAttributeFormula = (attribute: RuntimeAttributeLike | null | undefined): string => {
-  const formula = attribute?.attr_func ?? attribute?.func ?? '';
-  return typeof formula === 'string' ? formula.trim() : '';
+  return getEffectiveAttributeFormula(attribute);
 };
 
 const getAttributeMeta = (attribute: RuntimeAttributeLike | null | undefined): SystemAttribute['attr_meta'] => {
@@ -1188,13 +1188,13 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
   };
 
   const hasAttrFormula = (attribute: RuntimeAttributeLike | null): boolean => {
-    return getAttributeFormula(attribute).length > 0;
+    return hasEffectiveAttributeFormula(attribute);
   };
 
   const { bidValueMap: bidNumericValueMap, nameValueMap: nameNumericValueMap } = useMemo(() => {
     return buildCompleteValueMaps(
       attributes,
-      (bid: string) => getMetadataStringValue(bid).trim(),
+      (bid: string) => unitItem.metadata?.[getMetadataKeyForBid(bid)],
       getAttributeBid,
       getAttributeType,
       getAttributeFormula,
@@ -1730,7 +1730,8 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       const isEditingRollableInput = isRollableInput && isRollableEditing(draftKey);
       let inputElement: React.ReactNode;
       if (attrType === 'derived') {
-        const formula = getAttributeMeta(attr)?.derived?.formula || getAttributeFormula(attr) || 'Derived formula';
+        const formula = getAttributeFormula(attr) || 'Derived formula';
+        const isRollableDerived = hasAttrFormula(attr);
         inputElement = (
           <DerivedReadOnlyValue
             $theme={systemTheme}
@@ -1740,9 +1741,20 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
             $fontStyle={fontStyle}
             $stretch={stretch}
             title={`Formula: ${formula}`}
+            role={isRollableDerived ? 'button' : undefined}
+            tabIndex={isRollableDerived ? 0 : undefined}
+            onClick={isRollableDerived ? () => {
+              void handleNotationClick(attr);
+            } : undefined}
+            onKeyDown={isRollableDerived ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                void handleNotationClick(attr);
+              }
+            } : undefined}
             onContextMenu={attr ? (event) => {
               event.preventDefault();
-              openFieldContextMenu(draftKey, attr, null, false);
+              openFieldContextMenu(draftKey, attr, null, isRollableDerived);
             } : undefined}
           >
             {resolveDerivedDisplayValue(attr)}
@@ -2129,7 +2141,8 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
               let content: React.ReactNode;
 
               if (attrType === 'derived') {
-                const formula = getAttributeMeta(columnAttr)?.derived?.formula || getAttributeFormula(columnAttr) || 'Derived formula';
+                const formula = getAttributeFormula(columnAttr) || 'Derived formula';
+                const isRollableDerived = hasAttrFormula(columnAttr);
                 content = (
                   <DerivedReadOnlyValue
                     $theme={systemTheme}
@@ -2139,9 +2152,20 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
                     $fontStyle={fontStyle}
                     $stretch={stretch}
                     title={`Formula: ${formula}`}
+                    role={isRollableDerived ? 'button' : undefined}
+                    tabIndex={isRollableDerived ? 0 : undefined}
+                    onClick={isRollableDerived ? () => {
+                      void handleNotationClick(columnAttr);
+                    } : undefined}
+                    onKeyDown={isRollableDerived ? (event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        void handleNotationClick(columnAttr);
+                      }
+                    } : undefined}
                     onContextMenu={columnAttr ? (event) => {
                       event.preventDefault();
-                      openFieldContextMenu(draftKey, columnAttr, null, false);
+                      openFieldContextMenu(draftKey, columnAttr, null, isRollableDerived);
                     } : undefined}
                   >
                     {resolveDerivedDisplayValue(columnAttr)}

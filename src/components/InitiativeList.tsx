@@ -71,6 +71,7 @@ import { EffectsManagerModal, useEffectsManager } from './EffectsManager';
 import { ElevationSpecialCell, EffectsSpecialCell } from './InitiativeSpecialCells';
 import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
 import { TrackForgeEvent } from '../helpers/forgeMetrics';
+import { getEffectiveAttributeFormula, hasEffectiveAttributeFormula } from '../helpers/attributeFormula';
 
 const ELEVATION_BADGE_FLAG = `${EXTENSION_ID}/elevation-badge`;
 const ELEVATION_BADGE_OWNER = `${EXTENSION_ID}/elevation-badge-owner`;
@@ -853,6 +854,7 @@ const DerivedReadOnlyLabel = styled.span<{ theme: ForgeTheme }>`
   font-weight: 700;
   font-style: italic;
   text-align: center;
+  cursor: pointer;
 `;
 
 const PipContainer = styled.div`
@@ -2334,8 +2336,7 @@ export const InitiativeList: React.FC = () => {
   };
 
   const getAttributeFormula = (attribute: RuntimeAttributeLike | null | undefined): string => {
-    const formula = attribute?.attr_func ?? attribute?.func ?? '';
-    return typeof formula === 'string' ? formula.trim() : '';
+    return getEffectiveAttributeFormula(attribute);
   };
 
   const getAttributeMeta = (attribute: RuntimeAttributeLike | null | undefined): SystemAttribute['attr_meta'] => {
@@ -2348,7 +2349,7 @@ export const InitiativeList: React.FC = () => {
 
   const hasAttrFormula = (bid: string): boolean => {
     const attribute = resolveAttributeForBid(bid);
-    return getAttributeFormula(attribute).length > 0;
+    return hasEffectiveAttributeFormula(attribute);
   };
 
   const buildNumericValueMapsForUnit = (unit: Unit) => {
@@ -3977,12 +3978,31 @@ export const InitiativeList: React.FC = () => {
         return (
           <DataCell theme={theme}>
             <ValueContainer>
-              {bidList.map((bid, index) => (
-                <React.Fragment key={bid}>
-                  {index > 0 && <Divider theme={theme}>{col.styles?.dividers?.[index - 1] || '/'}</Divider>}
-                  <DerivedReadOnlyLabel theme={theme} title={t('initiative.derivedValueFormula')}>{resolveDerivedDisplayValue(unit, bid)}</DerivedReadOnlyLabel>
-                </React.Fragment>
-              ))}
+              {bidList.map((bid, index) => {
+                const isRollableDerived = hasAttrFormula(bid);
+                return (
+                  <React.Fragment key={bid}>
+                    {index > 0 && <Divider theme={theme}>{col.styles?.dividers?.[index - 1] || '/'}</Divider>}
+                    <DerivedReadOnlyLabel
+                      theme={theme}
+                      title={t('initiative.derivedValueFormula')}
+                      role={isRollableDerived ? 'button' : undefined}
+                      tabIndex={isRollableDerived ? 0 : undefined}
+                      onClick={isRollableDerived ? () => {
+                        void handleNotationClick(unit, bid);
+                      } : undefined}
+                      onKeyDown={isRollableDerived ? (event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          void handleNotationClick(unit, bid);
+                        }
+                      } : undefined}
+                    >
+                      {resolveDerivedDisplayValue(unit, bid)}
+                    </DerivedReadOnlyLabel>
+                  </React.Fragment>
+                );
+              })}
             </ValueContainer>
           </DataCell>
         );

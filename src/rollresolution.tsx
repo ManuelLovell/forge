@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './styles/index.css';
-import './styles/rollresolution.css';
 import { PluginGate } from './components/PluginGateComponent';
 import { RollResolutionPopoverPage } from './components/RollResolutionPopoverPage';
 

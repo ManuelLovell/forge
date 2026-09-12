@@ -49,7 +49,7 @@ interface Roll20ConversionResult {
   error?: string;
 }
 
-export type ResolvedReferenceValue = number | string;
+export type ResolvedReferenceValue = number | string | undefined  ;
 
 interface ResolvedNotationOptions {
   bidValueMap?: Record<string, ResolvedReferenceValue>;

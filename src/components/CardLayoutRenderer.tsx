@@ -719,8 +719,12 @@ const RollableModalTitleRow = styled.div`
 
 const RollableModalBid = styled.span<{ $theme: CardLayoutTheme }>`
   color: ${props => rgbaFromHex(props.$theme.offset, 0.95)};
+  background-color: ${props => rgbaFromHex(props.$theme.border, 0.5 )};
+  border-radius: 6px;
+  text-shadow: 0 2px 2px rgba(0, 0, 0, 0.5);
   font-size: 13px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  padding: 0px 2px 2px 2px;
 `;
 
 const RollableMenuButton = styled.button<{ $theme: CardLayoutTheme }>`

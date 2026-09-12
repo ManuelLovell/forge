@@ -18,7 +18,7 @@ const ValueInput = styled.input<{ theme: ForgeTheme }>`
   color: ${props => props.theme.PRIMARY};
   padding: 2px 4px;
   font-size: 14px;
-  width: 60px;
+  width: 40px;
   text-align: center;
   backdrop-filter: blur(12px);
   cursor: text;
@@ -35,6 +35,42 @@ const ValueInput = styled.input<{ theme: ForgeTheme }>`
     border-color: ${props => props.theme.OFFSET};
   }
 `;
+
+const ElevationInputRow = styled.div`
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+`;
+
+const ElevationPresetSelect = styled.select<{ theme: ForgeTheme }>`
+  position: absolute;
+  right: -10px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid ${props => props.theme.BORDER};
+  border-radius: 4px;
+  color: ${props => props.theme.PRIMARY};
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+
+  padding: 0;
+  line-height: 10px;                                                                                                                                                                                                                                                                         px;
+  text-align: center;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: ${props => props.theme.OFFSET};
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.75;
+  }
+`;
+
+const ELEVATION_PRESET_VALUES = [-20, -40, -60, -80, -100, 0, 20, 40, 60, 80, 100];
 
 export interface SpecialCellUnit {
   id: string;
@@ -60,27 +96,52 @@ export const ElevationSpecialCell: React.FC<ElevationSpecialCellProps> = ({
 }) => {
   return (
     <DataCell theme={theme}>
-      <ValueInput
-        theme={theme}
-        type="text"
-        inputMode="decimal"
-        min={-999}
-        max={999}
-        step={1}
-        value={elevationDraftValue ?? String(unit.elevation ?? 0)}
-        readOnly={!canInteract}
-        onChange={!canInteract ? undefined : (e) => onElevationDraftChange(unit.id, e.target.value)}
-        onBlur={!canInteract ? undefined : (e) => onCommitElevationChange(unit.id, e.target.value)}
-        onKeyDown={(e) => {
-          if (!canInteract) {
-            return;
-          }
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            e.currentTarget.blur();
-          }
-        }}
-      />
+      <ElevationInputRow>
+        <ValueInput
+          theme={theme}
+          type="text"
+          inputMode="decimal"
+          min={-999}
+          max={999}
+          step={1}
+          value={elevationDraftValue ?? String(unit.elevation ?? 0)}
+          readOnly={!canInteract}
+          onChange={!canInteract ? undefined : (e) => onElevationDraftChange(unit.id, e.target.value)}
+          onBlur={!canInteract ? undefined : (e) => onCommitElevationChange(unit.id, e.target.value)}
+          onKeyDown={(e) => {
+            if (!canInteract) {
+              return;
+            }
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              e.currentTarget.blur();
+            }
+          }}
+        />
+        <ElevationPresetSelect
+          theme={theme}
+          aria-label="Elevation presets"
+          value=""
+          disabled={!canInteract}
+          onChange={!canInteract ? undefined : (e) => {
+            const selectedValue = e.target.value;
+            if (!selectedValue) {
+              return;
+            }
+
+            onElevationDraftChange(unit.id, selectedValue);
+            onCommitElevationChange(unit.id, selectedValue);
+            e.currentTarget.value = '';
+          }}
+        >
+          <option value="">▾</option>
+          {ELEVATION_PRESET_VALUES.map((value) => (
+            <option key={value} value={String(value)}>
+              {value}
+            </option>
+          ))}
+        </ElevationPresetSelect>
+      </ElevationInputRow>
     </DataCell>
   );
 };

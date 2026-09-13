@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getEffectiveAttributeFormula, hasEffectiveAttributeFormula } from '../attributeFormula';
+import {
+  getEffectiveAttributeFormula,
+  hasDiceNotation,
+  hasEffectiveAttributeFormula,
+  isRollableFormula,
+} from '../attributeFormula';
 import type { SystemAttribute } from '../../interfaces/SystemResponse';
 
 type AttrLike = SystemAttribute & { func?: string | null; meta?: SystemAttribute['attr_meta'] };
@@ -48,5 +53,20 @@ describe('attributeFormula', () => {
 
     expect(getEffectiveAttributeFormula(attribute)).toBe('');
     expect(hasEffectiveAttributeFormula(attribute)).toBe(false);
+  });
+
+  it('detects dice notation in formulas', () => {
+    expect(hasDiceNotation('1d20 + @DEX')).toBe(true);
+    expect(hasDiceNotation('2d6kh1 + 3')).toBe(true);
+    expect(hasDiceNotation('ceil(@LVL / 4) + 1')).toBe(false);
+    expect(hasDiceNotation('')).toBe(false);
+  });
+
+  it('only treats formulas with dice notation as rollable', () => {
+    const attribute = buildAttribute({ attr_func: 'ceil(@LVL / 4) + 1' });
+    expect(isRollableFormula(attribute)).toBe(false);
+
+    const rollable = buildAttribute({ attr_func: '1d20 + @DEX + 2' });
+    expect(isRollableFormula(rollable)).toBe(true);
   });
 });

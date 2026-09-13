@@ -27,8 +27,23 @@ export const getEffectiveAttributeFormula = (
   return '';
 };
 
+export const hasDiceNotation = (formula: string | null | undefined): boolean => {
+  const normalized = (formula ?? '').trim();
+  if (!normalized) {
+    return false;
+  }
+
+  return /\d+d\d+(?:[kd][hl]\d+|!)?/i.test(normalized);
+};
+
 export const hasEffectiveAttributeFormula = (
   attribute: RuntimeAttributeLike | null | undefined
 ): boolean => {
   return getEffectiveAttributeFormula(attribute).length > 0;
+};
+
+export const isRollableFormula = (
+  attribute: RuntimeAttributeLike | null | undefined
+): boolean => {
+  return hasDiceNotation(getEffectiveAttributeFormula(attribute));
 };

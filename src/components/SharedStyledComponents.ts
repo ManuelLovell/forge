@@ -14,7 +14,7 @@ export const PageContainer = styled.div<{ theme: ForgeTheme }>`
 
 export const PageTitle = styled.h1<{ theme: ForgeTheme }>`
   color: ${props => props.theme.PRIMARY};
-  background-color: ${props => props.theme.OFFSET};
+  background-color: ${props => rgbaFromHex(props.theme.OFFSET, 0.78)};
   padding: 2px;
   border-radius: 6px;
   border: 2px solid ${props => props.theme.BORDER};

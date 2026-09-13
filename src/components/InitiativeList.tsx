@@ -71,7 +71,10 @@ import { EffectsManagerModal, useEffectsManager } from './EffectsManager';
 import { ElevationSpecialCell, EffectsSpecialCell } from './InitiativeSpecialCells';
 import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
 import { TrackForgeEvent } from '../helpers/forgeMetrics';
-import { getEffectiveAttributeFormula, hasEffectiveAttributeFormula } from '../helpers/attributeFormula';
+import {
+  getEffectiveAttributeFormula,
+  isRollableFormula,
+} from '../helpers/attributeFormula';
 
 const ELEVATION_BADGE_FLAG = `${EXTENSION_ID}/elevation-badge`;
 const ELEVATION_BADGE_OWNER = `${EXTENSION_ID}/elevation-badge-owner`;
@@ -837,18 +840,24 @@ const CheckboxInput = styled.input<{ theme: ForgeTheme }>`
   }
 `;
 
-const DerivedReadOnlyLabel = styled.span<{ theme: ForgeTheme }>`
+const DerivedReadOnlyLabel = styled.span<{ theme: ForgeTheme; $isRollable?: boolean }>`
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 28px;
   min-width: 54px;
   border-radius: 6px;
-  border: 1px solid ${props => props.theme.BORDER};
-  background: ${props => rgbaFromHex(props.theme.PRIMARY, 0.75)};
-  color: ${props => rgbaFromHex(props.theme.OFFSET, 0.96)};
-  box-shadow: ${props => `0 4px 14px ${rgbaFromHex(props.theme.BACKGROUND, 0.65)}`};
-  text-shadow: ${props => `1px 1px 0 ${rgbaFromHex(props.theme.BACKGROUND, 0.95)}`};
+  border: 1px solid ${props => props.$isRollable ? rgbaFromHex(props.theme.OFFSET, 0.8) : props.theme.BORDER};
+  background: ${props => props.$isRollable
+    ? rgbaFromHex(props.theme.OFFSET, 0.5)
+    : rgbaFromHex(props.theme.PRIMARY, 0.75)};
+  color: ${props => props.$isRollable ? props.theme.PRIMARY : rgbaFromHex(props.theme.OFFSET, 0.96)};
+  box-shadow: ${props => props.$isRollable
+    ? `inset 0 0 0 1px ${rgbaFromHex(props.theme.BACKGROUND, 0.28)}, 0 0 0 1px ${rgbaFromHex(props.theme.OFFSET, 0.18)}`
+    : `0 4px 14px ${rgbaFromHex(props.theme.BACKGROUND, 0.65)}`};
+  text-shadow: ${props => props.$isRollable
+    ? `0 1px 1px ${rgbaFromHex(props.theme.BACKGROUND, 0.95)}, 0 0 2px ${rgbaFromHex(props.theme.BACKGROUND, 0.85)}`
+    : `1px 1px 0 ${rgbaFromHex(props.theme.BACKGROUND, 0.95)}`};
   padding: 4px 8px;
   font-size: 13px;
   font-weight: 700;
@@ -2347,11 +2356,6 @@ export const InitiativeList: React.FC = () => {
     return (attributes.find((attribute) => getAttributeBid(attribute as RuntimeAttributeLike) === bid) as RuntimeAttributeLike | undefined) || null;
   };
 
-  const hasAttrFormula = (bid: string): boolean => {
-    const attribute = resolveAttributeForBid(bid);
-    return hasEffectiveAttributeFormula(attribute);
-  };
-
   const buildNumericValueMapsForUnit = (unit: Unit) => {
     return buildCompleteValueMaps(
       attributes,
@@ -3341,7 +3345,7 @@ export const InitiativeList: React.FC = () => {
       setTimeout(() => {
         if (tableRef.current) {
           const tableWidth = tableRef.current.offsetWidth;
-          const totalWidth = tableWidth + 4; // MAGIC NUMBER ALERT: This is the difference in spacing/padding around the table
+          const totalWidth = tableWidth + 10; // MAGIC NUMBER ALERT: This is the difference in spacing/padding around the table
           const finalWidth = Math.min(totalWidth, 800); // Set width, but cap at a reasonable maximum
           OBR.action.setWidth(finalWidth);
           LOGGER.log('Adjusted window width to ' + finalWidth);
@@ -3759,7 +3763,8 @@ export const InitiativeList: React.FC = () => {
           <DataCell theme={theme}>
             <ValueContainer>
               {col.styles?.bidList?.map((bid, idx) => {
-                const isRollableInput = hasAttrFormula(bid);
+                const attribute = resolveAttributeForBid(bid);
+                const isRollableInput = isRollableFormula(attribute);
                 const fieldKey = getRollableFieldKey(unit.id, bid);
                 const valueDraftKey = getValueDraftKey(unit.id, bid);
                 const isEditingRollableInput = isRollableInput && isRollableEditing(fieldKey);
@@ -3979,12 +3984,14 @@ export const InitiativeList: React.FC = () => {
           <DataCell theme={theme}>
             <ValueContainer>
               {bidList.map((bid, index) => {
-                const isRollableDerived = hasAttrFormula(bid);
+                const attribute = resolveAttributeForBid(bid);
+                const isRollableDerived = isRollableFormula(attribute);
                 return (
                   <React.Fragment key={bid}>
                     {index > 0 && <Divider theme={theme}>{col.styles?.dividers?.[index - 1] || '/'}</Divider>}
                     <DerivedReadOnlyLabel
                       theme={theme}
+                      $isRollable={isRollableDerived}
                       title={t('initiative.derivedValueFormula')}
                       role={isRollableDerived ? 'button' : undefined}
                       tabIndex={isRollableDerived ? 0 : undefined}

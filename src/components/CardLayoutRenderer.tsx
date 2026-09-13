@@ -53,7 +53,10 @@ import { DATA_STORED_IN_ROOM, OwlbearIds } from '../helpers/Constants';
 import { sendCentralDiceRoll } from '../helpers/DiceRollIntegration';
 import { toResolvedDiceNotation } from '../helpers/FormulaParser';
 import { buildCompleteValueMaps } from '../helpers/DerivedValueResolution';
-import { getEffectiveAttributeFormula, hasEffectiveAttributeFormula } from '../helpers/attributeFormula';
+import {
+  getEffectiveAttributeFormula,
+  isRollableFormula,
+} from '../helpers/attributeFormula';
 import LOGGER from '../helpers/Logger';
 import { rgbaFromHex } from '../helpers/ThemeConstants';
 import { deserializeCardLayout } from '../helpers/deserializeCardLayout';
@@ -298,10 +301,8 @@ const TextValueInput = styled.input<{
   width: 100%;
   height: 28px;
   border-radius: 4px;
-  border: 1px solid ${props => props.$isRollable ? rgbaFromHex(props.$theme.offset, 0.8) : props.$theme.border};
-  background: ${props => props.$isRollable
-    ? rgbaFromHex(props.$theme.offset, 0.5)
-    : rgbaFromHex(props.$theme.background, 0.78)};
+  border: 1px solid ${props => props.$isRollable ? rgbaFromHex(props.$theme.primary, 0.3) : props.$theme.border};
+  background: ${props => props.$isRollable ? rgbaFromHex(props.$theme.border, 0.5) : rgbaFromHex(props.$theme.background, 0.5)};
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   color: ${props => rgbaFromHex(props.$theme.primary, 0.9)};
@@ -318,7 +319,6 @@ const TextValueInput = styled.input<{
   cursor: ${props => props.$isRollable ? 'pointer' : 'text'};
 
   &:focus {
-    outline: none;
     border-color: ${props => props.$theme.offset};
   }
 
@@ -393,13 +393,22 @@ const ReadOnlyValue = styled.div<{
 
 const DerivedReadOnlyValue = styled(ReadOnlyValue)<{
   $theme: CardLayoutTheme;
+  $isRollable?: boolean;
 }>`
   border-style: solid;
-  background: ${props => rgbaFromHex(props.$theme.primary, 0.75)};
-  color: ${props => rgbaFromHex(props.$theme.offset, 0.96)};
-  text-shadow: ${props => `1px 1px 0 ${rgbaFromHex(props.$theme.background, 0.95)}`};
+  border-color: ${props => props.$isRollable ? rgbaFromHex(props.$theme.offset, 0.8) : props.$theme.border};
+  background: ${props => props.$isRollable
+    ? rgbaFromHex(props.$theme.offset, 0.5)
+    : rgbaFromHex(props.$theme.primary, 0.75)};
+  color: ${props => props.$isRollable
+    ? rgbaFromHex(props.$theme.primary, 0.92)
+    : rgbaFromHex(props.$theme.offset, 0.96)};
+  text-shadow: ${props => props.$isRollable
+    ? getRollableInputTextShadow(props.$theme)
+    : `1px 1px 0 ${rgbaFromHex(props.$theme.background, 0.95)}`};
   font-weight: 700;
   font-style: italic;
+  cursor: ${props => props.$isRollable ? 'pointer' : 'default'};
 `;
 
 const ResourceValueRow = styled.div`
@@ -1191,10 +1200,6 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
     return draftValues[draftKey] ?? getMetadataStringValue(bid);
   };
 
-  const hasAttrFormula = (attribute: RuntimeAttributeLike | null): boolean => {
-    return hasEffectiveAttributeFormula(attribute);
-  };
-
   const { bidValueMap: bidNumericValueMap, nameValueMap: nameNumericValueMap } = useMemo(() => {
     return buildCompleteValueMaps(
       attributes,
@@ -1729,13 +1734,13 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
       const fontStyle = style.fontStyle === 'italic' ? 'italic' : 'normal';
       const bid = getAttributeBid(attr);
       const attrType = getAttributeType(attr);
-      const isRollableInput = hasAttrFormula(attr);
+      const isRollableInput = isRollableFormula(attr);
       const draftKey = `text-value:${component.id}:${bid || 'none'}`;
       const isEditingRollableInput = isRollableInput && isRollableEditing(draftKey);
       let inputElement: React.ReactNode;
       if (attrType === 'derived') {
         const formula = getAttributeFormula(attr) || 'Derived formula';
-        const isRollableDerived = hasAttrFormula(attr);
+        const isRollableDerived = isRollableFormula(attr);
         inputElement = (
           <DerivedReadOnlyValue
             $theme={systemTheme}
@@ -1744,6 +1749,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
             $weight={fontWeight}
             $fontStyle={fontStyle}
             $stretch={stretch}
+            $isRollable={isRollableDerived}
             title={`Formula: ${formula}`}
             role={isRollableDerived ? 'button' : undefined}
             tabIndex={isRollableDerived ? 0 : undefined}
@@ -1901,6 +1907,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
           );
         }
       } else {
+        const formula = getAttributeFormula(attr) || undefined;
         inputElement = (
           <TextValueInput
             $theme={systemTheme}
@@ -1911,6 +1918,7 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
             $stretch={stretch}
             $isRollable={isRollableInput}
             type="text"
+            title={`Formula: ${formula}`}
             readOnly={isRollableInput && !isEditingRollableInput}
             value={bid ? getDraftOrValue(draftKey, bid) : ''}
             onChange={isRollableInput && !isEditingRollableInput ? undefined : (event) => {
@@ -2139,14 +2147,14 @@ export const CardLayoutRenderer: React.FC<RendererProps> = ({
             {bids.map((bid) => {
               const columnAttr = resolveAttribute(attributes, bid);
               const attrType = getAttributeType(columnAttr);
-              const isRollableInput = hasAttrFormula(columnAttr);
+              const isRollableInput = isRollableFormula(columnAttr);
               const draftKey = `column-value:${component.id}:${bid}`;
               const isEditingRollableInput = isRollableInput && isRollableEditing(draftKey);
               let content: React.ReactNode;
 
               if (attrType === 'derived') {
                 const formula = getAttributeFormula(columnAttr) || 'Derived formula';
-                const isRollableDerived = hasAttrFormula(columnAttr);
+                const isRollableDerived = isRollableFormula(columnAttr);
                 content = (
                   <DerivedReadOnlyValue
                     $theme={systemTheme}

@@ -4,7 +4,7 @@ import{f as e,t}from"./styled-components.browser.esm-DHy5LH3R.js";const n=t.div`
   min-height: 100vh;
 `,r=t.h1`
   color: ${e=>e.theme.PRIMARY};
-  background-color: ${e=>e.theme.OFFSET};
+  background-color: ${t=>e(t.theme.OFFSET,.78)};
   padding: 2px;
   border-radius: 6px;
   border: 2px solid ${e=>e.theme.BORDER};
